@@ -1,5 +1,4 @@
 import { useState, useEffect } from 'react';
-import { Button, Card, Header } from './components';
 
 function App() {
 
