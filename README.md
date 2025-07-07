@@ -89,6 +89,10 @@ npm run start        # Start production server
 3. **API calls** from frontend automatically proxy to backend
 4. **CORS** is configured for cross-origin requests
 
+## 🤝 Contributing
+
+For detailed information about our Git workflow, branch management, code review process, and contribution guidelines, please see our **[GitHub Workflow Guide](GITHUB_WORKFLOW.md)**.
+
 ## 📁 Adding New Features
 
 ### Frontend
@@ -110,30 +114,6 @@ npm run start        # Start production server
 - Types: `shared/types/`
 - Constants: `shared/constants/`
 - Utils: `shared/utils/`
-
-## 🏛️ Architecture & Best Practices
-
-### Frontend (React + Vite)
-
-- **KISS**: Simple component structure
-- **DRY**: Reusable hooks and components
-- **Performance**: Lazy loading and code splitting
-- **Type Safety**: Consider adding TypeScript
-
-### Backend (Express + ES6)
-
-- **SOLID**: Single responsibility principle
-- **Middleware**: Modular request processing
-- **Error Handling**: Centralized error management
-- **Security**: CORS and input validation
-- **Logging**: Request/response logging
-
-### Development
-
-- **Hot Reload**: Instant feedback during development
-- **Proxy Setup**: Seamless frontend-backend communication
-- **Environment Management**: Separate dev/prod configs
-- **Monorepo Benefits**: Shared dependencies and scripts
 
 ## 🚦 API Testing
 
@@ -166,14 +146,14 @@ curl http://localhost:3000/api/test
 
 ## 📦 Production Deployment
 
-### Frontend
+### Frontend PROD
 
 ```bash
 npm run build:frontend
 # Deploy frontend/dist/ to your static hosting
 ```
 
-### Backend
+### Backend PROD
 
 ```bash
 cd backend
