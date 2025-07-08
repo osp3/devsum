@@ -1,19 +1,21 @@
 import { useState, useEffect } from 'react';
+import { Routes, Route } from 'react-router-dom';
+import UserHeader from './components/UserHeader.jsx';
+import Login from './components/Login.jsx';
+import Dashboard from './components/Dashboard.jsx';
+import RepoListing from './components/RepoListing.jsx';
+import RepoAnalytics from './components/RepoAnalytics';
 
 function App() {
-
   return (
-    <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
-
-      <main className="max-w-6xl mx-auto px-4 py-8">
-        {/* Hero Section */}
-        <div className="text-center mb-12">
-        </div>
-
-        {/* Component Demo Grid */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-12">
-        </div>
-      </main>
+    <div>
+      <UserHeader />
+      <Routes>
+        <Route path='/' element={<Login />} />
+        <Route path='/dashboard' element={<Dashboard />} />
+        <Route path='/repositories' element={<RepoListing />} />
+        <Route path='/repository' element={<RepoAnalytics />} />
+      </Routes>
     </div>
   );
 }
