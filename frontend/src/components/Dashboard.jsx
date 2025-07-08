@@ -7,9 +7,14 @@ import ShowRepoButton from './ShowReposButton.jsx';
 
 const Dashboard = () => {
   return (
-    <div>
+    <div className='min-h-screen bg-[#1a1928]'>
+      <h1>hello this is the main page</h1>
       <UserHeader />
-      <TodaysMetrics />
+    
+        <div className= 'flex  justify-center border border-slate-400 rounded-2xl w-250 h-40 p-4'>
+        <TodaysMetrics />
+      </div>
+      {/* <TodaysMetrics /> */}
       <TodaysSummary />
       <TomorrowsPriorities />
       <ShowRepoButton />
