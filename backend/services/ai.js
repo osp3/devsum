@@ -1,79 +1,63 @@
 import OpenAI from 'openai';
 import dotenv from 'dotenv';
+import connectDB from '../config/database.js';
+import { CommitAnalysis, DailySummary, TaskSuggestion } from '../models/aiModels.js';
 
 dotenv.config();
 
-// initialize openai client
+// Initialize OpenAI client
 const openai = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY
 });
 
-//! may not need this part
-// mongo connection
-// let db;
-// const connectDB = async () => {
-//   if (!db) {
-//     const client = new MongoClient(process.env.MONGODB_URI);
-//     await client.connect();
-//     db = client.db('devsum');
-//     console.log('Connected to MongoDB');
-//   }
-//   return db;
-// };
-
 class AIService {
   constructor() {
-    this.db = null;
+    this.initialized = false;
     this.init();
   }
+
   async init() {
-    this.db = await connectDB();
-
-    //indexes for fast lookups
-    await this.db.collection('commit_analysis').createIndex({
-      "commitHash": 1
-    }, { unique: true });
-
-    await this.db.collection('daily_summaries').createIndex({
-      "date": 1, "repositoryId": 1
-    }, { unique: true });
-
-    console.log('AI Service initialized with MongoDB');
+    if (!this.initialized) {
+      await connectDB();
+      this.initialized = true;
+      console.log('✅ AI Service initialized with Mongoose models');
+    }
   }
 
-  // categorize commits-mongodb cached - 1. check if commit analyzed in mongoDB. 
-  // 2. Only send new/unanalyzed commits to openAI. 
-  // 3. Store results in MongoDB for future use.
-  //  4. return combined results.
+  // Categorize commits with MongoDB caching
+  // 1. Check if commits already analyzed 2. Only send new commits to OpenAI
+  // 3. Store results in MongoDB 4. Return combined results
   async categorizeCommits(commits) {
+    await this.init(); // Ensure DB connection
     console.log(`Analyzing ${commits.length} commits...`);
 
     try {
-      // check which commits have already been analyzed
+      // Check which commits have already been analyzed
       const commitHashes = commits.map(c => c.sha);
-      const existingAnalysis = await this.db.collection('commit_analysis')
-        .find({ commitHash: { $in: commitHashes } })
-        .toArray();
+      const existingAnalysis = await CommitAnalysis.find({ 
+        commitHash: { $in: commitHashes } 
+      }).lean();
 
-      // create map of existing results
+      // Create map of existing results
       const analyzed = new Map();
       existingAnalysis.forEach(result => {
         analyzed.set(result.commitHash, result);
       });
 
-      // find commits that need analysis
+      // Find commits that need analysis
       const unanalyzedCommits = commits.filter(commit => !analyzed.has(commit.sha));
       console.log(`Found ${existingAnalysis.length} cached, analyzing ${unanalyzedCommits.length} new commits`);
 
-      // analyze new commits with AI
+      // Analyze new commits with AI
       let newAnalysis = [];
       if (unanalyzedCommits.length > 0) {
         newAnalysis = await this._analyzeWithOpenAI(unanalyzedCommits);
-
-        // store new analysis in mongoDB
+        
+        // Store new analysis in MongoDB
         await this._storeAnalysis(newAnalysis);
       }
-      // combine cached + new results
+
+      // Combine cached + new results
       const allResults = commits.map(commit => {
         const cached = analyzed.get(commit.sha);
         if (cached) {
@@ -86,8 +70,9 @@ class AIService {
           };
         }
         const fresh = newAnalysis.find(a => a.sha === commit.sha);
-        return fresh || {...commit, category: 'other', confidence: 0.5 };
+        return fresh || { ...commit, category: 'other', confidence: 0.5 };
       });
+
       console.log(`Analysis complete: ${allResults.length} commits categorized`);
       return allResults;
     } catch (error) {
@@ -95,94 +80,98 @@ class AIService {
       return this._fallbackCategorization(commits);
     }
   }
-  // generate daily summary - mongoDB cached by date
+  // Generate daily summary with MongoDB caching by date
   async generateDailySummary(commits, repositoryId, date = new Date()) {
-    const dateStr = date.toISOString().split('T')[0]; //yyyy-mm-dd
+    await this.init(); // Ensure DB connection
+    const dateStr = date.toISOString().split('T')[0]; // yyyy-mm-dd
 
     try {
-      // check for cached summary for this day
-      const existing = await this.db.collection('daily_summaries')
-        .findOne({
-          date: dateStr,
-          repositoryId: repositoryId
-        });
-        if (existing) {
-          console.log(`Using cached summary for ${dateStr}`);
-          return existing.summary;
-        }
+      // Check for cached summary for this day
+      const existing = await DailySummary.findOne({
+        date: dateStr,
+        repositoryId: repositoryId
+      }).lean();
 
-        // generate new summary
-        console.log(`Generating summary for ${dateStr}...`);
-        const prompt = this._createSummaryPrompt(commits);
-        const summary = await this._callOpenAI(prompt);
+      if (existing) {
+        console.log(`Using cached summary for ${dateStr}`);
+        return existing.summary;
+      }
 
-        // store in mongoDB
-        await this.db.collection('daily_summaries').insertOne({
-          date: dateStr,
-          repositoryId: repositoryId,
-          summary: summary,
-          commitCount: commits.length,
-          categories: this._groupByCategory(commits),
-          createdAt: new Date()
-        });
-        console.log('Daily summary generated and cached');
-        return summary;
+      // Generate new summary
+      console.log(`Generating summary for ${dateStr}...`);
+      const prompt = this._createSummaryPrompt(commits);
+      const summary = await this._callOpenAI(prompt);
+
+      // Store in MongoDB
+      await DailySummary.create({
+        date: dateStr,
+        repositoryId: repositoryId,
+        summary: summary,
+        commitCount: commits.length,
+        categories: this._groupByCategory(commits)
+      });
+
+      console.log('Daily summary generated and cached');
+      return summary;
     } catch (error) {
       console.error('Summary generation failed:', error.message);
       return this._fallbackSummary(commits);
     }
   }
-  // Generate task suggestions = caching
+  // Generate task suggestions with caching
   async generateTaskSuggestions(recentCommits, repositoryId) {
+    await this.init(); // Ensure DB connection
+
     try {
-      // signature of recent work
+      // Create signature of recent work
       const workSignature = this._createWorkSignature(recentCommits);
 
-      // check for recent similar analysis
-      const recentSuggestion = await this.db.collection('task_suggestions')
-        .findOne({
-          repositoryId: repositoryId,
-          workSignature: workSignature,
-          createdAt: { $gte: new Date(Date.now() - 24 * 60 * 60 * 1000) } //last 24 hours
-        });
+      // Check for recent similar analysis
+      const recentSuggestion = await TaskSuggestion.findOne({
+        repositoryId: repositoryId,
+        workSignature: workSignature,
+        createdAt: { $gte: new Date(Date.now() - 24 * 60 * 60 * 1000) } // Last 24 hours
+      }).lean();
+
       if (recentSuggestion) {
         console.log('Using recent task suggestions');
         return recentSuggestion.tasks;
       }
-      // generate new suggestions
+
+      // Generate new suggestions
       console.log('Generating new task suggestions...');
       const prompt = this._createTaskPrompt(recentCommits);
       const aiResponse = await this._callOpenAI(prompt);
       const tasks = this._parseTaskResponse(aiResponse);
 
-      // store suggestions
-      await this.db.collection('task_suggestions').insertOne({
+      // Store suggestions
+      await TaskSuggestion.create({
         repositoryId: repositoryId,
         workSignature: workSignature,
         tasks: tasks,
-        baseCommits: recentCommits.map(c => c.sha),
-        createdAt: new Date()
+        baseCommits: recentCommits.map(c => c.sha)
       });
+
       console.log(`Generated ${tasks.length} new task suggestions`);
       return tasks;
-
     } catch (error) {
       console.error('Task generation failed:', error.message);
       return this._fallbackTasks(recentCommits);
     }
   }
 
-  // get analysis history
+  // Get analysis history
   async getAnalysisHistory(repositoryId, days = 30) {
+    await this.init(); // Ensure DB connection
     const since = new Date(Date.now() - days * 24 * 60 * 60 * 1000);
 
-    const history = await this.db.collection('daily_summaries')
-      .find({
-        repositoryId: repositoryId,
-        createdAt: { $gte: since }
-      })
-      .sort({ date: -1 })
-      .toArray();
+    const history = await DailySummary.find({
+      repositoryId: repositoryId,
+      createdAt: { $gte: since }
+    })
+    .sort({ date: -1 })
+    .lean();
+
     return history;
   }
   //methods
@@ -198,11 +187,11 @@ class AIService {
       category: commit.category,
       confidence: commit.confidence,
       reason: commit.aiReason,
-      analyzedAt: new Date(),
       date: commit.date
     }));
+
     if (docs.length > 0) {
-      await this.db.collection('commit_analysis').insertMany(docs);
+      await CommitAnalysis.insertMany(docs);
       console.log(`Stored ${docs.length} analysis results in MongoDB`);
     }
   }
