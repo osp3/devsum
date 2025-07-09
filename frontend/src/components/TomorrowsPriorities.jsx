@@ -2,7 +2,8 @@ import React from 'react';
 
 const TomorrowsPriorities = () => {
   return( <div>
-    <h1>this is Priority </h1>
+    
+    <h1>this is Priorities </h1>
   </div>);
 };
 
