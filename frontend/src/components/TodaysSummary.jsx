@@ -1,22 +1,34 @@
 import React from 'react';
 
 const TodaysSummary = () => {
-  const ProperCommits = {};
+
+  
+  //possible for button colors
+  const ProperCommits = {
+    feature: { color: 'bg-green-100 text-green-800', label: 'Feature' },
+    bug: { color: 'bg-red-100 text-red-800', label: 'Bug Fix' },
+    refactor: { color: 'bg-blue-100 text-blue-800', label: 'Refactor' },
+    docs: { color: 'bg-purple-100 text-purple-800', label: 'Docs' },
+    test: { color: 'bg-yellow-100 text-yellow-800', label: 'Test' },
+    chore: { color: 'bg-gray-100 text-gray-800', label: 'Chore' },
+  };
 
   return (
     <div className='p-4'>
+      {/* put on the left of summary component */}
       <div className='flex justify-items-start font-bold'>
         Today's Development Summary
       </div>
-
-      <div className=' flex flex-row justify-between items-center rounded-lg text-[#5b56dd] bg-[#272633] shadow-[-4px_0_0_0px] w-95 h-15 m-4'>
+      {/* Creates box with background color and purple shadow at the left */}
+      <div className=' relative flex flex-row justify-between items-center rounded-lg text-[#5b56dd] bg-[#272633] shadow-[-4px_0_0_0px] m-3'>
         <button className='btn bg-[#44905e] '>feat</button>
 
-        <h1 className='flex justify-items-end p-1'>this is todays summary</h1>
+        {/*   puts this summery to the left next to button */}
+        <h1 className='flex-1 p-2'>this is todays summary </h1>
+        {/* if date want to be center just get ride of the absolute and relative */}
+        <span className=' absolute top-2 right-2 text-xs text-gray-500 flex items-start'>
+          {new Date().toLocaleDateString()}
 
-        <span className='text-xs text-gray-500 flex justify-end'>
-          {' '}
-          date
           {/* {new Date(commit.date).toLocaleDateString()} */}
         </span>
       </div>
@@ -25,4 +37,6 @@ const TodaysSummary = () => {
 };
 
 export default TodaysSummary;
-// working on getting this is today summary to the left
+// // working on getting this is today summary to the left
+
+// //<button className='btn bg-[#44905e] '></button>
