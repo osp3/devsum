@@ -14,7 +14,7 @@ const Dashboard = () => {
       <div className='flex  justify-center border border-slate-400 rounded-2xl w-250 h-40 p-4 m-6 max-w-6xl mx-auto'>
         <TodaysMetrics />
       </div>
-      <div className='flex  justify-center border border-slate-400 rounded-2xl w-100 h-90 p-4 m-6 max-w-6xl mx-auto'>
+      <div className='flex  justify-center justify-items-start border border-slate-400 rounded-2xl w-100 h-90 p-4 m-6 max-w-6xl '>
         <TodaysSummary />
       </div>
      
