@@ -7,23 +7,25 @@ const { getUserRepositories, getRepositoryCommits, getCommitDiff, getRateLimit }
 
 const router = express.Router();
 
+// Apply authentication middleware to ALL routes in this router
+router.use(ensureAuthenticated);
+router.use(ensureGitHubToken);
+
 /**
  * API Routes for GitHub repository and commit management
- * All routes require GitHub authentication
+ * All routes automatically protected by router-level authentication middleware
  */
-// Common middleware chain for performance
-const authMiddleware = [ensureAuthenticated, ensureGitHubToken];
 
 // Get user's repositories
-router.get('/repos', ...authMiddleware, getUserRepositories);
+router.get('/repos', getUserRepositories);
 
 // Get commits for a specific repository
-router.get('/repos/:owner/:repo/commits', ...authMiddleware, getRepositoryCommits);
+router.get('/repos/:owner/:repo/commits', getRepositoryCommits);
 
 // Get specific commit with diff
-router.get('/repos/:owner/:repo/commits/:sha', ...authMiddleware, getCommitDiff);
+router.get('/repos/:owner/:repo/commits/:sha', getCommitDiff);
 
 // Get GitHub API rate limit status
-router.get('/github/rate-limit', ...authMiddleware, getRateLimit);
+router.get('/github/rate-limit', getRateLimit);
 
 export default router; 
