@@ -159,7 +159,33 @@ class AIService {
       return this._fallbackTasks(recentCommits);
     }
   }
+  async suggestCommitMessage(diffContent, currentMessage = '', repositoryId = null) {
+    await this.init();
+    console.log(`Generating commit message suggestion...`);
 
+    try {
+      const prompt = this._createCommitMessagePrompt(diffContent, currentMessage);
+      const suggestion = await this._callOpenAI(prompt);
+      const cleanSuggestion = this._cleanCommitSuggestion(suggestion);
+      const isImproved = this._isMessageImproved(currentMessage, cleanSuggestion);
+
+      console.log(`Suggestion generated: "${cleanSuggestion}"`);
+
+      return {
+        original: currentMessage,
+        suggested: cleanSuggestion,
+        improved: isImproved,
+        analysis: {
+          diffSize: diffContent.length,
+          hasOriginal: !!currentMessage,
+          generatedAt: new Date().toISOString()
+        }
+      };
+    } catch (error) {
+      console.error('Commit message suggestion failed:', error.message);
+      return this._fallbackCommitSuggestion(currentMessage, diffContent);
+    }
+  }
   // Get analysis history
   async getAnalysisHistory(repositoryId, days = 30) {
     await this.init(); // Ensure DB connection
@@ -282,7 +308,37 @@ class AIService {
       Categories: feature, bugfix, refactor, docs, testing
         `.trim();
     }
-  
+    _createCommitMessagePrompt(diffContent, currentMessage) {
+      const maxDiffLength = 1500;
+      const truncatedDiff = diffContent.length > maxDiffLength
+        ? diffContent.slice(0, maxDiffLength) + '\n... (diff truncated for analysis)'
+        : diffContent;
+
+        return `
+    You are a Git expert helping improve commit messages. Analyze the code changed and suggest a better commit message.
+    
+    CURRENT MESSAGE: "${currentMessage}"
+    
+    CODE CHANGES (GIT DIFF):
+    ${truncatedDiff}
+    
+    INSTRUCTIONS:
+    1. Follow conventional commits format: type(scope): description
+    2. Types: feat, fix, doc, style, refactor, test, chore
+    3. Be specific about what actually changed
+    4. Keep under 50 characters if possible
+    5. Focus on WHY and WHAT, not just WHAT
+    
+    EXAMPLES:
+    -feat: add user authentication with JWT tokens
+    -fix: resolve memory leak in data processing loop
+    -docs: update API documentation for auth endpoints
+    -refactor: extract user validation into separate service
+    
+    Respond with ONLY the improved commit message, nothing else.
+      `.trim();
+    }
+
     async _callOpenAI(prompt) {
       const response = await openai.chat.completions.create({
         model: process.env.AI_MODEL || 'gpt-3.5-turbo',
@@ -331,7 +387,69 @@ class AIService {
         return [];
       }
     }
-  
+    _cleanCommitSuggestion(suggestion) {
+      return suggestion
+        .trim()
+        .replace(/^["']|["']$/g, '') //remove quotes
+        .replace(/\n.*/, '') //take only first line
+        .slice(0, 72); //git commit message best practice limit
+    }
+    _isMessageImproved(original, suggested) {
+      if (!original || original.trim().length === 0) {
+        return true;
+      }
+      
+      const hasConventionalFormat = /^(feat|fix|docs|style|refactor|test|chore)(\(.+\))?:/.test(suggested);
+      const isMoreDescriptive = suggested.length > original.length + 10;
+      const originalIsBasic = /^(fix|update|change|wip)$/i.test(original.trim());
+
+      return hasConventionalFormat || isMoreDescriptive || originalIsBasic;
+    }
+
+    _fallbackCommitSuggestion(currentMessage, diffContent) {
+      console.log('Using fallback commit message suggestion');
+
+      let suggestedType = 'chore';
+      let description = 'update code';
+
+      if (diffContent.includes('test') || diffContent.includes('spec')) {
+        suggestedType = 'test';
+        description = 'add or update tests';
+      } else if (diffContent.includes('README') || diffContent.includes('docs/')) {
+        suggestedType = 'docs';
+        description = 'update documentation';
+      } else if (diffContent.includes('fix') || diffContent.includes('bug')) {
+        suggestedType = 'fix';
+        description = 'resolve issue';
+      } else if (diffContent.includes('function') || diffContent.includes('class')) {
+        suggestedType = 'feat';
+        description = 'add new functionality';
+      }
+
+      const fallbackSuggestion = currentMessage.trim()
+        ? `${suggestedType}: ${currentMessage}`
+        : `${suggestedType}: ${description}`;
+
+      return {
+        original: currentMessage,
+        suggested: fallbackSuggestion,
+        improved: true,
+        analysis: {
+          method: 'fallback',
+          diffSize: diffContent.length,
+          generatedAt: new Date().toISOString()
+        }
+      };
+    }
+
+    _groupByCategory(commits) {
+      return commits.reduce((groups, commit) => {
+        const category = commit.category || 'other';
+        if (!groups[category]) groups[category] = [];
+        groups[category].push(commit);
+        return groups;
+      }, {});
+    }
     _fallbackCategorization(commits) {
       console.log('Using fallback keyword categorization');
   
