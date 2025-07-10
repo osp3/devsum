@@ -1,8 +1,29 @@
 import React from 'react';
+import { useState, useEffect } from 'react';
+import aiService from './services/AIService.js';
 
-const TodaysSummary = () => {
+const TodaysSummary = ({ commits, repositoryId }) => {
+  const [summary, setSummary] = useState(null);
 
-  
+  useEffect(() => {
+    if (commits && commits.length > 0) {
+      aiService
+        .generateDailySummary(commits, repositoryId)
+        .then(setSummary)
+        .catch(() => {});
+    }
+  }, [commits, repositoryId]);
+
+  //  const summaryData = async () => {
+  //   try {
+  //     const response = await fetch();
+  //     const result = await response.json();
+  //     setData(result);
+  //   } catch (error) {
+  //     return error;
+  //   }
+  // };
+
   //possible for button colors
   const ProperCommits = {
     feature: { color: 'bg-green-100 text-green-800', label: 'Feature' },
