@@ -1,6 +1,6 @@
 import React from 'react';
 import { useState, useEffect } from 'react';
-import aiService from './services/AIService.js';
+import aiService from './services/AiService';
 
 const TodaysSummary = ({ commits, repositoryId }) => {
   const [summary, setSummary] = useState(null);
@@ -45,7 +45,7 @@ const TodaysSummary = ({ commits, repositoryId }) => {
         <button className='btn bg-[#44905e] '>feat</button>
 
         {/*   puts this summery to the left next to button */}
-        <h1 className='flex-1 p-2'>this is todays summary </h1>
+        <h1 className='flex-1 p-2'>{summary} </h1>
         {/* if date want to be center just get ride of the absolute and relative */}
         <span className=' absolute top-2 right-2 text-xs text-gray-500 flex items-start'>
           {new Date().toLocaleDateString()}
