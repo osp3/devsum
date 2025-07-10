@@ -21,6 +21,8 @@ console.log('Importing auth routes...');
 import authRoutes from './routes/auth.js';
 console.log('Importing API routes...');
 import apiRoutes from './routes/api.js';
+console.log('Importing AI routes...');
+import aiRoutes from './routes/ai.js';
 console.log('✅ All route imports completed');
 
 // Connect to MongoDB
@@ -88,6 +90,8 @@ console.log('🔗 Mounting auth routes on /auth');
 app.use('/auth', authRoutes);
 console.log('🔗 Mounting API routes on /api');
 app.use('/api', apiRoutes);
+console.log('🔗 Mounting AI routes on /api/ai');
+app.use('/api/ai', aiRoutes);
 console.log('✅ All routes mounted successfully');
 
 // API test endpoint
