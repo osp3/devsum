@@ -5,6 +5,8 @@ const RecentCommits = () => {
   return (
     <div>
       <CommitItem />
+
+      <h1>RECENT COMMITS</h1>
     </div>
   );
 };

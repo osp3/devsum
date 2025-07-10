@@ -6,11 +6,25 @@ import RecentCommits from './RecentCommits.jsx';
 
 const RepoAnalytics = () => {
   return (
-    <div>
+    <div className='min-h-screen bg-[#1a1928]'>
+      <h1>repo header</h1>
       <UserHeader />
-      <RepoHeader />
-      <RepoMetricDisplay />
-      <RecentCommits />
+
+    <div className = 'flex justify-center'>
+   <RepoHeader />
+
+    </div>
+        
+        <div className = 'flex flex-col  items-center  border border-slate-400   rounded-2xl  p-4 gap-6 max-w-6xl mx-auto '>
+          <RepoMetricDisplay />
+          <RecentCommits />
+        </div>
+       
+        
+       
+
+    
+      
     </div>
   );
 };
