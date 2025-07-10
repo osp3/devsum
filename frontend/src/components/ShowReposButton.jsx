@@ -18,7 +18,7 @@ const handleClick = () =>{
     <button className = 'bg-[#262728] boarder-2 boarder-black btn flex items-center m-5'
     onClick={handleClick}
     > 
-      <spam>GitHub Repos</spam>
+      <h1>GitHub Repos</h1>
       </button>
   </div>
   )

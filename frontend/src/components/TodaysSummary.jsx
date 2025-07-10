@@ -1,8 +1,39 @@
 import React from 'react';
+import { useState, useEffect } from 'react';
 
-const TodaysSummary = () => {
 
-  
+
+const TodaysSummary = ({ commits, repositoryId, date}) => {
+  const [summary, setSummary] = useState('');
+  //const [summaryDate, setSummaryDate]= useState()
+
+
+
+   const summaryData = async () => {
+    try {
+      const response = await fetch(`${import.meta.env.VITE_API_URL}/api/ai/daily-summary`,
+        { method: 'POST',
+         headers: {'Content-Type': 'application/json'},
+         credentials: 'include',
+         body: JSON.stringify({commits: commits, repositoryId: repositoryId, date:date})})
+      
+   // console.log(response.json())
+      const result = await response.json();
+      console.log(result)
+      setSummary(result.data.summary);
+ 
+    } catch (error) {
+      return error;
+    }
+    
+  };
+
+    useEffect(() => {
+    if (commits && commits.length > 0) {
+      summaryData()
+    }
+  }, [commits, repositoryId, date]);
+
   //possible for button colors
   const ProperCommits = {
     feature: { color: 'bg-green-100 text-green-800', label: 'Feature' },
@@ -24,10 +55,11 @@ const TodaysSummary = () => {
         <button className='btn bg-[#44905e] '>feat</button>
 
         {/*   puts this summery to the left next to button */}
-        <h1 className='flex-1 p-2'>this is todays summary </h1>
+        <h1 className='flex-1 p-2'>{summary} </h1>
         {/* if date want to be center just get ride of the absolute and relative */}
         <span className=' absolute top-2 right-2 text-xs text-gray-500 flex items-start'>
-          {new Date().toLocaleDateString()}
+          {date}
+          {/* {new Date().toLocaleDateString()} */}
 
           {/* {new Date(commit.date).toLocaleDateString()} */}
         </span>
