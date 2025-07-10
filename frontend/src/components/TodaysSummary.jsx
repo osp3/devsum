@@ -1,19 +1,13 @@
 import React from 'react';
 import { useState, useEffect } from 'react';
-// import AIService from '../../../backend/services/ai.js';
 
 
-const TodaysSummary = ({ commits, repositoryId }) => {
-  const [summary, setSummary] = useState(null);
 
-  // useEffect(() => {
-  //   if (commits && commits.length > 0) {
-  //     AIService
-  //       .generateDailySummary(commits, repositoryId)
-  //       .then(setSummary)
-  //       .catch(() => {});
-  //   }
-  // }, [commits, repositoryId]);
+const TodaysSummary = ({ commits, repositoryId, date}) => {
+  const [summary, setSummary] = useState('');
+  //const [summaryDate, setSummaryDate]= useState()
+
+
 
    const summaryData = async () => {
     try {
@@ -21,20 +15,24 @@ const TodaysSummary = ({ commits, repositoryId }) => {
         { method: 'POST',
          headers: {'Content-Type': 'application/json'},
          credentials: 'include',
-         body: JSON.stringify({commits: commits, repositoryId: repositoryId})})
+         body: JSON.stringify({commits: commits, repositoryId: repositoryId, date:date})})
       
-    console.log(response.json())
+   // console.log(response.json())
       const result = await response.json();
       console.log(result)
-      setSummary(result);
-    //
-    //  console.log(result)
-
+      setSummary(result.data.summary);
+ 
     } catch (error) {
       return error;
     }
     
   };
+
+    useEffect(() => {
+    if (commits && commits.length > 0) {
+      summaryData()
+    }
+  }, [commits, repositoryId, date]);
 
   //possible for button colors
   const ProperCommits = {
@@ -60,7 +58,8 @@ const TodaysSummary = ({ commits, repositoryId }) => {
         <h1 className='flex-1 p-2'>{summary} </h1>
         {/* if date want to be center just get ride of the absolute and relative */}
         <span className=' absolute top-2 right-2 text-xs text-gray-500 flex items-start'>
-          {new Date().toLocaleDateString()}
+          {date}
+          {/* {new Date().toLocaleDateString()} */}
 
           {/* {new Date(commit.date).toLocaleDateString()} */}
         </span>
