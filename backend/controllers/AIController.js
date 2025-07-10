@@ -1,3 +1,4 @@
+import aiService from '../services/ai.js';
 /**
  * Minimal AI Controller
  * Basic implementations for AI routes
@@ -18,13 +19,8 @@ class AIController {
         });
       }
 
-      // Basic categorization - TODO: Add AI service
-      const analysis = commits.map(commit => ({
-        ...commit,
-        category: 'other',
-        confidence: 0.5,
-        aiReason: 'Basic categorization'
-      }));
+      // AI analysis
+      const analysis = await aiService.categorizeCommits(commits);
 
       res.json({
         success: true,
@@ -34,6 +30,7 @@ class AIController {
         }
       });
     } catch (error) {
+      console.error('AI analysis error:', error);
       res.status(500).json({
         success: false,
         error: 'Failed to analyze commits'
@@ -56,8 +53,8 @@ class AIController {
         });
       }
 
-      // Basic summary - TODO: Add AI service
-      const summary = `Today you made ${commits.length} commits. Keep up the great work!`;
+      // AI service
+      const summary = await aiService.generateDailySummary(commits, repositoryId);
 
       res.json({
         success: true,
@@ -68,6 +65,7 @@ class AIController {
         }
       });
     } catch (error) {
+      console.error('Summary generation error:', error);
       res.status(500).json({
         success: false,
         error: 'Failed to generate daily summary'
@@ -90,16 +88,8 @@ class AIController {
         });
       }
 
-      // Basic tasks - TODO: Add AI service
-      const tasks = [
-        {
-          title: 'Review recent changes',
-          description: 'Look over recent commits and plan next steps',
-          priority: 'medium',
-          category: 'review',
-          estimatedTime: '30 minutes'
-        }
-      ];
+      // AI task suggestions
+      const tasks = await aiService.generateTaskSuggestions(recentCommits, repositoryId);
 
       res.json({
         success: true,
@@ -110,6 +100,7 @@ class AIController {
         }
       });
     } catch (error) {
+      console.error('Task generation error:', error);
       res.status(500).json({
         success: false,
         error: 'Failed to generate task suggestions'
@@ -122,8 +113,8 @@ class AIController {
    * POST /api/ai/suggest-commit-message
    */
   static async suggestCommitMessage(req, res, next) {
-    try {
-      const { diffContent, currentMessage = '' } = req.body;
+  try {
+    const { diffContent, currentMessage = '', repositoryId } = req.body;
       
       if (!diffContent) {
         return res.status(400).json({
@@ -132,29 +123,21 @@ class AIController {
         });
       }
 
-      // Basic suggestion - TODO: Add AI service
-      const suggested = currentMessage || 'update: modify code';
+      // Ai suggestion
+    const result = await aiService.suggestCommitMessage(diffContent, currentMessage, repositoryId);
 
-      res.json({
-        success: true,
-        data: {
-          original: currentMessage,
-          suggested: suggested,
-          improved: false,
-          analysis: {
-            diffSize: diffContent.length,
-            hasOriginalMessage: !!currentMessage,
-            method: 'basic'
-          }
-        }
-      });
-    } catch (error) {
-      res.status(500).json({
-        success: false,
-        error: 'Failed to suggest commit message'
-      });
-    }
+    res.json({
+      success: true,
+      data: result
+    });
+  } catch (error) {
+    console.error('Commit message suggestion error:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to suggest commit message'
+    });
   }
+}
 
   /**
    * Get analysis history for repository
@@ -172,25 +155,25 @@ class AIController {
         });
       }
 
-      // Basic history - TODO: Add database service
-      const history = [];
+    const history = await aiService.getAnalysisHistory(repositoryId, parseInt(days));
 
-      res.json({
-        success: true,
-        data: history,
-        meta: {
-          repositoryId,
-          daysRequested: parseInt(days),
-          summariesFound: history.length
-        }
-      });
-    } catch (error) {
-      res.status(500).json({
-        success: false,
-        error: 'Failed to retrieve analysis history'
-      });
-    }
+    res.json({
+      success: true,
+      data: history,
+      meta: {
+        repositoryId,
+        daysRequested: parseInt(days),
+        summariesFound: history.length
+      }
+    });
+  } catch (error) {
+    console.error('Analysis history error:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to retrieve analysis history'
+    });
+  }
   }
 }
 
-export default AIController; 
+export default AIController;
