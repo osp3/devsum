@@ -23,7 +23,7 @@ passport.serializeUser((user, done) => {
 // Deserialize user from session
 passport.deserializeUser(async (id, done) => {
   try {
-    const user = await User.findById(id);
+    const user = await User.findById(id).select('+accessToken'); // Include accessToken
     done(null, user);
   } catch (error) {
     done(error, null);
