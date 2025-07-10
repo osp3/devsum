@@ -40,7 +40,7 @@ class RepositoryController {
   static async getRepositoryCommits(req, res, next) {
     try {
       const { owner, repo } = req.params;
-      const { since, per_page = 20 } = req.query;
+      const { per_page = 20 } = req.query;
       
       // Input validation
       const validation = RepositoryController._validateCommitParams(req.params, req.query);
@@ -52,8 +52,7 @@ class RepositoryController {
       const githubService = new GitHubService(req.user.accessToken);
       
       const options = {
-        per_page: Math.min(parseInt(per_page), 100), // Security: limit to 100
-        ...(since && { since: new Date(since).toISOString() })
+        per_page: Math.min(parseInt(per_page), 100) // Security: limit to 100, gets latest commits
       };
       
       const commits = await githubService.getCommits(owner, repo, options);
@@ -64,7 +63,6 @@ class RepositoryController {
           repository: `${owner}/${repo}`,
           commits,
           total: commits.length,
-          options,
           timestamp: new Date().toISOString()
         }
       });
@@ -157,19 +155,12 @@ class RepositoryController {
    */
   static _validateCommitParams(params, query) {
     const { owner, repo } = params;
-    const { since, per_page } = query;
+    const { per_page } = query;
     
     if (!owner || !repo) {
       return {
         isValid: false,
         message: 'owner and repo parameters are required'
-      };
-    }
-    
-    if (since && isNaN(Date.parse(since))) {
-      return {
-        isValid: false,
-        message: 'since parameter must be a valid date'
       };
     }
     
