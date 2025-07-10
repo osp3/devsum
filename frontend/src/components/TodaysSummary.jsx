@@ -1,28 +1,40 @@
 import React from 'react';
 import { useState, useEffect } from 'react';
-import aiService from './services/AiService';
+// import AIService from '../../../backend/services/ai.js';
+
 
 const TodaysSummary = ({ commits, repositoryId }) => {
   const [summary, setSummary] = useState(null);
 
-  useEffect(() => {
-    if (commits && commits.length > 0) {
-      aiService
-        .generateDailySummary(commits, repositoryId)
-        .then(setSummary)
-        .catch(() => {});
-    }
-  }, [commits, repositoryId]);
-
-  //  const summaryData = async () => {
-  //   try {
-  //     const response = await fetch();
-  //     const result = await response.json();
-  //     setData(result);
-  //   } catch (error) {
-  //     return error;
+  // useEffect(() => {
+  //   if (commits && commits.length > 0) {
+  //     AIService
+  //       .generateDailySummary(commits, repositoryId)
+  //       .then(setSummary)
+  //       .catch(() => {});
   //   }
-  // };
+  // }, [commits, repositoryId]);
+
+   const summaryData = async () => {
+    try {
+      const response = await fetch(`${import.meta.env.VITE_API_URL}/api/ai/daily-summary`,
+        { method: 'POST',
+         headers: {'Content-Type': 'application/json'},
+         credentials: 'include',
+         body: JSON.stringify({commits: commits, repositoryId: repositoryId})})
+      
+    console.log(response.json())
+      const result = await response.json();
+      console.log(result)
+      setSummary(result);
+    //
+    //  console.log(result)
+
+    } catch (error) {
+      return error;
+    }
+    
+  };
 
   //possible for button colors
   const ProperCommits = {
