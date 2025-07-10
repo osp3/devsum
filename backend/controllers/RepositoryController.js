@@ -1,0 +1,178 @@
+import GitHubService from '../services/github.js';
+import { createValidationError, createServerError, createGitHubError } from '../utils/errors.js';
+
+/**
+ * Repository Controller
+ * Handles repository and commit management business logic
+ * Follows SOLID principles and DRY patterns
+ */
+class RepositoryController {
+  /**
+   * Get user's repositories with caching
+   */
+  static async getUserRepositories(req, res, next) {
+    try {
+      const githubService = new GitHubService(req.user.accessToken);
+      const repos = await githubService.getUserRepos();
+      
+      // Update user's cached repositories (following single responsibility)
+      await RepositoryController._updateUserRepoCache(req.user, repos);
+      
+      res.json({
+        success: true,
+        data: {
+          repositories: repos,
+          total: repos.length,
+          lastUpdated: new Date().toISOString()
+        }
+      });
+    } catch (error) {
+      const err = error.status 
+        ? createGitHubError(error, `fetching repos for ${req.user.username}`)
+        : createServerError('Failed to fetch repositories', `user: ${req.user.username}`);
+      return next(err);
+    }
+  }
+
+  /**
+   * Get commits for a specific repository
+   */
+  static async getRepositoryCommits(req, res, next) {
+    try {
+      const { owner, repo } = req.params;
+      const { per_page = 20 } = req.query;
+      
+      // Input validation
+      const validation = RepositoryController._validateCommitParams(req.params, req.query);
+      if (!validation.isValid) {
+        const err = createValidationError(validation.message, `${owner}/${repo}`);
+        return next(err);
+      }
+      
+      const githubService = new GitHubService(req.user.accessToken);
+      
+      const options = {
+        per_page: Math.min(parseInt(per_page), 100) // Security: limit to 100, gets latest commits
+      };
+      
+      const commits = await githubService.getCommits(owner, repo, options);
+      
+      res.json({
+        success: true,
+        data: {
+          repository: `${owner}/${repo}`,
+          commits,
+          total: commits.length,
+          timestamp: new Date().toISOString()
+        }
+      });
+    } catch (error) {
+      const err = error.status 
+        ? createGitHubError(error, `fetching commits for ${req.params.owner}/${req.params.repo}`)
+        : createServerError('Failed to fetch commits', `repo: ${req.params.owner}/${req.params.repo}`);
+      return next(err);
+    }
+  }
+
+  /**
+   * Get specific commit with diff information
+   */
+  static async getCommitDiff(req, res, next) {
+    try {
+      const { owner, repo, sha } = req.params;
+      
+      // Input validation
+      if (!owner || !repo || !sha) {
+        const err = createValidationError('Missing required parameters: owner, repo, and sha are required');
+        return next(err);
+      }
+      
+      if (sha.length < 7) {
+        const err = createValidationError('Invalid SHA: must be at least 7 characters');
+        return next(err);
+      }
+      
+      const githubService = new GitHubService(req.user.accessToken);
+      const commitDiff = await githubService.getCommitDiff(owner, repo, sha);
+      
+      res.json({
+        success: true,
+        data: commitDiff
+      });
+    } catch (error) {
+      const err = error.status 
+        ? createGitHubError(error, `fetching commit diff for ${req.params.sha}`)
+        : createServerError('Failed to fetch commit diff', `commit: ${req.params.sha}`);
+      return next(err);
+    }
+  }
+
+  /**
+   * Get GitHub API rate limit status
+   */
+  static async getRateLimit(req, res, next) {
+    try {
+      const githubService = new GitHubService(req.user.accessToken);
+      const rateLimit = await githubService.getRateLimit();
+      
+      res.json({
+        success: true,
+        data: rateLimit
+      });
+    } catch (error) {
+      const err = error.status 
+        ? createGitHubError(error, 'checking rate limit')
+        : createServerError('Failed to check rate limit', 'rate limit check');
+      return next(err);
+    }
+  }
+
+  /**
+   * Private method to update user's repository cache
+   * Follows Single Responsibility Principle
+   */
+  static async _updateUserRepoCache(user, repos) {
+    try {
+      user.repositories = repos.map(repo => ({
+        id: repo.id,
+        name: repo.name,
+        fullName: repo.fullName,
+        private: repo.private,
+        defaultBranch: repo.defaultBranch,
+        updatedAt: new Date(repo.updatedAt)
+      }));
+      
+      await user.save();
+    } catch (error) {
+      console.error('❌ Error updating repository cache:', error.message);
+      // Don't throw here - caching failure shouldn't break the main request
+    }
+  }
+
+  /**
+   * Private method to validate commit parameters
+   * Follows DRY principle for reusable validation
+   */
+  static _validateCommitParams(params, query) {
+    const { owner, repo } = params;
+    const { per_page } = query;
+    
+    if (!owner || !repo) {
+      return {
+        isValid: false,
+        message: 'owner and repo parameters are required'
+      };
+    }
+    
+    if (per_page && (isNaN(per_page) || per_page < 1 || per_page > 100)) {
+      return {
+        isValid: false,
+        message: 'per_page must be a number between 1 and 100'
+      };
+    }
+    
+    return { isValid: true };
+  }
+}
+
+export default RepositoryController; 
