@@ -1,9 +1,11 @@
 import React from 'react';
+import { useNavigate } from 'react-router-dom';
 
 const ShowReposButton = () => {
-  // const [button, setButton]= useState('')
+  const navigate = useNavigate();
+  
   const handleClick = () => {
-    window.location.href = 'http://localhost:5173/repositories';
+    navigate('/repositories'); // Client-side navigation - no page reload!
   };
 
   return (
