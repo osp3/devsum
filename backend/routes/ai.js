@@ -1,19 +1,19 @@
 import express from 'express';
-import AIController from '../controllers/AIController.js';
+import { 
+  analyzeCommits, 
+  generateDailySummary, 
+  generateTaskSuggestions, 
+  suggestCommitMessage,
+  getAnalysisHistory,
+  analyzeCodeQuality,
+  getQualityTrends
+} from '../controllers/AIController.js';
 import { ensureAuthenticated } from '../middleware/auth.js';
 
 const router = express.Router();
 
 // Apply authentication middleware to ALL routes in this router
 router.use(ensureAuthenticated);
-
-const { 
-  analyzeCommits, 
-  generateDailySummary, 
-  generateTaskSuggestions, 
-  suggestCommitMessage,
-  getAnalysisHistory
-} = AIController;
 
 /**
  * AI Analytics Routes
@@ -32,8 +32,12 @@ router.post('/task-suggestions', generateTaskSuggestions);
 // Suggest improved commit message based on diff
 router.post('/suggest-commit-message', suggestCommitMessage);
 
-// Get analysis history for a repository
+// Get analysis history for repository  
 router.get('/history/:repositoryId', getAnalysisHistory);
+
+// Quality analysis routes
+router.post('/analyze-quality', analyzeCodeQuality);
+router.get('/quality-trends/:repositoryId', getQualityTrends);
 
 console.log('✅ AI routes loaded successfully');
 

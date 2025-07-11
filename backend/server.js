@@ -126,20 +126,52 @@ app.use('*', (req, res) => {
 });
 
 // Start server
-app.listen(PORT, () => {
+const server = app.listen(PORT, () => {
   console.log(`🚀 Server running on http://localhost:${PORT}`);
   console.log(`📊 Health check: http://localhost:${PORT}/health`);
   console.log(`🔐 GitHub OAuth: http://localhost:${PORT}/auth/github`);
   console.log(`🔧 Environment: ${process.env.NODE_ENV || 'development'}`);
 });
 
-// Graceful shutdown
-process.on('SIGTERM', () => {
-  console.log('SIGTERM received. Shutting down gracefully...');
-  process.exit(0);
+// Graceful shutdown function
+const gracefulShutdown = (signal) => {
+  console.log(`\n🛑 ${signal} received. Starting graceful shutdown...`);
+  
+  // Stop accepting new connections
+  server.close((err) => {
+    if (err) {
+      console.error('❌ Error closing HTTP server:', err);
+      process.exit(1);
+    }
+    
+    console.log('✅ HTTP server closed');
+    
+    // Close database connections (handled in database.js)
+    // MongoDB connection has its own SIGINT handler
+    
+    console.log('✅ Graceful shutdown completed');
+    process.exit(0);
+  });
+  
+  // Force exit after timeout (prevent hanging)
+  setTimeout(() => {
+    console.error('⚠️ Forceful shutdown after timeout');
+    process.exit(1);
+  }, 10000); // 10 second timeout
+};
+
+// Handle different shutdown signals
+process.on('SIGTERM', () => gracefulShutdown('SIGTERM'));
+process.on('SIGINT', () => gracefulShutdown('SIGINT'));   // Ctrl-C
+process.on('SIGUSR2', () => gracefulShutdown('SIGUSR2')); // nodemon restart
+
+// Handle uncaught exceptions
+process.on('uncaughtException', (err) => {
+  console.error('💥 Uncaught Exception:', err);
+  gracefulShutdown('UNCAUGHT_EXCEPTION');
 });
 
-process.on('SIGINT', () => {
-  console.log('SIGINT received. Shutting down gracefully...');
-  process.exit(0);
+process.on('unhandledRejection', (reason, promise) => {
+  console.error('💥 Unhandled Rejection at:', promise, 'reason:', reason);
+  gracefulShutdown('UNHANDLED_REJECTION');
 }); 
