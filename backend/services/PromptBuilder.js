@@ -12,6 +12,82 @@ class PromptBuilder {
     return signature;
   }
 
+  /**
+   * Create prompt for commit message suggestions based on diff
+   */
+  createCommitSuggestionPrompt(diffContent, currentMessage = '') {
+    return `You are a git commit message expert. Analyze the code diff and suggest an improved commit message following conventional commit format.
+
+**CODE DIFF:**
+\`\`\`diff
+${diffContent.substring(0, 2000)} ${diffContent.length > 2000 ? '... (truncated)' : ''}
+\`\`\`
+
+**CURRENT MESSAGE:** "${currentMessage}"
+
+**TASK:** Create a better conventional commit message that:
+1. Follows conventional commit format: type(scope): description
+2. Is clear and descriptive but concise
+3. Accurately reflects the code changes
+4. Uses appropriate type (feat, fix, docs, style, refactor, test, chore)
+
+**RESPONSE FORMAT:**
+{
+  "suggested": "feat(auth): add OAuth 2.0 login with GitHub",
+  "reasoning": "Added new authentication feature with OAuth integration",
+  "type": "feat",
+  "confidence": 0.9,
+  "isImprovement": true
+}`;
+  }
+
+  /**
+   * Create prompt for AI-powered conventional commit formatting
+   */
+  createConventionalCommitPrompt(commit, commitDiff) {
+    const diffContent = commitDiff.files?.map(file => file.patch).join('\n') || '';
+    const truncatedDiff = diffContent.substring(0, 3000); // Limit diff size for AI processing
+    
+    return `You are an expert Git commit analyzer. Analyze the commit data and code diff to generate proper conventional commit format and a concise summary.
+
+**ORIGINAL COMMIT:**
+- Message: "${commit.message}"
+- Author: ${commit.author?.name || 'Unknown'}
+- Files Changed: ${commitDiff.files?.length || 0}
+- Additions: ${commitDiff.stats?.additions || 0}
+- Deletions: ${commitDiff.stats?.deletions || 0}
+
+**CODE DIFF:**
+\`\`\`diff
+${truncatedDiff}${diffContent.length > 3000 ? '\n... (diff truncated for analysis)' : ''}
+\`\`\`
+
+**TASK:** Analyze the actual code changes and generate:
+1. Proper conventional commit type (feat, fix, docs, style, refactor, test, chore, perf, ci, build, revert)
+2. Appropriate scope (component/area affected, or null if broad)
+3. Clear, concise description (max 80 chars)
+4. Brief summary of what the commit actually does
+
+**RULES:**
+- Type MUST accurately reflect the code changes, not just the commit message
+- Scope should be specific but optional
+- Description should be imperative mood ("add" not "added")
+- Summary should be 1-2 sentences explaining the change
+
+**RESPONSE FORMAT (JSON only):**
+{
+  "type": "feat",
+  "scope": "auth",
+  "description": "add OAuth 2.0 login with GitHub integration",
+  "formatted": "feat(auth): add OAuth 2.0 login with GitHub integration",
+  "summary": "Implements OAuth 2.0 authentication flow with GitHub provider, including login and logout functionality.",
+  "confidence": 0.9
+}`;
+  }
+
+  /**
+   * Create prompt for analyzing commit messages
+   */
   createCategorizationPrompt(commits) {
     const commitList = commits.map((commit, index) =>
     `${index + 1}. ${commit.message}`
@@ -173,16 +249,22 @@ class PromptBuilder {
 
      parseResponse(commits, aiResponse) {
       try {
-        const parsed = JSON.parse(aiResponse);
+        // Clean the response to handle markdown-formatted JSON
+        const cleanedResponse = this._cleanJsonResponse(aiResponse);
+        const parsed = JSON.parse(cleanedResponse);
   
         return commits.map((commit, index) => {
           const analysis = parsed.analysis?.find(a => a.index === index + 1);
+          
+          // Ensure date field is present for CommitAnalysis model
+          const commitDate = commit.author?.date || commit.date || new Date().toISOString();
   
           return {
             ...commit,
             category: analysis?.category || 'other',
             confidence: analysis?.confidence || 0.5,
-            aiReason: analysis?.reason || 'Auto-categorized'
+            aiReason: analysis?.reason || 'Auto-categorized',
+            date: new Date(commitDate) // Ensure date is a Date object
           };
         });
       } catch (error) {
@@ -193,12 +275,36 @@ class PromptBuilder {
   
     parseTaskResponse(aiResponse) {
       try {
-        const parsed = JSON.parse(aiResponse);
+        // Clean the response to handle markdown-formatted JSON
+        const cleanedResponse = this._cleanJsonResponse(aiResponse);
+        const parsed = JSON.parse(cleanedResponse);
         return parsed.tasks || [];
       } catch (error) {
         console.error('Failed to parse task response:', error.message);
         return [];
       }
+    }
+
+    /**
+     * Clean AI response to handle markdown-formatted JSON
+     * Removes ```json and ``` code block markers
+     */
+    _cleanJsonResponse(response) {
+      if (!response || typeof response !== 'string') {
+        return response;
+      }
+
+      // Remove markdown code block markers
+      let cleaned = response.trim();
+      
+      // Remove opening ```json or ``` markers
+      cleaned = cleaned.replace(/^```json\s*/i, '');
+      cleaned = cleaned.replace(/^```\s*/, '');
+      
+      // Remove closing ``` markers
+      cleaned = cleaned.replace(/\s*```\s*$/, '');
+      
+      return cleaned.trim();
     }
     cleanCommitSuggestion(suggestion) {
       return suggestion

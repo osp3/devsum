@@ -35,6 +35,10 @@ function App() {
   const [commitData, setCommitData] = useState(null); // Today's commit summary data
   const [commitLoading, setCommitLoading] = useState(false); // Loading state for commit fetching
   const [commitError, setCommitError] = useState(null); // Error state for commit fetching
+  
+  // Repository analysis cache - cached at app level to persist across navigation
+  const [analysisCache, setAnalysisCache] = useState({}); // Keyed by repo ID: { repoId: { commits, qualityAnalysis, timestamp } }
+  const [currentAnalysisLoading, setCurrentAnalysisLoading] = useState(false); // Loading state for current analysis
 
   // Fetch all user repositories - called once on login, cached for entire session
   const fetchRepositories = async () => {
@@ -106,6 +110,54 @@ function App() {
     }
   };
 
+  // === REPOSITORY ANALYSIS CACHE MANAGEMENT ===
+  
+  // Get cached analysis for a repository
+  const getCachedAnalysis = (repoId) => {
+    const cached = analysisCache[repoId];
+    if (!cached) return null;
+    
+    // Check if cache is still valid (within 24 hours)
+    const cacheAge = Date.now() - cached.timestamp;
+    const twentyFourHours = 24 * 60 * 60 * 1000;
+    
+    if (cacheAge > twentyFourHours) {
+      console.log(`Cache expired for repo ${repoId}, age: ${Math.round(cacheAge / 1000 / 60 / 60)} hours`);
+      return null;
+    }
+    
+    console.log(`Using cached analysis for repo ${repoId}, age: ${Math.round(cacheAge / 1000 / 60)} minutes`);
+    return cached;
+  };
+
+  // Set/update cached analysis for a repository
+  const setCachedAnalysis = (repoId, commits, qualityAnalysis) => {
+    setAnalysisCache(prev => ({
+      ...prev,
+      [repoId]: {
+        commits,
+        qualityAnalysis,
+        timestamp: Date.now()
+      }
+    }));
+    console.log(`Cached analysis for repo ${repoId}`);
+  };
+
+  // Clear cache for a specific repository or all repositories
+  const clearAnalysisCache = (repoId = null) => {
+    if (repoId) {
+      setAnalysisCache(prev => {
+        const newCache = { ...prev };
+        delete newCache[repoId];
+        return newCache;
+      });
+      console.log(`Cleared cache for repo ${repoId}`);
+    } else {
+      setAnalysisCache({});
+      console.log('Cleared all analysis cache');
+    }
+  };
+
   // === LIFECYCLE HOOKS - App initialization and data fetching ===
   
   // Check authentication status on app startup (page load/refresh)
@@ -146,7 +198,13 @@ function App() {
     commitData,             // Today's commit summary data
     commitLoading,          // Loading state for commit fetching
     commitError,            // Error state for commit fetching
-    fetchDailySummary       // Function to refresh daily summary
+    fetchDailySummary,      // Function to refresh daily summary
+    // Repository analysis cache - cached at app level
+    getCachedAnalysis,      // Function to get cached analysis for a repo
+    setCachedAnalysis,      // Function to cache analysis for a repo
+    clearAnalysisCache,     // Function to clear analysis cache
+    currentAnalysisLoading, // Loading state for current analysis
+    setCurrentAnalysisLoading // Function to update analysis loading state
   };
 
   // === RENDER - Route definitions with shared state distribution ===

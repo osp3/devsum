@@ -442,7 +442,9 @@ Focus on actionable, specific feedback. If code looks good, say so!
  */
 _parseCodeAnalysisResponse(aiResponse) {
   try {
-    const parsed = JSON.parse(aiResponse);
+    // Clean the response to handle markdown-formatted JSON
+    const cleanedResponse = this._cleanJsonResponse(aiResponse);
+    const parsed = JSON.parse(cleanedResponse);
     
     return {
       severity: parsed.severity || 'medium',
@@ -751,7 +753,9 @@ Respond with valid JSON only:
  */
 _parseQualityResponse(aiResponse) {
   try {
-    const parsed = JSON.parse(aiResponse);
+    // Clean the response to handle markdown-formatted JSON
+    const cleanedResponse = this._cleanJsonResponse(aiResponse);
+    const parsed = JSON.parse(cleanedResponse);
     
     // VALIDATE AND CLEAN: Ensure quality score is between 0-1
     const cleanScore = Math.max(0, Math.min(1, parsed.qualityScore || 0.5));
@@ -1028,6 +1032,28 @@ _calculateQualityTrends(qualityHistory) {
       'Consider sharing best practices with team'
     ]
   };
+}
+
+/**
+ * Clean AI response to handle markdown-formatted JSON
+ * Removes ```json and ``` code block markers
+ */
+_cleanJsonResponse(response) {
+  if (!response || typeof response !== 'string') {
+    return response;
+  }
+
+  // Remove markdown code block markers
+  let cleaned = response.trim();
+  
+  // Remove opening ```json or ``` markers
+  cleaned = cleaned.replace(/^```json\s*/i, '');
+  cleaned = cleaned.replace(/^```\s*/, '');
+  
+  // Remove closing ``` markers
+  cleaned = cleaned.replace(/\s*```\s*$/, '');
+  
+  return cleaned.trim();
 }
 }
 

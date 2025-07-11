@@ -232,7 +232,7 @@ export async function analyzeCodeQuality(req, res, next) {
 }
 
 /**
- * Get quality trends over time
+ * Get quality trends for a repository
  * GET /api/ai/quality-trends/:repositoryId
  */
 export async function getQualityTrends(req, res, next) {
@@ -258,9 +258,64 @@ export async function getQualityTrends(req, res, next) {
       }
     });
   } catch (error) {
+    console.error('Quality trends analysis failed:', error);
     res.status(500).json({
       success: false,
-      error: 'Failed to get quality trends'
+      error: 'Failed to analyze quality trends'
+    });
+  }
+}
+
+/**
+ * Format commits with AI-powered conventional commit format
+ * POST /api/ai/format-commits
+ */
+export async function formatCommits(req, res, next) {
+  try {
+    const { commits, repositoryFullName } = req.body;
+    
+    if (!commits || !Array.isArray(commits)) {
+      return res.status(400).json({
+        success: false,
+        error: 'Commits array is required'
+      });
+    }
+
+    if (!repositoryFullName) {
+      return res.status(400).json({
+        success: false,
+        error: 'Repository full name is required (format: owner/repo)'
+      });
+    }
+
+    if (!req.user || !req.user.accessToken) {
+      return res.status(401).json({
+        success: false,
+        error: 'User authentication and GitHub access token required'
+      });
+    }
+
+    const formattedCommits = await AIService.formatCommitsWithAI(
+      commits, 
+      repositoryFullName, 
+      req.user.accessToken
+    );
+
+    res.json({
+      success: true,
+      data: formattedCommits,
+      meta: {
+        repository: repositoryFullName,
+        totalCommits: formattedCommits.length,
+        aiProcessed: formattedCommits.filter(c => c.aiGenerated?.confidence > 0.5).length,
+        fallbackUsed: formattedCommits.filter(c => c.aiGenerated?.confidence <= 0.5).length
+      }
+    });
+  } catch (error) {
+    console.error('AI commit formatting failed:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to format commits with AI'
     });
   }
 } 

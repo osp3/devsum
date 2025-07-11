@@ -299,6 +299,183 @@ class AIService {
   return await this.cacheManager.getAnalysisHistory(repositoryId, days);
   }
 
+  /**
+   * Format commits with AI-powered conventional commit format and concise summaries
+   * Analyzes commit diffs to generate accurate conventional commit format
+   */
+  async formatCommitsWithAI(commits, repositoryFullName, accessToken) {
+    await this.init();
+    console.log(`🤖 AI formatting ${commits.length} commits for ${repositoryFullName}...`);
+
+    try {
+      const formattedCommits = [];
+      const githubService = new (await import('./github.js')).default(accessToken);
+
+      // Limit to prevent excessive API calls and AI costs
+      const commitsToAnalyze = commits.slice(0, 20);
+
+      for (const commit of commitsToAnalyze) {
+        try {
+          console.log(`📝 Processing commit ${commit.sha?.substring(0, 7)}...`);
+          
+          // Get commit diff
+          const [owner, repo] = repositoryFullName.split('/');
+          const commitDiff = await githubService.getCommitDiff(owner, repo, commit.sha);
+          
+          // Generate AI-powered conventional commit format
+          const aiFormatting = await this._generateConventionalCommit(commit, commitDiff);
+          
+          formattedCommits.push({
+            ...commit,
+            aiGenerated: {
+              type: aiFormatting.type,
+              scope: aiFormatting.scope,
+              description: aiFormatting.description,
+              formatted: aiFormatting.formatted,
+              summary: aiFormatting.summary,
+              confidence: aiFormatting.confidence
+            },
+            original: {
+              message: commit.message,
+              sha: commit.sha,
+              author: commit.author,
+              date: commit.date || commit.author?.date
+            }
+          });
+
+          // Small delay to respect rate limits
+          await new Promise(resolve => setTimeout(resolve, 200));
+
+        } catch (error) {
+          console.error(`❌ Failed to format commit ${commit.sha?.substring(0, 7)}:`, error.message);
+          
+          // Fallback formatting
+          const fallbackFormatting = this._fallbackConventionalCommit(commit);
+          formattedCommits.push({
+            ...commit,
+            aiGenerated: fallbackFormatting,
+            original: {
+              message: commit.message,
+              sha: commit.sha,
+              author: commit.author,
+              date: commit.date || commit.author?.date
+            }
+          });
+        }
+      }
+
+      console.log(`✅ AI formatting complete: ${formattedCommits.length} commits processed`);
+      return formattedCommits;
+
+    } catch (error) {
+      console.error('AI commit formatting failed:', error.message);
+      
+      // Return commits with fallback formatting
+      return commits.map(commit => ({
+        ...commit,
+        aiGenerated: this._fallbackConventionalCommit(commit),
+        original: {
+          message: commit.message,
+          sha: commit.sha,
+          author: commit.author,
+          date: commit.date || commit.author?.date
+        }
+      }));
+    }
+  }
+
+  /**
+   * Generate AI-powered conventional commit format from commit and diff
+   */
+  async _generateConventionalCommit(commit, commitDiff) {
+    try {
+      const prompt = this.promptBuilder.createConventionalCommitPrompt(commit, commitDiff);
+      
+      const response = await this._callOpenAI(prompt, {
+        temperature: 0.3, // More consistent output
+        max_tokens: 200   // Concise responses
+      });
+
+      return this._parseConventionalCommitResponse(response, commit);
+
+    } catch (error) {
+      console.error('AI conventional commit generation failed:', error.message);
+      return this._fallbackConventionalCommit(commit);
+    }
+  }
+
+  /**
+   * Parse AI response for conventional commit format
+   */
+  _parseConventionalCommitResponse(response, commit) {
+    try {
+      const cleaned = this.promptBuilder._cleanJsonResponse(response);
+      const parsed = JSON.parse(cleaned);
+
+      return {
+        type: parsed.type || 'chore',
+        scope: parsed.scope || null,
+        description: parsed.description || commit.message?.split('\n')[0]?.substring(0, 80) || 'Code changes',
+        formatted: parsed.formatted || `${parsed.type || 'chore'}${parsed.scope ? `(${parsed.scope})` : ''}: ${parsed.description || 'Code changes'}`,
+        summary: parsed.summary || 'Code changes without detailed analysis',
+        confidence: Math.min(Math.max(parsed.confidence || 0.7, 0), 1) // Clamp between 0-1
+      };
+    } catch (error) {
+      console.error('Failed to parse conventional commit response:', error.message);
+      return this._fallbackConventionalCommit(commit);
+    }
+  }
+
+  /**
+   * Fallback conventional commit formatting when AI fails
+   */
+  _fallbackConventionalCommit(commit) {
+    const message = commit.message || 'Code changes';
+    const firstLine = message.split('\n')[0];
+    
+    // Simple heuristic-based type detection
+    let type = 'chore';
+    let scope = null;
+    let description = firstLine;
+
+    // Check for existing conventional format
+    const conventionalMatch = firstLine.match(/^(\w+)(\(.+\))?\s*:\s*(.+)/);
+    if (conventionalMatch) {
+      type = conventionalMatch[1];
+      scope = conventionalMatch[2] ? conventionalMatch[2].slice(1, -1) : null;
+      description = conventionalMatch[3];
+    } else {
+      // Heuristic type detection
+      const lowerMessage = firstLine.toLowerCase();
+      if (lowerMessage.includes('fix') || lowerMessage.includes('bug') || lowerMessage.includes('error')) {
+        type = 'fix';
+      } else if (lowerMessage.includes('add') || lowerMessage.includes('new') || lowerMessage.includes('implement')) {
+        type = 'feat';
+      } else if (lowerMessage.includes('update') || lowerMessage.includes('change') || lowerMessage.includes('modify')) {
+        type = 'refactor';
+      } else if (lowerMessage.includes('doc') || lowerMessage.includes('readme')) {
+        type = 'docs';
+      } else if (lowerMessage.includes('test')) {
+        type = 'test';
+      } else if (lowerMessage.includes('style') || lowerMessage.includes('format')) {
+        type = 'style';
+      }
+      
+      description = firstLine.substring(0, 80);
+    }
+
+    const formatted = scope ? `${type}(${scope}): ${description}` : `${type}: ${description}`;
+
+    return {
+      type,
+      scope,
+      description,
+      formatted,
+      summary: `Fallback formatting applied to: ${firstLine.substring(0, 100)}`,
+      confidence: 0.3
+    };
+  }
+
   async analyzeCodeQuality(commits, repositoryId, timeframe = 'weekly', repositoryFullName = null) {
   await this.init(); // Ensure DB connection
   return await this.qualityAnalyzer.analyzeCodeQuality(commits, repositoryId, timeframe, repositoryFullName);
@@ -439,11 +616,16 @@ class AIService {
       } else if (msg.includes('doc') || msg.includes('readme')) {
         category = 'docs';
       }
+      
+      // Ensure date field is present for CommitAnalysis model
+      const commitDate = commit.author?.date || commit.date || new Date().toISOString();
+      
       return {
         ...commit,
         category,
         confidence: 0.6,
-        aiReason: 'Keyword-based fallback'
+        aiReason: 'Keyword-based fallback',
+        date: new Date(commitDate) // Ensure date is a Date object
       };
     });
   }

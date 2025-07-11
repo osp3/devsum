@@ -6,7 +6,8 @@ import {
   suggestCommitMessage,
   getAnalysisHistory,
   analyzeCodeQuality,
-  getQualityTrends
+  getQualityTrends,
+  formatCommits
 } from '../controllers/AIController.js';
 import { ensureAuthenticated } from '../middleware/auth.js';
 
@@ -31,6 +32,9 @@ router.post('/task-suggestions', generateTaskSuggestions);
 
 // Suggest improved commit message based on diff
 router.post('/suggest-commit-message', suggestCommitMessage);
+
+// Format commits with AI-powered conventional commit format
+router.post('/format-commits', formatCommits);
 
 // Get analysis history for repository  
 router.get('/history/:repositoryId', getAnalysisHistory);
