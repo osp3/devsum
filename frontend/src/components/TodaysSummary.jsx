@@ -1,36 +1,38 @@
 import React from 'react';
 import { useState, useEffect } from 'react';
 
-
-
-const TodaysSummary = ({ commits, repositoryId, date}) => {
+const TodaysSummary = ({ commits, repositoryId, date }) => {
   const [summary, setSummary] = useState('');
   //const [summaryDate, setSummaryDate]= useState()
 
-
-
-   const summaryData = async () => {
+  const summaryData = async () => {
     try {
-      const response = await fetch(`${import.meta.env.VITE_API_URL}/api/ai/daily-summary`,
-        { method: 'POST',
-         headers: {'Content-Type': 'application/json'},
-         credentials: 'include',
-         body: JSON.stringify({commits: commits, repositoryId: repositoryId, date:date})})
-      
-   // console.log(response.json())
+      const response = await fetch(
+        `${import.meta.env.VITE_API_URL}/api/ai/daily-summary`,
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          credentials: 'include',
+          body: JSON.stringify({
+            commits: commits,
+            repositoryId: repositoryId,
+            date: date,
+          }),
+        }
+      );
+
+      // console.log(response.json())
       const result = await response.json();
-      console.log(result)
+      console.log(result);
       setSummary(result.data.summary);
- 
     } catch (error) {
       return error;
     }
-    
   };
 
-    useEffect(() => {
+  useEffect(() => {
     if (commits && commits.length > 0) {
-      summaryData()
+      summaryData();
     }
   }, [commits, repositoryId, date]);
 
