@@ -31,6 +31,7 @@ const TodaysSummary = ({ commits, repositoryId, date }) => {
   };
 
   useEffect(() => {
+    
     if (commits && commits.length > 0) {
       summaryData();
     }
