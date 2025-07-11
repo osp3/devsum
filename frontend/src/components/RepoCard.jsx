@@ -1,10 +1,18 @@
 import React from 'react';
-import RepoStatus from './RepoStatus.jsx';
 
-const RepoCard = () => {
+const RepoCard = ({ repository }) => {
   return (
-    <div>
-      <RepoStatus />
+    <div
+      style={{
+        border: '1px solid #ccc',
+        padding: '15px',
+        margin: '10px',
+        borderRadius: '5px',
+      }}
+    >
+      <h3>{repository.name}</h3>
+      <p>{repository.description || 'No description'}</p>
+      <small>Language: {repository.language || 'Not specified'}</small>
     </div>
   );
 };
