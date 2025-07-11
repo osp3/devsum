@@ -13,7 +13,7 @@ const Dashboard = () => {
   return (
     <div className='min-h-screen bg-[#1a1928]'>
       <UserHeader />
-      <h1>hello this is the main page</h1>
+     
 
       <div className=' border border-slate-400 rounded-2xl p-4 m-6 max-w-6xl mx-auto'>
         <div className='flex justify-center'>
