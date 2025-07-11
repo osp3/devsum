@@ -7,28 +7,29 @@ import Dashboard from './components/Dashboard.jsx';
 import RepoListing from './components/RepoListing.jsx';
 import RepoAnalytics from './components/RepoAnalytics';
 
-// Simple protected route - just checks auth and redirects if needed
+// Wrapper component that checks authentication before rendering protected pages
 function ProtectedRoute({ children }) {
-  const [isAuthenticated, setIsAuthenticated] = useState(null);
+  const [isAuthenticated, setIsAuthenticated] = useState(null); // null = checking, true/false = result
 
+  // Verify user session on component mount
   useEffect(() => {
     fetch(`${import.meta.env.VITE_API_URL}/auth/me`, { credentials: 'include' })
       .then(response => setIsAuthenticated(response.ok))
       .catch(() => setIsAuthenticated(false));
   }, []);
 
-  if (isAuthenticated === null) return <div>Loading...</div>;
-  if (!isAuthenticated) return <Navigate to="/" replace />;
-  return children;
+  if (isAuthenticated === null) return <div>Loading...</div>; // Still checking auth
+  if (!isAuthenticated) return <Navigate to="/" replace />; // Redirect to login
+  return children; // User is authenticated, show protected content
 }
 
 function App() {
-  // Repository data - shared across Dashboard and Repos pages to avoid duplicate API calls
-  const [repositories, setRepositories] = useState([]);
-  const [selectedRepo, setSelectedRepo] = useState(null); // Persists repo selection across page navigation
-  const [reposLoading, setReposLoading] = useState(false);
-  const [reposError, setReposError] = useState(null);
-  const [isAuthenticated, setIsAuthenticated] = useState(false);
+  // === SHARED STATE - Single source of truth for entire app ===
+  const [repositories, setRepositories] = useState([]); // All user repos - fetched once, cached
+  const [selectedRepo, setSelectedRepo] = useState(null); // Currently selected repo - persists across pages
+  const [reposLoading, setReposLoading] = useState(false); // Loading state for repo fetching
+  const [reposError, setReposError] = useState(null); // Error state for repo fetching
+  const [isAuthenticated, setIsAuthenticated] = useState(false); // Triggers repo fetch when true
 
   // Fetch all user repositories - called once on login, cached for entire session
   const fetchRepositories = async () => {
@@ -65,7 +66,9 @@ function App() {
     }
   };
 
-  // Check if user is already logged in when app loads
+  // === LIFECYCLE HOOKS - App initialization and data fetching ===
+  
+  // Check authentication status on app startup (page load/refresh)
   useEffect(() => {
     const checkAuth = async () => {
       try {
@@ -81,30 +84,32 @@ function App() {
     };
     
     checkAuth();
-  }, []);
+  }, []); // Run once on mount
 
-  // Automatically fetch repositories as soon as user becomes authenticated
+  // Fetch repositories immediately when user becomes authenticated
   useEffect(() => {
     if (isAuthenticated) {
-      fetchRepositories();
+      fetchRepositories(); // Single API call that enables all pages
     }
-  }, [isAuthenticated]);
+  }, [isAuthenticated]); // Run when auth status changes
 
-  // Shared data passed to all pages - enables state persistence across navigation
+  // === PROP DRILLING - Package shared state for all child components ===
   const appContext = {
-    repositories,
-    selectedRepo,
-    setSelectedRepo,
-    reposLoading,
-    reposError,
-    refreshRepositories: fetchRepositories
+    repositories,           // Cached repository data
+    selectedRepo,           // Currently selected repository
+    setSelectedRepo,        // Function to update selected repo
+    reposLoading,           // Loading state for UI feedback
+    reposError,             // Error state for error handling
+    refreshRepositories: fetchRepositories  // Manual refresh function
   };
 
+  // === RENDER - Route definitions with shared state distribution ===
   return (
     <div>
       <Routes>
-        <Route path='/' element={<Login />} />
-        {/* All protected routes receive shared app state as props */}
+        <Route path='/' element={<Login />} /> {/* Public route - no auth required */}
+        
+        {/* Protected routes - all receive shared app state via props */}
         <Route 
           path='/dashboard' 
           element={
