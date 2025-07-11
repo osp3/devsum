@@ -1,6 +1,5 @@
 import { Octokit } from '@octokit/rest';
 import { createGitHubError } from '../utils/errors.js';
-
 /**
  * GitHub API Service
  * Handles all GitHub API interactions with proper error handling and rate limiting
@@ -49,15 +48,22 @@ class GitHubService {
     try {
       const {
         per_page = 20, // Last 20 commits
-        sha = undefined // branch/commit SHA
+        sha = undefined, // branch/commit SHA
+        since,
+        until
       } = options;
 
-      const { data } = await this.octokit.rest.repos.listCommits({
+      // const { data } = await this.octokit.rest.repos.listCommits({
+      const params = {
         owner,
         repo,
         per_page,
         sha
-      });
+      };
+      if (since) params.since = since;
+        if (until) params.until = until;
+
+        const { data } = await this.octokit.rest.repos.listCommits(params);
 
       return data.map(commit => ({
         sha: commit.sha,
