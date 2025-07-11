@@ -96,9 +96,43 @@ const RepoListing = () => {
 
   // RENDER THE COMPONENT - What the user sees on the page
   return (
-     <div>
-      {/* Show user information at the top */}
-      <UserHeader />
+    <div>
+      <div>
+        {/* Show user information at the top */}
+        <UserHeader />
+
+        {/* Show different content based on current state */}
+        {loading ? (
+          // LOADING STATE: Show spinner while fetching data
+          <div style={{ textAlign: 'center', padding: '20px' }}>
+            <p>Loading repositories...</p>
+          </div>
+        ) : error ? (
+          // ERROR STATE: Show error message and retry button
+          <div style={{ textAlign: 'center', padding: '20px' }}>
+            <p style={{ color: 'red' }}>Error: {error}</p>
+            <button onClick={handleRefresh} style={{ marginTop: '10px' }}>
+              Try Again
+            </button>
+          </div>
+        ) : (
+          // SUCCESS STATE: Show the repositories
+          <div>
+            {/* Optional: Add a refresh button at the top */}
+            <div style={{ padding: '20px', textAlign: 'center' }}>
+              <button onClick={handleRefresh}>Refresh Repositories</button>
+              {lastUpdated && (
+                <p style={{ fontSize: '14px', color: '#666' }}>
+                  Last updated: {new Date(lastUpdated).toLocaleString()}
+                </p>
+              )}
+            </div>
+
+            {/* Display the grid of repositories */}
+            <RepoGrid repositories={repositories} />
+          </div>
+        )}
+      </div>
     </div>
   );
 };
