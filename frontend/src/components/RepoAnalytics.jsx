@@ -4,7 +4,14 @@ import RepoHeader from './RepoHeader.jsx';
 import RepoMetricDisplay from './RepoMetricDisplay.jsx';
 import RecentCommits from './RecentCommits.jsx';
 
-const RepoAnalytics = () => {
+const RepoAnalytics = ({ 
+  repositories,        // Array of all user repositories (from App.jsx)
+  selectedRepo,        // Currently selected repository object
+  setSelectedRepo,     // Function to change selected repository
+  reposLoading,        // Boolean: true while fetching repositories
+  reposError,          // String: error message if repo fetch failed
+  refreshRepositories  // Function to manually refresh repository data
+}) => {
   return (
     <div className='min-h-screen bg-[#1a1928]'>
       <h1>repo header</h1>

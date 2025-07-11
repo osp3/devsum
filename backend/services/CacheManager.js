@@ -21,12 +21,12 @@ class CacheManager {
     }
   }
 
-  // Get analysis history
-  async getAnalysisHistory(repositoryId, days = 30) {
+  // Get analysis history for a user
+  async getAnalysisHistory(userId, days = 30) {
     const since = new Date(Date.now() - days * 24 * 60 * 60 * 1000);
 
     const history = await DailySummary.find({
-      repositoryId: repositoryId,
+      userId: userId,
       createdAt: { $gte: since }
     })
     .sort({ date: -1 })

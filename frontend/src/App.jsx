@@ -30,6 +30,11 @@ function App() {
   const [reposLoading, setReposLoading] = useState(false); // Loading state for repo fetching
   const [reposError, setReposError] = useState(null); // Error state for repo fetching
   const [isAuthenticated, setIsAuthenticated] = useState(false); // Triggers repo fetch when true
+  
+  // Daily summary state - cached at app level to persist across navigation
+  const [commitData, setCommitData] = useState(null); // Today's commit summary data
+  const [commitLoading, setCommitLoading] = useState(false); // Loading state for commit fetching
+  const [commitError, setCommitError] = useState(null); // Error state for commit fetching
 
   // Fetch all user repositories - called once on login, cached for entire session
   const fetchRepositories = async () => {
@@ -66,6 +71,41 @@ function App() {
     }
   };
 
+  // Fetch daily commit summary - called once on login, cached for entire session
+  const fetchDailySummary = async (targetDate = new Date()) => {
+    setCommitLoading(true);
+    setCommitError(null);
+    
+    try {
+      const response = await fetch(
+        `${import.meta.env.VITE_API_URL}/api/ai/daily-summary`,
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          credentials: 'include',
+          body: JSON.stringify({
+            date: targetDate.toISOString().split('T')[0],
+          }),
+        }
+      );
+
+      const result = await response.json();
+      
+      if (result.success) {
+        setCommitData(result.data);
+        console.log('Daily commit data cached at app level:', result.data);
+      } else {
+        throw new Error(result.error || 'Failed to fetch commits');
+      }
+    } catch (error) {
+      console.error('Commit fetch error:', error);
+      setCommitError(error.message);
+      setCommitData(null);
+    } finally {
+      setCommitLoading(false);
+    }
+  };
+
   // === LIFECYCLE HOOKS - App initialization and data fetching ===
   
   // Check authentication status on app startup (page load/refresh)
@@ -86,10 +126,11 @@ function App() {
     checkAuth();
   }, []); // Run once on mount
 
-  // Fetch repositories immediately when user becomes authenticated
+  // Fetch repositories and daily summary immediately when user becomes authenticated
   useEffect(() => {
     if (isAuthenticated) {
       fetchRepositories(); // Single API call that enables all pages
+      fetchDailySummary(); // Fetch today's commit summary once and cache it
     }
   }, [isAuthenticated]); // Run when auth status changes
 
@@ -100,7 +141,12 @@ function App() {
     setSelectedRepo,        // Function to update selected repo
     reposLoading,           // Loading state for UI feedback
     reposError,             // Error state for error handling
-    refreshRepositories: fetchRepositories  // Manual refresh function
+    refreshRepositories: fetchRepositories,  // Manual refresh function
+    // Daily summary state - cached at app level
+    commitData,             // Today's commit summary data
+    commitLoading,          // Loading state for commit fetching
+    commitError,            // Error state for commit fetching
+    fetchDailySummary       // Function to refresh daily summary
   };
 
   // === RENDER - Route definitions with shared state distribution ===

@@ -52,7 +52,7 @@ const dailySummarySchema = new mongoose.Schema({
     required: true,
     index: true
   },
-  repositoryId: {
+  userId: {
     type: String,
     required: true,
     index: true
@@ -65,6 +65,16 @@ const dailySummarySchema = new mongoose.Schema({
     type: Number,
     required: true
   },
+  repositoryCount: {
+    type: Number,
+    required: true
+  },
+  repositories: [{
+    id: String,
+    name: String,
+    fullName: String,
+    commitCount: Number
+  }],
   categories: {
     type: mongoose.Schema.Types.Mixed,
     required: true
@@ -146,7 +156,7 @@ const qualityAnalysisSchema = new mongoose.Schema({
 });
 
 // Compound indexes for optimal queries
-dailySummarySchema.index({ date: 1, repositoryId: 1 }, { unique: true });
+dailySummarySchema.index({ date: 1, userId: 1 }, { unique: true });
 taskSuggestionSchema.index({ repositoryId: 1, workSignature: 1, createdAt: 1 });
 // !quality analysis compound index
 qualityAnalysisSchema.index({ repositoryId: 1, analysisDate: 1 }, { unique: true });

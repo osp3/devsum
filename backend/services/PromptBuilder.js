@@ -62,6 +62,48 @@ class PromptBuilder {
       Keep it positive and professional. Start with "Today you..."
       `.trim();
     }
+
+    createMultiRepoSummaryPrompt(commits, repositories) {
+      // Group commits by repository for better organization
+      const commitsByRepo = commits.reduce((acc, commit) => {
+        const repoName = commit.repository.name;
+        if (!acc[repoName]) {
+          acc[repoName] = [];
+        }
+        acc[repoName].push(commit);
+        return acc;
+      }, {});
+
+      // Group all commits by category for overall analysis
+      const categories = this._groupByCategory(commits);
+
+      return `
+      Generate a comprehensive daily summary of development work across multiple repositories.
+      
+      ACTIVITY OVERVIEW:
+      - Total commits: ${commits.length}
+      - Repositories active: ${repositories.length}
+      - Categories: ${Object.keys(categories).join(', ')}
+
+      REPOSITORY BREAKDOWN:
+      ${Object.entries(commitsByRepo).map(([repoName, repoCommits]) => 
+        `${repoName} (${repoCommits.length} commits):\n${repoCommits.map(c => `  - ${c.message}`).join('\n')}`
+      ).join('\n\n')}
+
+      CATEGORY BREAKDOWN:
+      ${Object.entries(categories).map(([cat, commits]) =>
+        `${cat.toUpperCase()}: ${commits.length} commits\n${commits.map(c => `- ${c.message} (${c.repository.name})`).join('\n')}`
+      ).join('\n\n')}
+      
+      Write a 3-4 sentence summary focusing on:
+      - Main accomplishments across all repositories
+      - Types of work done and which repositories were most active
+      - Overall development progress and patterns
+      - Any notable cross-repository themes or focus areas
+      
+      Keep it positive, professional, and insightful. Start with "Today you worked across ${repositories.length} repositories..."
+      `.trim();
+    }
   
     createTaskPrompt(commits) {
       const recentWork = commits.slice(0, 10).map(c => c.message).join('\n- ');

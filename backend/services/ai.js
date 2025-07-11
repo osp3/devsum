@@ -1,9 +1,11 @@
 import OpenAI from 'openai';
 import dotenv from 'dotenv';
 import connectDB from '../config/database.js';
+import GitHubService from './github.js';
 import PromptBuilder from './PromptBuilder.js';
 import CacheManager from './CacheManager.js';
 import QualityAnalyzer from './QualityAnalyzer.js';
+import { formatDailyCommits, generateCommitListSummary } from '../utils/commitFormatter.js';
 import { CommitAnalysis, DailySummary, TaskSuggestion, QualityAnalysis } from '../models/aiModels.js';
 
 dotenv.config();
@@ -85,43 +87,142 @@ class AIService {
       return this._fallbackCategorization(commits);
     }
   }
-  // Generate daily summary with MongoDB caching by date
-  async generateDailySummary(commits, repositoryId, date = new Date()) {
+  // Generate daily user summary across all repositories with MongoDB caching by date
+  async generateDailyUserSummary(userId, accessToken, date = new Date()) {
     await this.init(); // Ensure DB connection
     const dateStr = date.toISOString().split('T')[0]; // yyyy-mm-dd
 
     try {
-      // Check for cached summary for this day
+      // Check for cached summary for this user and day
       const existing = await DailySummary.findOne({
         date: dateStr,
-        repositoryId: repositoryId
+        userId: userId
       }).lean();
 
-      if (existing) {
-        console.log(`Using cached summary for ${dateStr}`);
-        return existing.summary;
+      if (existing && existing.summary) {
+        console.log(`Using cached user summary for ${dateStr}`);
+        
+        // Since we updated the schema, cached results won't have formatted commits
+        // We need to regenerate them from the stored repositories data
+        let formattedCommits = null;
+        
+        if (existing.repositories && existing.repositories.length > 0) {
+          console.log('Regenerating formatted commits from cached data...');
+          
+          // We need to fetch fresh commits to generate formatted data
+          // since cached data doesn't contain full commit details
+          try {
+            const githubService = new GitHubService(accessToken);
+            const { commits } = await githubService.getAllUserCommitsForDate(date, {
+              maxRepos: 50,
+              maxCommitsPerRepo: 10
+            });
+            
+            if (commits.length > 0) {
+              formattedCommits = formatDailyCommits(commits);
+              console.log(`Regenerated ${formattedCommits.total} formatted commits`);
+            }
+          } catch (error) {
+            console.error('Failed to regenerate formatted commits:', error.message);
+            formattedCommits = { total: 0, byRepository: {}, allCommits: [] };
+          }
+        }
+        
+        return {
+          summary: existing.summary,
+          commitCount: existing.commitCount,
+          repositoryCount: existing.repositoryCount,
+          repositories: existing.repositories,
+          formattedCommits: formattedCommits || { total: 0, byRepository: {}, allCommits: [] }
+        };
       }
 
-      // Generate new summary
-      console.log(`Generating summary for ${dateStr}...`);
-      const prompt = this.promptBuilder.createSummaryPrompt(commits);
-      const summary = await this._callOpenAI(prompt);
-
-      // Store in MongoDB
-      await DailySummary.create({
-        date: dateStr,
-        repositoryId: repositoryId,
-        summary: summary,
-        commitCount: commits.length,
-        categories: this._groupByCategory(commits)
+      // Fetch commits from all user repositories for this date
+      console.log(`Generating cross-repository summary for user ${userId} on ${dateStr}...`);
+      const githubService = new GitHubService(accessToken);
+      const { commits, repositories, stats } = await githubService.getAllUserCommitsForDate(date, {
+        maxRepos: 50,
+        maxCommitsPerRepo: 10
       });
 
-      console.log('Daily summary generated and cached');
-      return summary;
+      if (commits.length === 0) {
+        const fallbackSummary = `No commits found across your repositories for ${dateStr}. Take a well-deserved break! 🎉`;
+        
+        // Still cache the empty result to avoid repeated API calls
+        await DailySummary.create({
+          date: dateStr,
+          userId: userId,
+          summary: fallbackSummary,
+          commitCount: 0,
+          repositoryCount: 0,
+          repositories: [],
+          categories: {}
+        });
+
+        return {
+          summary: fallbackSummary,
+          commitCount: 0,
+          repositoryCount: 0,
+          repositories: [],
+          formattedCommits: []
+        };
+      }
+
+      // Format commits in conventional commit format instead of AI generation
+      console.log(`Formatting ${commits.length} commits in conventional format...`);
+      console.log('Sample commit structure:', JSON.stringify(commits[0], null, 2));
+      
+      let formattedCommitData;
+      try {
+        formattedCommitData = formatDailyCommits(commits);
+        console.log('Formatted commit data:', formattedCommitData ? 'Success' : 'Failed - returned null');
+      } catch (error) {
+        console.error('Error formatting commits:', error.message);
+        formattedCommitData = { total: 0, byRepository: {}, allCommits: [] };
+      }
+      
+      const summary = generateCommitListSummary(commits, repositories);
+
+      // Group commits by category for analysis (keep for compatibility)
+      const categories = this._groupByCategory(commits);
+
+      // Store in MongoDB
+      const savedSummary = await DailySummary.create({
+        date: dateStr,
+        userId: userId,
+        summary: summary,
+        commitCount: commits.length,
+        repositoryCount: repositories.length,
+        repositories: repositories,
+        categories: categories
+      });
+
+      console.log(`Daily commit list generated: ${commits.length} commits from ${repositories.length} repositories`);
+      
+      return {
+        summary: summary,
+        commitCount: commits.length,
+        repositoryCount: repositories.length,
+        repositories: repositories,
+        formattedCommits: formattedCommitData
+      };
+
     } catch (error) {
-      console.error('Summary generation failed:', error.message);
-      return this._fallbackSummary(commits);
+      console.error('User summary generation failed:', error.message);
+      return this._fallbackUserSummary(userId, date);
     }
+  }
+
+  // Fallback summary for when generation fails
+  _fallbackUserSummary(userId, date) {
+    const dateStr = date.toISOString().split('T')[0];
+    return {
+      summary: `Unable to generate commit list for ${dateStr}. Please try again later.`,
+      commitCount: 0,
+      repositoryCount: 0,
+      repositories: [],
+      formattedCommits: []
+    };
   }
   // Generate task suggestions with caching
   async generateTaskSuggestions(recentCommits, repositoryId) {

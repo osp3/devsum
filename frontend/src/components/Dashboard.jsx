@@ -6,12 +6,12 @@ import TomorrowsPriorities from './TomorrowsPriorities.jsx';
 import ShowRepoButton from './ShowReposButton.jsx';
 
 const Dashboard = ({
-  repositories, // Array of all user repositories
   selectedRepo, // Currently selected repository object
-  setSelectedRepo, // Function to change selected repository
   reposLoading, // Boolean: true while fetching repositories
-  reposError, // String: error message if repo fetch failed
-  refreshRepositories, // Function to manually refresh repository data
+  commitData,   // Daily commit summary data (cached at app level)
+  commitLoading, // Boolean: true while fetching commits
+  commitError,  // Error message from commit fetching
+  fetchDailySummary, // Function to refresh daily summary
 }) => {
   return (
     <div className="min-h-screen bg-[#1a1928]">
@@ -30,9 +30,10 @@ const Dashboard = ({
       <div className="flex justify-row gap-6 max-w-6xl mx-auto ">
         <div className="flex-3  border border-slate-400 rounded-2xl w-150 h-120 p-4 ">
           <TodaysSummary 
-            repositories={repositories}
-            reposLoading={reposLoading}
-            reposError={reposError}
+            commitData={commitData}
+            commitLoading={commitLoading}
+            commitError={commitError}
+            fetchDailySummary={fetchDailySummary}
           />
         </div>
         <div className="flex-1 border border-slate-400 rounded-2xl w-100 h-120 p-4">

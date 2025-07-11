@@ -45,35 +45,43 @@ export async function analyzeCommits(req, res, next) {
 }
 
 /**
- * Generate daily development summary
+ * Generate daily development summary across all user repositories
  * POST /api/ai/daily-summary
  */
 export async function generateDailySummary(req, res, next) {
   try {
-    const { commits, repositoryId, date } = req.body;
+    const { date } = req.body;
     
-    if (!commits || !repositoryId) {
-      return res.status(400).json({
+    // Get user info from authenticated session
+    if (!req.user || !req.user.accessToken) {
+      return res.status(401).json({
         success: false,
-        error: 'Commits and repositoryId are required'
+        error: 'User authentication and GitHub access token required'
       });
     }
 
-    const summary = await AIService.generateDailySummary(
-      commits, 
-      repositoryId, 
-      date ? new Date(date) : new Date()
+    const targetDate = date ? new Date(date) : new Date();
+    
+    // Generate summary across all user repositories
+    const result = await AIService.generateDailyUserSummary(
+      req.user.id || req.user._id,
+      req.user.accessToken,
+      targetDate
     );
 
     res.json({
       success: true,
       data: {
-        summary,
-        date: date || new Date().toISOString().split('T')[0],
-        commitCount: commits.length
+        summary: result.summary,
+        date: targetDate.toISOString().split('T')[0],
+        commitCount: result.commitCount,
+        repositoryCount: result.repositoryCount,
+        repositories: result.repositories,
+        formattedCommits: result.formattedCommits
       }
     });
   } catch (error) {
+    console.error('Daily summary generation failed:', error);
     res.status(500).json({
       success: false,
       error: 'Failed to generate daily summary'
