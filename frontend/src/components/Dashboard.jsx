@@ -6,12 +6,12 @@ import TomorrowsPriorities from './TomorrowsPriorities.jsx';
 import ShowRepoButton from './ShowReposButton.jsx';
 
 const Dashboard = ({
-  repositories, // Array of all user repositories
+  //repositories, // Array of all user repositories
   selectedRepo, // Currently selected repository object
-  setSelectedRepo, // Function to change selected repository
+ // setSelectedRepo, // Function to change selected repository
   reposLoading, // Boolean: true while fetching repositories
-  reposError, // String: error message if repo fetch failed
-  refreshRepositories, // Function to manually refresh repository data
+  //reposError, // String: error message if repo fetch failed
+  //refreshRepositories, // Function to manually refresh repository data
   yesterdaySummary, // Yesterday's development summary
   summaryLoading, // Loading state for summary
   summaryError, // Error state for summary
@@ -26,6 +26,7 @@ const Dashboard = ({
           <TodaysMetrics
             selectedRepo={selectedRepo}
             reposLoading={reposLoading}
+            yesterdaySummary={yesterdaySummary}
           />
         </div>
       </div>
