@@ -15,17 +15,46 @@ class GitHubService {
   }
 
   /**
-   * Get user's repositories
+   * Get user's repositories with pagination support
    */
   async getUserRepos() {
     try {
-      const { data } = await this.octokit.rest.repos.listForAuthenticatedUser({
-        sort: 'updated',
-        per_page: 100,
-        type: 'all'
-      });
-
-      return data.map(repo => ({
+      const allRepos = [];
+      let page = 1;
+      const perPage = 100;
+      
+      console.log(`🔄 Starting to fetch repositories for user...`);
+      
+      while (true) {
+        const { data } = await this.octokit.rest.repos.listForAuthenticatedUser({
+          sort: 'updated',
+          per_page: perPage,
+          page: page,
+          type: 'all'
+        });
+        
+        console.log(`📥 Fetched ${data.length} repositories from page ${page}`);
+        
+        // Add repos from this page to the total
+        allRepos.push(...data);
+        
+        // If we got less than perPage, we've reached the end
+        if (data.length < perPage) {
+          break;
+        }
+        
+        page++;
+        
+        // Safety check to prevent infinite loops
+        if (page > 50) { // Max 5000 repos (50 pages * 100 per page)
+          console.warn('⚠️  Reached maximum page limit (50) - stopping pagination');
+          break;
+        }
+      }
+      
+      console.log(`✅ Successfully fetched ${allRepos.length} total repositories`);
+      
+      return allRepos.map(repo => ({
         id: repo.id,
         name: repo.name,
         fullName: repo.full_name,
@@ -37,6 +66,7 @@ class GitHubService {
       }));
     } catch (error) {
       console.error('❌ Error fetching repositories:', error.message);
+      console.error('📊 Rate limit info:', await this._logRateLimit());
       throw createGitHubError(error, 'fetching user repositories');
     }
   }
@@ -140,6 +170,26 @@ class GitHubService {
     } catch (error) {
       console.error('❌ Error checking rate limit:', error.message);
       throw createGitHubError(error, 'checking rate limit');
+    }
+  }
+
+  /**
+   * Helper method to log rate limit information for debugging
+   */
+  async _logRateLimit() {
+    try {
+      const { data } = await this.octokit.rest.rateLimit.get();
+      const rateLimitInfo = {
+        limit: data.rate.limit,
+        remaining: data.rate.remaining,
+        reset: new Date(data.rate.reset * 1000),
+        used: data.rate.used
+      };
+      console.log('📊 Current rate limit status:', rateLimitInfo);
+      return rateLimitInfo;
+    } catch (error) {
+      console.error('Failed to get rate limit info:', error.message);
+      return null;
     }
   }
 }

@@ -107,34 +107,58 @@ export async function generateYesterdaySummary(req, res, next) {
   }
 }
 /**
- * Generate task suggestions for tomorrow
+ * Generate task suggestions for tomorrow based on yesterday's AI analysis
  * POST /api/ai/task-suggestions
  */
 export async function generateTaskSuggestions(req, res, next) {
   try {
-    const { recentCommits, repositoryId } = req.body;
+    const { yesterdaySummary } = req.body;
 
-    if (!recentCommits || !repositoryId) {
+    if (!yesterdaySummary) {
       return res.status(400).json({
         success: false,
-        error: 'Recent commits and repositoryId are required',
+        error: 'Yesterday summary is required',
       });
     }
 
+    // Extract commits from the yesterday summary
+    const commits = yesterdaySummary.formattedCommits?.allCommits || [];
+    
+    if (commits.length === 0) {
+      return res.status(400).json({
+        success: false,
+        error: 'No commits found in yesterday summary',
+      });
+    }
+
+    // Use 'ALL_REPOS' as identifier for cross-repository task suggestions
+    const repositoryId = 'ALL_REPOS';
+
     const tasks = await AIService.generateTaskSuggestions(
-      recentCommits,
+      commits,
       repositoryId
     );
 
     res.json({
       success: true,
-      data: tasks,
+      data: {
+        tasks,
+        summary: yesterdaySummary.summary,
+        baseData: {
+          commitCount: commits.length,
+          repositoryCount: yesterdaySummary.repositoryCount,
+          repositories: yesterdaySummary.repositories?.map(r => r.name) || [],
+          aiAnalyzedCommits: commits.filter(c => c.aiAnalysis).length
+        }
+      },
       meta: {
-        baseCommitCount: recentCommits.length,
+        baseCommitCount: commits.length,
         taskCount: tasks.length,
+        aiEnhanced: commits.some(c => c.aiAnalysis)
       },
     });
   } catch (error) {
+    console.error('Task generation error:', error);
     res.status(500).json({
       success: false,
       error: 'Failed to generate task suggestions',

@@ -42,8 +42,7 @@ const Dashboard = ({
         </div>
         <div className="flex-1 border border-slate-400 rounded-2xl w-100 h-120 p-4">
           <TomorrowsPriorities 
-            selectedRepo={selectedRepo}
-            reposLoading={reposLoading}
+            yesterdaySummary={yesterdaySummary}
           />
         </div>
       </div>

@@ -12,16 +12,43 @@ class RepositoryController {
    */
   static async getUserRepositories(req, res, next) {
     try {
-      const { refresh } = req.query; // Check for refresh parameter
-      const githubService = new GitHubService(req.user.accessToken);
-      const repos = await githubService.getUserRepos();
+      const { refresh, force } = req.query; // Check for refresh/force parameters
+      const forceRefresh = refresh || force; // Support both 'refresh' and 'force' parameters
+      const startTime = Date.now();
       
-      // Skip cache update if refresh parameter is provided
-      if (!refresh) {
+      console.log(`🔄 Fetching repositories for user: ${req.user.username} (GitHub ID: ${req.user.githubId})`);
+      console.log(`📊 Request details: refresh=${refresh}, force=${force}, forceRefresh=${forceRefresh}, user agent: ${req.get('user-agent')}`);
+      
+      const githubService = new GitHubService(req.user.accessToken);
+      
+      // Check rate limit before making API calls
+      try {
+        const rateLimit = await githubService.getRateLimit();
+        console.log(`📊 Rate limit for ${req.user.username}: ${rateLimit.remaining}/${rateLimit.limit} remaining`);
+        
+        if (rateLimit.remaining < 10) {
+          console.warn(`⚠️  Low rate limit for ${req.user.username}: ${rateLimit.remaining} remaining`);
+        }
+      } catch (rateLimitError) {
+        console.warn(`⚠️  Could not check rate limit for ${req.user.username}:`, rateLimitError.message);
+      }
+      
+      const repos = await githubService.getUserRepos();
+      const fetchTime = Date.now() - startTime;
+      
+      console.log(`✅ Successfully fetched ${repos.length} repositories for ${req.user.username} in ${fetchTime}ms`);
+      
+      // Log repository breakdown
+      const privateRepos = repos.filter(r => r.private).length;
+      const publicRepos = repos.length - privateRepos;
+      console.log(`📊 Repository breakdown for ${req.user.username}: ${publicRepos} public, ${privateRepos} private`);
+      
+      // Skip cache update if force refresh parameter is provided
+      if (!forceRefresh) {
         // Update user's cached repositories (following single responsibility)
         await RepositoryController._updateUserRepoCache(req.user, repos);
       } else {
-        console.log('🔄 Bypassing repository cache due to refresh parameter');
+        console.log('🔄 Bypassing repository cache due to force refresh parameter');
       }
       
       // Set cache control headers to prevent browser caching
@@ -37,10 +64,23 @@ class RepositoryController {
           repositories: repos,
           total: repos.length,
           lastUpdated: new Date().toISOString(),
-          fromCache: !refresh // Indicate whether data is from cache
+          fromCache: !forceRefresh, // Indicate whether data is from cache
+          fetchTime: fetchTime,
+          breakdown: {
+            public: publicRepos,
+            private: privateRepos
+          }
         }
       });
     } catch (error) {
+      console.error(`❌ Error fetching repositories for ${req.user.username}:`, error.message);
+      console.error(`📊 User details: GitHub ID: ${req.user.githubId}, Username: ${req.user.username}`);
+      console.error(`📊 Error details:`, {
+        status: error.status,
+        message: error.message,
+        stack: error.stack?.split('\n')[0] // Just first line of stack trace
+      });
+      
       const err = error.status 
         ? createGitHubError(error, `fetching repos for ${req.user.username}`)
         : createServerError('Failed to fetch repositories', `user: ${req.user.username}`);

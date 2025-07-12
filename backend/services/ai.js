@@ -26,8 +26,7 @@ const initializeOpenAI = async () => {
   }
 };
 
-// Initialize OpenAI on module load
-initializeOpenAI();
+// OpenAI will be initialized in the init() method to ensure proper async handling
 
 class AIService {
   constructor() {
@@ -40,6 +39,8 @@ class AIService {
   async init() {
     if (!this.initialized) {
       await connectDB();
+      // Ensure OpenAI client is initialized
+      await initializeOpenAI();
       this.initialized = true;
       console.log('AI Service initialized with Mongoose models');
     }
@@ -404,6 +405,139 @@ class AIService {
         estimatedTime: "30 minutes"
       }
     ];
+  }
+
+  // Analyze individual commit diff with AI
+  async analyzeCommitDiff(commit, diff) {
+    await this.init();
+    console.log(`🔍 AI Diff Analysis: Analyzing commit ${commit.sha?.substring(0, 7)} (diff: ${diff.length} chars)`);
+
+    try {
+      const prompt = this._createCommitAnalysisPrompt(commit, diff);
+      const analysis = await this._callOpenAI(prompt);
+      const parsedAnalysis = this._parseCommitAnalysis(analysis);
+
+      console.log(`Analysis complete for ${commit.sha?.substring(0, 7)}: ${parsedAnalysis.suggestedMessage}`);
+      
+      return {
+        diffSize: diff.length,
+        suggestedMessage: parsedAnalysis.suggestedMessage,
+        suggestedDescription: parsedAnalysis.description,
+        commitAnalysis: parsedAnalysis.analysis,
+        confidence: parsedAnalysis.confidence,
+        analysisDate: new Date().toISOString()
+      };
+    } catch (error) {
+      console.error(`Failed to analyze commit ${commit.sha?.substring(0, 7)}:`, error.message);
+      return this._fallbackCommitAnalysis(commit, diff);
+    }
+  }
+
+  // Create prompt for individual commit analysis
+  _createCommitAnalysisPrompt(commit, diff) {
+    const maxDiffLength = 2000;
+    const truncatedDiff = diff.length > maxDiffLength
+      ? diff.slice(0, maxDiffLength) + '\n... (diff truncated for analysis)'
+      : diff;
+
+    return `You are a senior developer analyzing a git commit. Provide a comprehensive analysis including a suggested conventional commit message and description.
+
+COMMIT INFO:
+Original Message: "${commit.message || 'No message'}"
+SHA: ${commit.sha?.substring(0, 7)}
+Author: ${commit.author?.name || 'Unknown'}
+Date: ${commit.date || 'Unknown'}
+
+CODE CHANGES (GIT DIFF):
+${truncatedDiff}
+
+TASKS:
+1. Analyze what this commit actually does
+2. Suggest a better conventional commit message (format: type(scope): description)
+3. Provide a clear description of the changes
+4. Assess the quality/impact of the changes
+
+CONVENTIONAL COMMIT TYPES:
+- feat: new feature
+- fix: bug fix
+- docs: documentation
+- style: formatting, missing semi-colons, etc.
+- refactor: code change that neither fixes a bug nor adds a feature
+- test: adding tests
+- chore: updating build tasks, package manager configs, etc.
+
+IMPORTANT: Respond using ONLY raw JSON. Do NOT use markdown code blocks. Send the JSON object directly without any backticks.
+
+Expected JSON format:
+{
+  "suggestedMessage": "feat(auth): add JWT token validation middleware",
+  "description": "Implements JWT token validation middleware for API route protection, including error handling and token expiration checks",
+  "analysis": "This commit adds important security infrastructure by implementing JWT validation. The middleware properly handles token verification, expiration, and error cases. Good separation of concerns and error handling.",
+  "confidence": 0.9,
+  "impact": "medium",
+  "quality": "high"
+}`.trim();
+  }
+
+  // Parse commit analysis response
+  _parseCommitAnalysis(response) {
+    try {
+      const parsed = JSON.parse(response);
+      return {
+        suggestedMessage: parsed.suggestedMessage || 'chore: update code',
+        description: parsed.description || 'Code changes made',
+        analysis: parsed.analysis || 'Commit analyzed',
+        confidence: parsed.confidence || 0.5,
+        impact: parsed.impact || 'low',
+        quality: parsed.quality || 'medium'
+      };
+    } catch (error) {
+      console.error('Failed to parse commit analysis:', error.message);
+      return {
+        suggestedMessage: 'chore: update code',
+        description: 'Code changes made',
+        analysis: 'Unable to analyze commit',
+        confidence: 0.3,
+        impact: 'low',
+        quality: 'unknown'
+      };
+    }
+  }
+
+  // Fallback commit analysis
+  _fallbackCommitAnalysis(commit, diff) {
+    const diffSize = diff.length;
+    const message = commit.message || 'No message';
+    
+    // Simple heuristics for fallback analysis
+    let suggestedType = 'chore';
+    let description = 'Code changes made';
+    
+    if (message.toLowerCase().includes('fix') || message.toLowerCase().includes('bug')) {
+      suggestedType = 'fix';
+      description = 'Bug fixes and corrections';
+    } else if (message.toLowerCase().includes('feat') || message.toLowerCase().includes('add')) {
+      suggestedType = 'feat';
+      description = 'New feature or functionality added';
+    } else if (message.toLowerCase().includes('refactor') || message.toLowerCase().includes('clean')) {
+      suggestedType = 'refactor';
+      description = 'Code refactoring and improvements';
+    } else if (message.toLowerCase().includes('doc')) {
+      suggestedType = 'docs';
+      description = 'Documentation updates';
+    } else if (message.toLowerCase().includes('test')) {
+      suggestedType = 'test';
+      description = 'Testing updates';
+    }
+
+    return {
+      diffSize,
+      suggestedMessage: `${suggestedType}: ${message.split('\n')[0].slice(0, 50)}`,
+      suggestedDescription: description,
+      commitAnalysis: `Fallback analysis: ${suggestedType} commit with ${diffSize} characters of changes`,
+      confidence: 0.4,
+      analysisDate: new Date().toISOString()
+    };
   }
 }
 
