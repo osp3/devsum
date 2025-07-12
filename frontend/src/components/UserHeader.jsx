@@ -1,9 +1,34 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 
 const UserHeader = () => {
   const [isLoggingOut, setIsLoggingOut] = useState(false);
+  const [user, setUser] = useState(null);
   const navigate = useNavigate();
+
+  // Fetch user data from /auth/me endpoint
+  useEffect(() => {
+    const fetchUserData = async () => {
+      try {
+        const response = await fetch(`${import.meta.env.VITE_API_URL}/auth/me`, {
+          credentials: 'include',
+        });
+        
+        if (response.ok) {
+          const userData = await response.json();
+          console.log('👤 User data fetched:', userData);
+          // The backend returns { success: true, user: {...} }, so extract the user object
+          setUser(userData.user);
+        } else {
+          console.warn('⚠️  Failed to fetch user data');
+        }
+      } catch (error) {
+        console.error('❌ Error fetching user data:', error);
+      }
+    };
+
+    fetchUserData();
+  }, []);
 
   const handleLogout = async () => {
     setIsLoggingOut(true);
@@ -21,10 +46,28 @@ const UserHeader = () => {
     }
   };
 
+  // Get display name from user data
+  const getDisplayName = () => {
+    if (!user) return '';
+    return user.displayName || user.fullName || user.name || user.username || 'User';
+  };
+
   return (
     <div className="bg-[#2d2b3e] border-b border-slate-600 p-4">
       <div className="max-w-6xl mx-auto flex justify-between items-center">
-        <h2 className="text-white text-xl font-semibold">DevSum Dashboard</h2>
+        <div className="flex items-center gap-4">
+          {/* Enhanced logo with blue accent */}
+          <h2 className="text-white text-xl font-semibold">
+            Dev<span className="text-blue-400">Sum</span>
+          </h2>
+          
+          {/* Welcome message with user's name */}
+          {user && (
+            <span className="text-gray-300 text-sm">
+              Welcome back, {getDisplayName()}!
+            </span>
+          )}
+        </div>
         
         <div className="flex gap-3">
           <button
