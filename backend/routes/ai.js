@@ -6,7 +6,8 @@ import {
   suggestCommitMessage,
   getAnalysisHistory,
   analyzeCodeQuality,
-  getQualityTrends
+  getQualityTrends,
+  generateYesterdaySummary
 } from '../controllers/AIController.js';
 import { ensureAuthenticated } from '../middleware/auth.js';
 
@@ -25,6 +26,9 @@ router.post('/analyze-commits', analyzeCommits);
 
 // Generate daily development summary
 router.post('/daily-summary', generateDailySummary);
+
+//generate previous day summary for all repositories
+router.post('/yesterday-summary', generateYesterdaySummary);
 
 // Generate task suggestions based on recent work
 router.post('/task-suggestions', generateTaskSuggestions);

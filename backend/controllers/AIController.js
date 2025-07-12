@@ -1,4 +1,6 @@
 import AIService from '../services/ai.js';
+import GithubService from '../services/github.js';
+import { YesterdaySummaryService } from '../services/YesterdaySummaryService.js';
 
 /**
  * AI Controller - Plain Functions
@@ -12,11 +14,11 @@ import AIService from '../services/ai.js';
 export async function analyzeCommits(req, res, next) {
   try {
     const { commits } = req.body;
-    
+
     if (!commits || !Array.isArray(commits)) {
       return res.status(400).json({
         success: false,
-        error: 'Commits array is required'
+        error: 'Commits array is required',
       });
     }
 
@@ -33,13 +35,13 @@ export async function analyzeCommits(req, res, next) {
       data: analysis,
       meta: {
         totalCommits: analysis.length,
-        categories
-      }
+        categories,
+      },
     });
   } catch (error) {
     res.status(500).json({
       success: false,
-      error: 'Failed to analyze commits'
+      error: 'Failed to analyze commits',
     });
   }
 }
@@ -51,17 +53,17 @@ export async function analyzeCommits(req, res, next) {
 export async function generateDailySummary(req, res, next) {
   try {
     const { commits, repositoryId, date } = req.body;
-    
+
     if (!commits || !repositoryId) {
       return res.status(400).json({
         success: false,
-        error: 'Commits and repositoryId are required'
+        error: 'Commits and repositoryId are required',
       });
     }
 
     const summary = await AIService.generateDailySummary(
-      commits, 
-      repositoryId, 
+      commits,
+      repositoryId,
       date ? new Date(date) : new Date()
     );
 
@@ -70,17 +72,31 @@ export async function generateDailySummary(req, res, next) {
       data: {
         summary,
         date: date || new Date().toISOString().split('T')[0],
-        commitCount: commits.length
-      }
+        commitCount: commits.length,
+      },
     });
   } catch (error) {
     res.status(500).json({
       success: false,
-      error: 'Failed to generate daily summary'
+      error: 'Failed to generate daily summary',
     });
   }
 }
 
+// testing stuff out my end(erik)
+export async function generateYesterdaySummary(req, res, next) {
+  try {
+    const summaryService = new YesterdaySummaryService(req.user.accessToken);
+    const result = await summaryService.generateSummary();
+    res.json({ success: true, data: result });
+  } catch (error) {
+    console.error('Failed to generate yesterday summary:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to generate yesterdays summary'
+    });
+  }
+}
 /**
  * Generate task suggestions for tomorrow
  * POST /api/ai/task-suggestions
@@ -88,28 +104,31 @@ export async function generateDailySummary(req, res, next) {
 export async function generateTaskSuggestions(req, res, next) {
   try {
     const { recentCommits, repositoryId } = req.body;
-    
+
     if (!recentCommits || !repositoryId) {
       return res.status(400).json({
         success: false,
-        error: 'Recent commits and repositoryId are required'
+        error: 'Recent commits and repositoryId are required',
       });
     }
 
-    const tasks = await AIService.generateTaskSuggestions(recentCommits, repositoryId);
+    const tasks = await AIService.generateTaskSuggestions(
+      recentCommits,
+      repositoryId
+    );
 
     res.json({
       success: true,
       data: tasks,
       meta: {
         baseCommitCount: recentCommits.length,
-        taskCount: tasks.length
-      }
+        taskCount: tasks.length,
+      },
     });
   } catch (error) {
     res.status(500).json({
       success: false,
-      error: 'Failed to generate task suggestions'
+      error: 'Failed to generate task suggestions',
     });
   }
 }
@@ -121,15 +140,19 @@ export async function generateTaskSuggestions(req, res, next) {
 export async function suggestCommitMessage(req, res, next) {
   try {
     const { diffContent, currentMessage = '', repositoryId } = req.body;
-    
+
     if (!diffContent) {
       return res.status(400).json({
         success: false,
-        error: 'Diff content is required'
+        error: 'Diff content is required',
       });
     }
 
-    const suggestion = await AIService.suggestCommitMessage(diffContent, currentMessage, repositoryId);
+    const suggestion = await AIService.suggestCommitMessage(
+      diffContent,
+      currentMessage,
+      repositoryId
+    );
 
     res.json({
       success: true,
@@ -137,13 +160,13 @@ export async function suggestCommitMessage(req, res, next) {
       meta: {
         diffSize: diffContent.length,
         hasOriginalMessage: !!currentMessage,
-        repositoryId: repositoryId || null
-      }
+        repositoryId: repositoryId || null,
+      },
     });
   } catch (error) {
     res.status(500).json({
       success: false,
-      error: 'Failed to suggest commit message'
+      error: 'Failed to suggest commit message',
     });
   }
 }
@@ -156,15 +179,18 @@ export async function getAnalysisHistory(req, res, next) {
   try {
     const { repositoryId } = req.params;
     const { days = 30 } = req.query;
-    
+
     if (!repositoryId) {
       return res.status(400).json({
         success: false,
-        error: 'Repository ID is required'
+        error: 'Repository ID is required',
       });
     }
 
-    const history = await AIService.getAnalysisHistory(repositoryId, parseInt(days));
+    const history = await AIService.getAnalysisHistory(
+      repositoryId,
+      parseInt(days)
+    );
 
     res.json({
       success: true,
@@ -172,13 +198,13 @@ export async function getAnalysisHistory(req, res, next) {
       meta: {
         repositoryId,
         daysRequested: parseInt(days),
-        summariesFound: history.length
-      }
+        summariesFound: history.length,
+      },
     });
   } catch (error) {
     res.status(500).json({
       success: false,
-      error: 'Failed to retrieve analysis history'
+      error: 'Failed to retrieve analysis history',
     });
   }
 }
@@ -189,19 +215,24 @@ export async function getAnalysisHistory(req, res, next) {
  */
 export async function analyzeCodeQuality(req, res, next) {
   try {
-    const { commits, repositoryId, timeframe = 'weekly', repositoryFullName } = req.body;
-    
+    const {
+      commits,
+      repositoryId,
+      timeframe = 'weekly',
+      repositoryFullName,
+    } = req.body;
+
     if (!commits || !repositoryId) {
       return res.status(400).json({
         success: false,
-        error: 'Commits and repositoryId are required'
+        error: 'Commits and repositoryId are required',
       });
     }
 
     const qualityAnalysis = await AIService.analyzeCodeQuality(
-      commits, 
-      repositoryId, 
-      timeframe, 
+      commits,
+      repositoryId,
+      timeframe,
       repositoryFullName
     );
 
@@ -212,13 +243,13 @@ export async function analyzeCodeQuality(req, res, next) {
         commitsAnalyzed: commits.length,
         repositoryId,
         timeframe,
-        hasCodeAnalysis: !!repositoryFullName
-      }
+        hasCodeAnalysis: !!repositoryFullName,
+      },
     });
   } catch (error) {
     res.status(500).json({
       success: false,
-      error: 'Failed to analyze code quality'
+      error: 'Failed to analyze code quality',
     });
   }
 }
@@ -231,28 +262,31 @@ export async function getQualityTrends(req, res, next) {
   try {
     const { repositoryId } = req.params;
     const { days = 30 } = req.query;
-    
+
     if (!repositoryId) {
       return res.status(400).json({
         success: false,
-        error: 'Repository ID is required'
+        error: 'Repository ID is required',
       });
     }
 
-    const trends = await AIService.getQualityTrends(repositoryId, parseInt(days));
+    const trends = await AIService.getQualityTrends(
+      repositoryId,
+      parseInt(days)
+    );
 
     res.json({
       success: true,
       data: trends,
       meta: {
         repositoryId,
-        daysAnalyzed: parseInt(days)
-      }
+        daysAnalyzed: parseInt(days),
+      },
     });
   } catch (error) {
     res.status(500).json({
       success: false,
-      error: 'Failed to get quality trends'
+      error: 'Failed to get quality trends',
     });
   }
-} 
+}
