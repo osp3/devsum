@@ -15,7 +15,7 @@ const RepoHeader = () => {
       </div>
 
       <div className=' border border-slate-400 rounded-2xl p-4 m-6 max-w-6xl mx-auto'>
-        <hi> Analysis complete repoName</hi>
+        <h1> Analysis complete repoName</h1>
       </div>
     </div>
   );
@@ -24,5 +24,5 @@ const RepoHeader = () => {
 export default RepoHeader;
 
 <div className=' border border-slate-400 rounded-2xl p-4 m-6 max-w-6xl '>
-  <hi> Analysis complete for repoName</hi>
+  <h1> Analysis complete for repoName</h1>
 </div>;
