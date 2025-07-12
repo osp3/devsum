@@ -1,21 +1,16 @@
 import React from 'react';
 //import { useState, useEffect } from 'react'
 
-const RepoHeader = () => {
-  // const [repo, setRepo]=useState('')
-
-  // useEffect(()=>{
-
-  // },[])
+const RepoHeader = ({
+    yesterdaySummary
+}) => {
+  if (!yesterdaySummary) return <div className='p-4 text-gray-400'>No  name available</div>;
 
   return (
     <div className='flex flex-col'>
-      <div className='flex  justify-col rounded-2xl p-4 m-6 max-w-6xl mx-auto'>
-        How Im I getting github repos here
-      </div>
-
+    
       <div className=' border border-slate-400 rounded-2xl p-4 m-6 max-w-6xl mx-auto'>
-        <h1> Analysis complete repoName</h1>
+        <h1>Name of repo being analyze</h1>
       </div>
     </div>
   );
@@ -23,6 +18,4 @@ const RepoHeader = () => {
 
 export default RepoHeader;
 
-<div className=' border border-slate-400 rounded-2xl p-4 m-6 max-w-6xl '>
-  <h1> Analysis complete for repoName</h1>
-</div>;
+

@@ -4,19 +4,24 @@ import RepoHeader from './RepoHeader.jsx';
 import RepoMetricDisplay from './RepoMetricDisplay.jsx';
 import RecentCommits from './RecentCommits.jsx';
 
-const RepoAnalytics = () => {
+const RepoAnalytics = ({
+  yesterdaySummary
+}) => {
   return (
     <div className='min-h-screen bg-[#1a1928]'>
-      <h1>repo header</h1>
+      
       <UserHeader />
 
       <div className='flex justify-center'>
-        <RepoHeader />
+        <RepoHeader yesterdaySummary={yesterdaySummary} />
       </div>
 
-      <div className='flex flex-col  items-center  border border-slate-400   rounded-2xl  p-4 gap-6 max-w-6xl mx-auto '>
+      <div className='  items-center  border border-slate-400   rounded-2xl  p-4 gap-6 max-w-6xl mx-auto '>
         <RepoMetricDisplay />
+        
+        <div className = 'flex flex-col border-slate-400 rounded-2xl  p-4'>
         <RecentCommits />
+        </div>
       </div>
     </div>
   );
