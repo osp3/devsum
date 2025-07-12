@@ -33,9 +33,10 @@ export class YesterdaySummaryService {
 
   /**
    * Generate complete yesterday summary with MongoDB caching
+   * @param {boolean} skipCache - Whether to skip cache and generate fresh data
    * @returns {Object} Complete summary data
    */
-  async generateSummary() {
+  async generateSummary(skipCache = false) {
     await this.init(); // Ensure DB connection
     
     const { start, end } = getYesterdayRange();
@@ -43,28 +44,32 @@ export class YesterdaySummaryService {
     const repositoryId = 'ALL_REPOS'; // Special identifier for cross-repository summaries
 
     try {
-      // Check for cached summary for yesterday
-      const existing = await DailySummary.findOne({
-        date: dateStr,
-        repositoryId: repositoryId
-      }).lean();
+      // Check for cached summary for yesterday (skip if refresh requested)
+      if (!skipCache) {
+        const existing = await DailySummary.findOne({
+          date: dateStr,
+          repositoryId: repositoryId
+        }).lean();
 
-      if (existing) {
-        console.log(`Using cached yesterday summary for ${dateStr}`);
-        
-        // Return cached data in the expected format
-        return {
-          summary: existing.summary,
-          date: existing.date,
-          commitCount: existing.commitCount,
-          repositoryCount: existing.repositoryCount,
-          repositories: existing.repositories || [],
-          formattedCommits: existing.formattedCommits || { total: existing.commitCount, byRepository: {}, allCommits: [] }
-        };
+        if (existing) {
+          console.log(`✅ Using cached yesterday summary for ${dateStr}`);
+          
+          // Return cached data in the expected format
+          return {
+            summary: existing.summary,
+            date: existing.date,
+            commitCount: existing.commitCount,
+            repositoryCount: existing.repositoryCount,
+            repositories: existing.repositories || [],
+            formattedCommits: existing.formattedCommits || { total: existing.commitCount, byRepository: {}, allCommits: [] }
+          };
+        }
+      } else {
+        console.log(`🔄 Bypassing cache for yesterday summary (refresh requested)`);
       }
 
-      // Generate new summary if not cached
-      console.log(`Generating new yesterday summary for ${dateStr}...`);
+      // Generate new summary if not cached or refresh requested
+      console.log(`🔄 Generating fresh yesterday summary for ${dateStr}...`);
       const repos = await this.githubService.getUserRepos();
       const { commits, repositoryData } = await this.fetchAllCommits(repos, start, end);
       
@@ -80,26 +85,35 @@ export class YesterdaySummaryService {
         formattedCommits
       };
 
-      // Store in MongoDB for future caching
-      await DailySummary.create({
-        date: dateStr,
-        repositoryId: repositoryId,
-        summary: summaryText,
-        commitCount: commits.length,
-        repositoryCount: repositoryData.length,
-        repositories: repositoryData,
-        formattedCommits: formattedCommits,
-        categories: this._groupByCategory(commits)
-      });
+      // Store in MongoDB for future caching (regardless of refresh mode)
+      try {
+        await DailySummary.create({
+          date: dateStr,
+          repositoryId: repositoryId,
+          summary: summaryText,
+          commitCount: commits.length,
+          repositoryCount: repositoryData.length,
+          repositories: repositoryData,
+          formattedCommits: formattedCommits,
+          categories: this._groupByCategory(commits)
+        });
+        console.log(`💾 Fresh yesterday summary generated and cached for ${dateStr}`);
+      } catch (cacheError) {
+        // Handle duplicate key error (cache already exists)
+        if (cacheError.code === 11000) {
+          console.log(`📝 Cache entry already exists for ${dateStr}, skipping cache update`);
+        } else {
+          console.error('Cache storage error:', cacheError.message);
+        }
+      }
 
-      console.log(`Yesterday summary generated and cached for ${dateStr}`);
       return summaryData;
 
     } catch (error) {
       console.error('Failed to generate yesterday summary:', error.message);
       
       // Fallback: generate without caching
-      console.log('Falling back to non-cached generation...');
+      console.log('🔄 Falling back to non-cached generation...');
       const repos = await this.githubService.getUserRepos();
       const { commits, repositoryData } = await this.fetchAllCommits(repos, start, end);
       
