@@ -1,5 +1,6 @@
 import AIService from '../services/ai.js';
 import GithubService from '../services/github.js';
+import { YesterdaySummaryService } from '../services/YesterdaySummaryService.js';
 
 /**
  * AI Controller - Plain Functions
@@ -85,45 +86,14 @@ export async function generateDailySummary(req, res, next) {
 // testing stuff out my end(erik)
 export async function generateYesterdaySummary(req, res, next) {
   try {
-    const githubService = new GithubService(req.user.accessToken);
-    const repos = await githubService.getUserRepos();
-
-    const yesterday = new Date();
-    yesterday.setDate(yesterday.getDate() - 1);
-    const start = new Date(yesterday);
-    start.setUTCHours(0, 0, 0, 0);
-    const end = new Date(yesterday);
-    end.setUTCHours(23, 59, 59, 999);
-
-    const summaries = [];
-    for (const repo of repos) {
-      const [owner, name] = repo.fullName.split('/');
-      const commits = await githubService.getCommits(owner, name, {
-        per_page: 20,
-        since: start.toISOString(),
-        until: end.toISOString(),
-      });
-      if (commits.length > 0) {
-        const summary = await AIService.generateDailySummary(
-          commits,
-          repo.id,
-          start
-        );
-        summaries.push({ repository: repo.fullName, summary });
-      }
-    }
-
-    res.json({
-      success: true,
-      data: {
-        date: start.toISOString().split('T')[0],
-        summaries,
-      },
-    });
+    const summaryService = new YesterdaySummaryService(req.user.accessToken);
+    const result = await summaryService.generateSummary();
+    res.json({ success: true, data: result });
   } catch (error) {
+    console.error('Failed to generate yesterday summary:', error);
     res.status(500).json({
       success: false,
-      error: 'Failed to generate yesterdays summary',
+      error: 'Failed to generate yesterdays summary'
     });
   }
 }

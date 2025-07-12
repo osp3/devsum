@@ -68,6 +68,22 @@ const dailySummarySchema = new mongoose.Schema({
   categories: {
     type: mongoose.Schema.Types.Mixed,
     required: true
+  },
+  // Additional fields for yesterday summary caching
+  repositoryCount: {
+    type: Number,
+    required: false // Optional for backward compatibility
+  },
+  repositories: [{
+    id: String,
+    name: String,
+    fullName: String,
+    commitCount: Number,
+    _id: String
+  }],
+  formattedCommits: {
+    type: mongoose.Schema.Types.Mixed,
+    required: false // Optional for backward compatibility
   }
 }, {
   timestamps: true

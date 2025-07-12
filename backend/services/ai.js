@@ -14,7 +14,7 @@ dotenv.config();
 // });
 //! trying new initialize for open AI, only if AI key provided(error handling)
 let openai = null;
-if (process.env.OPENAI._API_KEY) {
+if (process.env.OPENAI_API_KEY) {
   openai = new OpenAI({
     apiKey: process.env.OPENAI_API_KEY
   });

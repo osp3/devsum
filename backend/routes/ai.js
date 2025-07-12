@@ -28,7 +28,7 @@ router.post('/analyze-commits', analyzeCommits);
 router.post('/daily-summary', generateDailySummary);
 
 //generate previous day summary for all repositories
-router.get('/yesterday-summary', generateYesterdaySummary);
+router.post('/yesterday-summary', generateYesterdaySummary);
 
 // Generate task suggestions based on recent work
 router.post('/task-suggestions', generateTaskSuggestions);
