@@ -8,17 +8,9 @@ import RepoListing from './components/RepoListing.jsx';
 import RepoAnalytics from './components/RepoAnalytics';
 
 // Wrapper component that checks authentication before rendering protected pages
-function ProtectedRoute({ children }) {
-  const [isAuthenticated, setIsAuthenticated] = useState(null); // null = checking, true/false = result
-
-  // Verify user session on component mount
-  useEffect(() => {
-    fetch(`${import.meta.env.VITE_API_URL}/auth/me`, { credentials: 'include' })
-      .then(response => setIsAuthenticated(response.ok))
-      .catch(() => setIsAuthenticated(false));
-  }, []);
-
-  if (isAuthenticated === null) return <div>Loading...</div>; // Still checking auth
+function ProtectedRoute({ children, isAuthenticated, isLoading }) {
+  // Use the centralized authentication state instead of making separate calls
+  if (isLoading) return <div>Loading...</div>; // Still checking auth
   if (!isAuthenticated) return <Navigate to="/" replace />; // Redirect to login
   return children; // User is authenticated, show protected content
 }
@@ -30,6 +22,7 @@ function App() {
   const [reposLoading, setReposLoading] = useState(false); // Loading state for repo fetching
   const [reposError, setReposError] = useState(null); // Error state for repo fetching
   const [isAuthenticated, setIsAuthenticated] = useState(false); // Triggers repo fetch when true
+  const [authLoading, setAuthLoading] = useState(true); // Loading state for authentication check
   
   // Yesterday's summary state
   const [yesterdaySummary, setYesterdaySummary] = useState(null); // Yesterday's development summary
@@ -108,7 +101,7 @@ function App() {
 
   // === LIFECYCLE HOOKS - App initialization and data fetching ===
   
-  // Check authentication status on app startup (page load/refresh)
+  // Check authentication status on app startup (page load/refresh) - SINGLE SOURCE OF TRUTH
   useEffect(() => {
     const checkAuth = async () => {
       try {
@@ -120,6 +113,8 @@ function App() {
       } catch (error) {
         console.error('Authentication check failed:', error);
         setIsAuthenticated(false);
+      } finally {
+        setAuthLoading(false); // Authentication check complete
       }
     };
     
@@ -159,7 +154,7 @@ function App() {
         <Route 
           path='/dashboard' 
           element={
-            <ProtectedRoute>
+            <ProtectedRoute isAuthenticated={isAuthenticated} isLoading={authLoading}>
               <Dashboard {...appContext} />
             </ProtectedRoute>
           } 
@@ -167,7 +162,7 @@ function App() {
         <Route 
           path='/repositories' 
           element={
-            <ProtectedRoute>
+            <ProtectedRoute isAuthenticated={isAuthenticated} isLoading={authLoading}>
               <RepoListing {...appContext} />
             </ProtectedRoute>
           } 
@@ -175,7 +170,7 @@ function App() {
         <Route 
           path='/repository' 
           element={
-            <ProtectedRoute>
+            <ProtectedRoute isAuthenticated={isAuthenticated} isLoading={authLoading}>
               <RepoAnalytics {...appContext} />
             </ProtectedRoute>
           } 
