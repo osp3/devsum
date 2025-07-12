@@ -12,18 +12,25 @@ class RepositoryController {
    */
   static async getUserRepositories(req, res, next) {
     try {
+      const { refresh } = req.query; // Check for refresh parameter
       const githubService = new GitHubService(req.user.accessToken);
       const repos = await githubService.getUserRepos();
       
-      // Update user's cached repositories (following single responsibility)
-      await RepositoryController._updateUserRepoCache(req.user, repos);
+      // Skip cache update if refresh parameter is provided
+      if (!refresh) {
+        // Update user's cached repositories (following single responsibility)
+        await RepositoryController._updateUserRepoCache(req.user, repos);
+      } else {
+        console.log('🔄 Bypassing repository cache due to refresh parameter');
+      }
       
       res.json({
         success: true,
         data: {
           repositories: repos,
           total: repos.length,
-          lastUpdated: new Date().toISOString()
+          lastUpdated: new Date().toISOString(),
+          fromCache: !refresh // Indicate whether data is from cache
         }
       });
     } catch (error) {
