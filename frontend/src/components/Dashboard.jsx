@@ -23,7 +23,7 @@ const Dashboard = ({
      
 
       <div className=" border border-slate-400 rounded-2xl p-4 m-6 max-w-6xl mx-auto">
-        <div className="flex justify-center">
+        <div className="flex-1 justify-center">
           <TodaysMetrics 
             selectedRepo={selectedRepo}
             reposLoading={reposLoading}
