@@ -30,6 +30,11 @@ function App() {
   const [reposLoading, setReposLoading] = useState(false); // Loading state for repo fetching
   const [reposError, setReposError] = useState(null); // Error state for repo fetching
   const [isAuthenticated, setIsAuthenticated] = useState(false); // Triggers repo fetch when true
+  
+  // Yesterday's summary state
+  const [yesterdaySummary, setYesterdaySummary] = useState(null); // Yesterday's development summary
+  const [summaryLoading, setSummaryLoading] = useState(false); // Loading state for summary
+  const [summaryError, setSummaryError] = useState(null); // Error state for summary
 
   // Fetch all user repositories - called once on login, cached for entire session
   const fetchRepositories = async () => {
@@ -66,6 +71,41 @@ function App() {
     }
   };
 
+  // Fetch yesterday's development summary - called once on login
+  const fetchYesterdaySummary = async () => {
+    setSummaryLoading(true);
+    setSummaryError(null);
+    
+    try {
+      const response = await fetch(
+        `${import.meta.env.VITE_API_URL}/api/ai/yesterday-summary`,
+        { 
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          credentials: 'include',
+          body: JSON.stringify({}) // Empty body - defaults to yesterday
+        }
+      );
+      
+      if (!response.ok) {
+        throw new Error(`Failed to fetch yesterday's summary: ${response.status}`);
+      }
+      
+      const data = await response.json();
+      
+      if (data.success) {
+        setYesterdaySummary(data.data);
+      } else {
+        throw new Error('Failed to load yesterday\'s summary');
+      }
+    } catch (error) {
+      console.error('Yesterday summary fetch error:', error);
+      setSummaryError(error.message);
+    } finally {
+      setSummaryLoading(false);
+    }
+  };
+
   // === LIFECYCLE HOOKS - App initialization and data fetching ===
   
   // Check authentication status on app startup (page load/refresh)
@@ -86,10 +126,12 @@ function App() {
     checkAuth();
   }, []); // Run once on mount
 
-  // Fetch repositories immediately when user becomes authenticated
+  // Fetch repositories and yesterday's summary when user becomes authenticated
   useEffect(() => {
     if (isAuthenticated) {
-      fetchRepositories(); // Single API call that enables all pages
+      // Fetch both repositories and yesterday's summary in parallel
+      fetchRepositories();
+      fetchYesterdaySummary();
     }
   }, [isAuthenticated]); // Run when auth status changes
 
@@ -100,7 +142,11 @@ function App() {
     setSelectedRepo,        // Function to update selected repo
     reposLoading,           // Loading state for UI feedback
     reposError,             // Error state for error handling
-    refreshRepositories: fetchRepositories  // Manual refresh function
+    refreshRepositories: fetchRepositories,  // Manual refresh function
+    yesterdaySummary,       // Yesterday's development summary
+    summaryLoading,         // Loading state for summary
+    summaryError,           // Error state for summary
+    refreshSummary: fetchYesterdaySummary  // Manual refresh function for summary
   };
 
   // === RENDER - Route definitions with shared state distribution ===

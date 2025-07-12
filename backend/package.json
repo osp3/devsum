@@ -7,7 +7,9 @@
   "scripts": {
     "dev": "nodemon server.js",
     "start": "node server.js",
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "test-caching": "node test-yesterday-caching.js",
+    "clear-cache": "node clear-yesterday-cache.js"
   },
   "keywords": [
     "express",
