@@ -2,26 +2,22 @@ import React from 'react';
 import UserHeader from './UserHeader';
 import RepoGrid from './RepoGrid.jsx';
 
-// Receives shared repository data from App.jsx - no more local fetching needed
-const RepoListing = ({ 
-  repositories,        // Array of all user repositories (from App.jsx)
-  selectedRepo,        // Currently selected repository object
-  setSelectedRepo,     // Function to change selected repository
-  reposLoading,        // Boolean: true while fetching repositories
-  reposError,          // String: error message if repo fetch failed
-  refreshRepositories  // Function to manually refresh repository data
+// RepoListing serves as a container for the repositories page
+// Props:
+// repositories: array of GitHub repository objects fetched from API
+// setSelectedRepo: function to update selected repository in App.jsx state
+const RepoListing = ({
+  repositories, // array of all user repositories (from App.jsx)
+  setSelectedRepo, // function to change selected repository
 }) => {
-
-  // Handle repository selection - updates shared state in App.jsx
-  const handleRepoSelect = (repo) => {
-    setSelectedRepo(repo);
-  };
+  console.log('RepoListing received setSelectedRepo:', typeof setSelectedRepo);
 
   // RENDER THE COMPONENT - What the user sees on the page
   return (
     <div>
       {/* Show user information at the top */}
       <UserHeader />
+      <RepoGrid repositories={repositories} setSelectedRepo={setSelectedRepo} />
     </div>
   );
 };

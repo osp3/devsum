@@ -45,10 +45,10 @@ function App() {
   };
 
   // Fetch all user repositories - called once on login, cached for entire session
-  const fetchRepositories = async () => {
+  const fetchRepositories = async (forceRefresh = false) => {
     setReposLoading(true);
     setReposError(null);
-    
+
     try {
       // Add force parameter if it's a browser refresh (for future implementation)
       const forceParam = isRefresh() ? '?force=true' : '';
@@ -64,19 +64,19 @@ function App() {
           }
         }
       );
-      
+
       if (!response.ok) {
         throw new Error(`Failed to fetch repositories: ${response.status}`);
       }
-      
+
       const data = await response.json();
-      
+
       if (data.success) {
         setRepositories(data.data.repositories);
-        
+
         // Auto-select first repo so Dashboard has data to display immediately
         if (data.data.repositories.length > 0) {
-          setSelectedRepo(prev => prev || data.data.repositories[0]);
+          setSelectedRepo((prev) => prev || data.data.repositories[0]);
         }
       } else {
         throw new Error('Failed to load repositories');
@@ -90,7 +90,7 @@ function App() {
   };
 
   // Fetch yesterday's development summary - called once on login
-  const fetchYesterdaySummary = async () => {
+  const fetchYesterdaySummary = async (forceRefresh = false) => {
     setSummaryLoading(true);
     setSummaryError(null);
     
@@ -121,6 +121,13 @@ function App() {
       
       if (data.success) {
         setYesterdaySummary(data.data);
+        
+        // Log cache status for debugging
+        if (forceRefresh) {
+          console.log('🔄 Yesterday summary fetched with fresh data (cache bypassed)');
+        } else {
+          console.log('📦 Yesterday summary fetched (cache enabled)');
+        }
       } else {
         throw new Error('Failed to load yesterday\'s summary');
       }
@@ -133,15 +140,18 @@ function App() {
   };
 
   // === LIFECYCLE HOOKS - App initialization and data fetching ===
-  
+
   // Check authentication status on app startup (page load/refresh)
   useEffect(() => {
     const checkAuth = async () => {
       setAuthLoading(true);
       try {
-        const response = await fetch(`${import.meta.env.VITE_API_URL}/auth/me`, { 
-          credentials: 'include' 
-        });
+        const response = await fetch(
+          `${import.meta.env.VITE_API_URL}/auth/me`,
+          {
+            credentials: 'include',
+          }
+        );
         const isAuth = response.ok;
         setIsAuthenticated(isAuth);
       } catch (error) {
@@ -151,16 +161,27 @@ function App() {
         setAuthLoading(false);
       }
     };
-    
+
     checkAuth();
   }, []); // Run once on mount
 
   // Fetch repositories and yesterday's summary when user becomes authenticated
   useEffect(() => {
     if (isAuthenticated) {
-      // Fetch both repositories and yesterday's summary in parallel
-      fetchRepositories();
-      fetchYesterdaySummary();
+      // Detect browser refresh by checking if page was reloaded
+      const wasRefreshed = performance.getEntriesByType('navigation')[0]?.type === 'reload';
+      
+      if (wasRefreshed) {
+        console.log('🔄 Browser refresh detected - fetching fresh data');
+        // Fetch both repositories and yesterday's summary with fresh data
+        fetchRepositories(true);
+        fetchYesterdaySummary(true);
+      } else {
+        console.log('📦 Normal page load - using cached data');
+        // Fetch both repositories and yesterday's summary with cache
+        fetchRepositories(false);
+        fetchYesterdaySummary(false);
+      }
     }
   }, [isAuthenticated]); // Run when auth status changes
 
@@ -171,38 +192,38 @@ function App() {
     setSelectedRepo,        // Function to update selected repo
     reposLoading,           // Loading state for UI feedback
     reposError,             // Error state for error handling
-    refreshRepositories: fetchRepositories,  // Manual refresh function
+    refreshRepositories: () => fetchRepositories(true),  // Manual refresh function with fresh data
     yesterdaySummary,       // Yesterday's development summary
     summaryLoading,         // Loading state for summary
     summaryError,           // Error state for summary
-    refreshSummary: fetchYesterdaySummary  // Manual refresh function for summary
+    refreshSummary: () => fetchYesterdaySummary(true)  // Manual refresh function with fresh data
   };
 
   // === RENDER - Route definitions with shared state distribution ===
   return (
     <div>
       <Routes>
-        <Route path='/' element={<Login />} /> {/* Public route - no auth required */}
-        
+        <Route path='/' element={<Login />} />{' '}
+        {/* Public route - no auth required */}
         {/* Protected routes - all receive shared app state via props */}
-        <Route 
-          path='/dashboard' 
+        <Route
+          path='/dashboard'
           element={
             <ProtectedRoute isAuthenticated={isAuthenticated} authLoading={authLoading}>
               <Dashboard {...appContext} />
             </ProtectedRoute>
-          } 
+          }
         />
-        <Route 
-          path='/repositories' 
+        <Route
+          path='/repositories'
           element={
             <ProtectedRoute isAuthenticated={isAuthenticated} authLoading={authLoading}>
               <RepoListing {...appContext} />
             </ProtectedRoute>
-          } 
+          }
         />
-        <Route 
-          path='/repository' 
+        <Route
+          path='/repository'
           element={
             <ProtectedRoute isAuthenticated={isAuthenticated} authLoading={authLoading}>
               <RepoAnalytics {...appContext} />

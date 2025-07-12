@@ -68,8 +68,8 @@ export class YesterdaySummaryService {
         console.log(`Force refresh requested - bypassing cache for ${dateStr}`);
       }
 
-      // Generate new summary if not cached
-      console.log(`Generating new yesterday summary for ${dateStr}...`);
+      // Generate new summary if not cached or refresh requested
+      console.log(`🔄 Generating fresh yesterday summary for ${dateStr}...`);
       const repos = await this.githubService.getUserRepos();
       const { commits, repositoryData } = await this.fetchAllCommits(repos, start, end);
       
@@ -108,7 +108,7 @@ export class YesterdaySummaryService {
       console.error('Failed to generate yesterday summary:', error.message);
       
       // Fallback: generate without caching
-      console.log('Falling back to non-cached generation...');
+      console.log('🔄 Falling back to non-cached generation...');
       const repos = await this.githubService.getUserRepos();
       const { commits, repositoryData } = await this.fetchAllCommits(repos, start, end);
       

@@ -17,14 +17,14 @@ export class SummaryGenerator {
     const summaryLines = [
       'Daily Development Summary',
       '========================',
-      `📊 ${commits.length} commits across ${repositoryCount} repositories`,
+      `${commits.length} commits across ${repositoryCount} repositories`,
       ''
     ];
 
     const commitsByRepo = this.groupCommitsByRepository(commits);
     
     Object.entries(commitsByRepo).forEach(([repoName, repoCommits]) => {
-      summaryLines.push(`📁 ${repoName} (${repoCommits.length} commits)`);
+      summaryLines.push(`${repoName} (${repoCommits.length} commits)`);
       repoCommits.forEach(commit => {
         const time = new Date(commit.date).toLocaleTimeString('en-US', { 
           hour: '2-digit', 
