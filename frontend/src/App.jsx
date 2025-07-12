@@ -6,6 +6,7 @@ import Login from './components/Login.jsx';
 import Dashboard from './components/Dashboard.jsx';
 import RepoListing from './components/RepoListing.jsx';
 import RepoAnalytics from './components/RepoAnalytics';
+import Settings from './components/Settings.jsx';
 
 // Wrapper component that checks authentication before rendering protected pages
 function ProtectedRoute({ children }) {
@@ -177,6 +178,14 @@ function App() {
           element={
             <ProtectedRoute>
               <RepoAnalytics {...appContext} />
+            </ProtectedRoute>
+          } 
+        />
+        <Route 
+          path='/settings' 
+          element={
+            <ProtectedRoute>
+              <Settings />
             </ProtectedRoute>
           } 
         />

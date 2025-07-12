@@ -1,7 +1,9 @@
 import React, { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 
 const UserHeader = () => {
   const [isLoggingOut, setIsLoggingOut] = useState(false);
+  const navigate = useNavigate();
 
   const handleLogout = async () => {
     setIsLoggingOut(true);
@@ -24,19 +26,28 @@ const UserHeader = () => {
       <div className="max-w-6xl mx-auto flex justify-between items-center">
         <h2 className="text-white text-xl font-semibold">DevSum Dashboard</h2>
         
-        <button
-          onClick={handleLogout}
-          disabled={isLoggingOut}
-          className={`
-            px-4 py-2 rounded-lg text-white font-medium transition-colors
-            ${isLoggingOut 
-              ? 'bg-gray-600 cursor-not-allowed' 
-              : 'bg-red-600 hover:bg-red-700 cursor-pointer'
-            }
-          `}
-        >
-          {isLoggingOut ? 'Logging out...' : 'Logout'}
-        </button>
+        <div className="flex gap-3">
+          <button
+            onClick={() => navigate('/settings')}
+            className="px-4 py-2 rounded-lg text-white font-medium transition-colors bg-blue-600 hover:bg-blue-700 cursor-pointer"
+          >
+            Settings
+          </button>
+          
+          <button
+            onClick={handleLogout}
+            disabled={isLoggingOut}
+            className={`
+              px-4 py-2 rounded-lg text-white font-medium transition-colors
+              ${isLoggingOut 
+                ? 'bg-gray-600 cursor-not-allowed' 
+                : 'bg-red-600 hover:bg-red-700 cursor-pointer'
+              }
+            `}
+          >
+            {isLoggingOut ? 'Logging out...' : 'Logout'}
+          </button>
+        </div>
       </div>
     </div>
   );

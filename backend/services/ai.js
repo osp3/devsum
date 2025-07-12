@@ -4,23 +4,30 @@ import connectDB from '../config/database.js';
 import PromptBuilder from './PromptBuilder.js';
 import CacheManager from './CacheManager.js';
 import QualityAnalyzer from './QualityAnalyzer.js';
+import EnvironmentService from './EnvironmentService.js';
 import { CommitAnalysis, DailySummary, TaskSuggestion, QualityAnalysis } from '../models/aiModels.js';
 
 dotenv.config();
 
-// Initialize OpenAI client
-// const openai = new OpenAI({
-//   apiKey: process.env.OPENAI_API_KEY
-// });
-//! trying new initialize for open AI, only if AI key provided(error handling)
+// Initialize OpenAI client with environment service
 let openai = null;
-if (process.env.OPENAI_API_KEY) {
-  openai = new OpenAI({
-    apiKey: process.env.OPENAI_API_KEY
-  });
-} else {
-  console.warn('OPENAI_API_KEY not found; using fallback AI responses.')
-}
+const initializeOpenAI = async () => {
+  try {
+    const apiKey = await EnvironmentService.get('OPENAI_API_KEY');
+    if (apiKey) {
+      openai = new OpenAI({ apiKey });
+      console.log('OpenAI client initialized with API key from database/env');
+    } else {
+      console.warn('OPENAI_API_KEY not found in database or env; using fallback AI responses.');
+    }
+  } catch (error) {
+    console.error('Failed to initialize OpenAI client:', error);
+    console.warn('Using fallback AI responses.');
+  }
+};
+
+// Initialize OpenAI on module load
+initializeOpenAI();
 
 class AIService {
   constructor() {
@@ -36,6 +43,14 @@ class AIService {
       this.initialized = true;
       console.log('AI Service initialized with Mongoose models');
     }
+  }
+
+  // Reinitialize OpenAI client when settings are updated
+  async reinitializeOpenAI() {
+    await initializeOpenAI();
+    // Update the quality analyzer with new openai client
+    this.qualityAnalyzer = new QualityAnalyzer(openai, this._callOpenAI.bind(this));
+    console.log('OpenAI client reinitialized');
   }
 
   // Categorize commits with MongoDB caching
