@@ -86,8 +86,17 @@ export async function generateDailySummary(req, res, next) {
 // testing stuff out my end(erik)
 export async function generateYesterdaySummary(req, res, next) {
   try {
+    const { force } = req.query; // Allow force refresh via query parameter
     const summaryService = new YesterdaySummaryService(req.user.accessToken);
-    const result = await summaryService.generateSummary();
+    const result = await summaryService.generateSummary(force === 'true');
+    
+    // Set cache control headers to prevent browser caching
+    res.set({
+      'Cache-Control': 'no-cache, no-store, must-revalidate',
+      'Pragma': 'no-cache',
+      'Expires': '0'
+    });
+    
     res.json({ success: true, data: result });
   } catch (error) {
     console.error('Failed to generate yesterday summary:', error);

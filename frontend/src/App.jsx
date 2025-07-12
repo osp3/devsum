@@ -8,18 +8,9 @@ import RepoListing from './components/RepoListing.jsx';
 import RepoAnalytics from './components/RepoAnalytics';
 import Settings from './components/Settings.jsx';
 
-// Wrapper component that checks authentication before rendering protected pages
-function ProtectedRoute({ children }) {
-  const [isAuthenticated, setIsAuthenticated] = useState(null); // null = checking, true/false = result
-
-  // Verify user session on component mount
-  useEffect(() => {
-    fetch(`${import.meta.env.VITE_API_URL}/auth/me`, { credentials: 'include' })
-      .then(response => setIsAuthenticated(response.ok))
-      .catch(() => setIsAuthenticated(false));
-  }, []);
-
-  if (isAuthenticated === null) return <div>Loading...</div>; // Still checking auth
+// Wrapper component that uses shared authentication state
+function ProtectedRoute({ children, isAuthenticated, authLoading }) {
+  if (authLoading) return <div>Loading...</div>; // Still checking auth
   if (!isAuthenticated) return <Navigate to="/" replace />; // Redirect to login
   return children; // User is authenticated, show protected content
 }
@@ -31,11 +22,27 @@ function App() {
   const [reposLoading, setReposLoading] = useState(false); // Loading state for repo fetching
   const [reposError, setReposError] = useState(null); // Error state for repo fetching
   const [isAuthenticated, setIsAuthenticated] = useState(false); // Triggers repo fetch when true
+  const [authLoading, setAuthLoading] = useState(true); // Loading state for auth check
   
   // Yesterday's summary state
   const [yesterdaySummary, setYesterdaySummary] = useState(null); // Yesterday's development summary
   const [summaryLoading, setSummaryLoading] = useState(false); // Loading state for summary
   const [summaryError, setSummaryError] = useState(null); // Error state for summary
+
+  // Helper function to detect browser refresh for force refreshing data
+  const isRefresh = () => {
+    try {
+      // Modern approach - check if it's a reload
+      const navigationEntries = performance.getEntriesByType('navigation');
+      if (navigationEntries.length > 0) {
+        return navigationEntries[0].type === 'reload';
+      }
+      // Fallback for older browsers
+      return performance.navigation?.type === 1;
+    } catch {
+      return false;
+    }
+  };
 
   // Fetch all user repositories - called once on login, cached for entire session
   const fetchRepositories = async () => {
@@ -43,9 +50,19 @@ function App() {
     setReposError(null);
     
     try {
+      // Add force parameter if it's a browser refresh (for future implementation)
+      const forceParam = isRefresh() ? '?force=true' : '';
+      
       const response = await fetch(
-        `${import.meta.env.VITE_API_URL}/api/repos`,
-        { credentials: 'include' }
+        `${import.meta.env.VITE_API_URL}/api/repos${forceParam}`,
+        { 
+          credentials: 'include',
+          cache: 'no-cache',
+          headers: {
+            'Cache-Control': 'no-cache',
+            'Pragma': 'no-cache'
+          }
+        }
       );
       
       if (!response.ok) {
@@ -78,12 +95,20 @@ function App() {
     setSummaryError(null);
     
     try {
+      // Add force parameter if it's a browser refresh
+      const forceParam = isRefresh() ? '?force=true' : '';
+      
       const response = await fetch(
-        `${import.meta.env.VITE_API_URL}/api/ai/yesterday-summary`,
+        `${import.meta.env.VITE_API_URL}/api/ai/yesterday-summary${forceParam}`,
         { 
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          headers: { 
+            'Content-Type': 'application/json',
+            'Cache-Control': 'no-cache',
+            'Pragma': 'no-cache'
+          },
           credentials: 'include',
+          cache: 'no-cache',
           body: JSON.stringify({}) // Empty body - defaults to yesterday
         }
       );
@@ -112,6 +137,7 @@ function App() {
   // Check authentication status on app startup (page load/refresh)
   useEffect(() => {
     const checkAuth = async () => {
+      setAuthLoading(true);
       try {
         const response = await fetch(`${import.meta.env.VITE_API_URL}/auth/me`, { 
           credentials: 'include' 
@@ -121,6 +147,8 @@ function App() {
       } catch (error) {
         console.error('Authentication check failed:', error);
         setIsAuthenticated(false);
+      } finally {
+        setAuthLoading(false);
       }
     };
     
@@ -160,7 +188,7 @@ function App() {
         <Route 
           path='/dashboard' 
           element={
-            <ProtectedRoute>
+            <ProtectedRoute isAuthenticated={isAuthenticated} authLoading={authLoading}>
               <Dashboard {...appContext} />
             </ProtectedRoute>
           } 
@@ -168,7 +196,7 @@ function App() {
         <Route 
           path='/repositories' 
           element={
-            <ProtectedRoute>
+            <ProtectedRoute isAuthenticated={isAuthenticated} authLoading={authLoading}>
               <RepoListing {...appContext} />
             </ProtectedRoute>
           } 
@@ -176,7 +204,7 @@ function App() {
         <Route 
           path='/repository' 
           element={
-            <ProtectedRoute>
+            <ProtectedRoute isAuthenticated={isAuthenticated} authLoading={authLoading}>
               <RepoAnalytics {...appContext} />
             </ProtectedRoute>
           } 
@@ -184,7 +212,7 @@ function App() {
         <Route 
           path='/settings' 
           element={
-            <ProtectedRoute>
+            <ProtectedRoute isAuthenticated={isAuthenticated} authLoading={authLoading}>
               <Settings />
             </ProtectedRoute>
           } 

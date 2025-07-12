@@ -123,6 +123,7 @@ async analyzeCodeQuality(commits, repositoryId, timeframe = 'weekly', repository
  * This is the fallback when code diffs aren't available
  */
 async _analyzeCommitMessages(commits) {
+  console.log(`🔍 AI Quality: Analyzing commit message patterns for ${commits.length} commits`);
   const prompt = this._createQualityPrompt(commits);
   const aiResponse = await this.callOpenAI(prompt);
   return this._parseQualityResponse(aiResponse);
@@ -336,6 +337,7 @@ async _analyzeCodeChanges(commits, repositoryFullName) {
  */
 async _analyzeIndividualCommitCode(commit, diff) {
   try {
+    console.log(`🔍 AI Code Quality: Analyzing code diff for commit ${commit.sha.slice(0, 8)} (${diff.split('\n').length} lines)`);
     const prompt = this._createCodeAnalysisPrompt(commit, diff);
     const aiResponse = await this.callOpenAI(prompt);
     return this._parseCodeAnalysisResponse(aiResponse);

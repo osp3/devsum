@@ -16,7 +16,7 @@ import cors from 'cors';
 import helmet from 'helmet';
 import session from 'express-session';
 import connectDB from './config/database.js';
-import passport from './config/passport.js';
+import passport, { initializeOAuth } from './config/passport.js';
 console.log('Importing auth routes...');
 import authRoutes from './routes/auth.js';
 console.log('Importing API routes...');
@@ -27,6 +27,10 @@ console.log('✅ All route imports completed');
 
 // Connect to MongoDB
 await connectDB();
+
+// Initialize OAuth after database connection
+console.log('🔐 Initializing GitHub OAuth...');
+await initializeOAuth();
 
 // Create Express app
 const app = express();
@@ -48,14 +52,19 @@ app.use(cors({
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
+// Import EnvironmentService for session secret
+import EnvironmentService from './services/EnvironmentService.js';
+
 // Session configuration for Passport
-if (!process.env.SESSION_SECRET) {
+const sessionSecret = await EnvironmentService.get('SESSION_SECRET', process.env.SESSION_SECRET);
+if (!sessionSecret) {
   console.error('❌ FATAL: SESSION_SECRET environment variable is required');
+  console.error('   Please set SESSION_SECRET in your .env file or Settings page');
   process.exit(1);
 }
 
 app.use(session({
-  secret: process.env.SESSION_SECRET,
+  secret: sessionSecret,
   resave: false,
   saveUninitialized: false,
   cookie: {
@@ -113,7 +122,15 @@ app.use((err, req, res, next) => {
     message: { err: 'An error occurred' },
   };
   const errorObj = Object.assign({}, defaultErr, err);
-  console.log(errorObj.log);
+  
+  // Enhanced error logging for debugging
+  console.error('❌ Error caught by middleware:');
+  console.error('  Message:', err.message || 'No message');
+  console.error('  Stack:', err.stack || 'No stack trace');
+  console.error('  Status:', err.status || 500);
+  console.error('  Context:', err.context || 'No context');
+  console.error('  Original Error:', err);
+  
   return res.status(errorObj.status).json(errorObj.message);
 });
 

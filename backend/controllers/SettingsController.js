@@ -2,6 +2,16 @@ import EnvironmentService from '../services/EnvironmentService.js';
 import { AppError } from '../utils/errors.js';
 
 class SettingsController {
+  constructor() {
+    // Bind all methods to ensure proper 'this' context
+    this.getSettings = this.getSettings.bind(this);
+    this.updateSettings = this.updateSettings.bind(this);
+    this.testSetting = this.testSetting.bind(this);
+    this.clearCache = this.clearCache.bind(this);
+    this.testOpenAIKey = this.testOpenAIKey.bind(this);
+    this.testGitHubCredentials = this.testGitHubCredentials.bind(this);
+  }
+
   /**
    * Get all configurable settings
    * @param {Object} req - Express request object
@@ -38,7 +48,7 @@ class SettingsController {
       }
 
       // Validate individual settings
-      const allowedKeys = ['GITHUB_CLIENT_ID', 'GITHUB_CLIENT_SECRET', 'OPENAI_API_KEY'];
+      const allowedKeys = ['GITHUB_CLIENT_ID', 'GITHUB_CLIENT_SECRET', 'OPENAI_API_KEY', 'OPENAI_MODEL', 'SESSION_SECRET'];
       const validSettings = {};
       
       for (const [key, value] of Object.entries(settings)) {
@@ -67,13 +77,27 @@ class SettingsController {
       });
 
       // Reinitialize services that depend on updated settings
-      if (result.success.includes('OPENAI_API_KEY')) {
+      if (result.success.includes('OPENAI_API_KEY') || result.success.includes('OPENAI_MODEL')) {
         try {
           // Dynamically import AIService to avoid circular dependency
           const { default: aiService } = await import('../services/ai.js');
           await aiService.reinitializeOpenAI();
         } catch (error) {
           console.error('Failed to reinitialize OpenAI service:', error);
+        }
+      }
+
+      // Reinitialize OAuth if GitHub credentials were updated
+      if (result.success.some(key => key.includes('GITHUB_CLIENT'))) {
+        try {
+          // Dynamically import OAuth functions to avoid circular dependency
+          const { reinitializeOAuth } = await import('../config/passport.js');
+          const oauthSuccess = await reinitializeOAuth();
+          if (oauthSuccess) {
+            console.log('OAuth reinitialized successfully');
+          }
+        } catch (error) {
+          console.error('Failed to reinitialize OAuth:', error);
         }
       }
 

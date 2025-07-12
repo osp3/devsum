@@ -33,9 +33,10 @@ export class YesterdaySummaryService {
 
   /**
    * Generate complete yesterday summary with MongoDB caching
+   * @param {boolean} forceRefresh - Force bypass cache and generate fresh summary
    * @returns {Object} Complete summary data
    */
-  async generateSummary() {
+  async generateSummary(forceRefresh = false) {
     await this.init(); // Ensure DB connection
     
     const { start, end } = getYesterdayRange();
@@ -43,24 +44,28 @@ export class YesterdaySummaryService {
     const repositoryId = 'ALL_REPOS'; // Special identifier for cross-repository summaries
 
     try {
-      // Check for cached summary for yesterday
-      const existing = await DailySummary.findOne({
-        date: dateStr,
-        repositoryId: repositoryId
-      }).lean();
+      // Check for cached summary for yesterday (unless force refresh requested)
+      if (!forceRefresh) {
+        const existing = await DailySummary.findOne({
+          date: dateStr,
+          repositoryId: repositoryId
+        }).lean();
 
-      if (existing) {
-        console.log(`Using cached yesterday summary for ${dateStr}`);
-        
-        // Return cached data in the expected format
-        return {
-          summary: existing.summary,
-          date: existing.date,
-          commitCount: existing.commitCount,
-          repositoryCount: existing.repositoryCount,
-          repositories: existing.repositories || [],
-          formattedCommits: existing.formattedCommits || { total: existing.commitCount, byRepository: {}, allCommits: [] }
-        };
+        if (existing) {
+          console.log(`Using cached yesterday summary for ${dateStr}`);
+          
+          // Return cached data in the expected format
+          return {
+            summary: existing.summary,
+            date: existing.date,
+            commitCount: existing.commitCount,
+            repositoryCount: existing.repositoryCount,
+            repositories: existing.repositories || [],
+            formattedCommits: existing.formattedCommits || { total: existing.commitCount, byRepository: {}, allCommits: [] }
+          };
+        }
+      } else {
+        console.log(`Force refresh requested - bypassing cache for ${dateStr}`);
       }
 
       // Generate new summary if not cached
@@ -80,17 +85,21 @@ export class YesterdaySummaryService {
         formattedCommits
       };
 
-      // Store in MongoDB for future caching
-      await DailySummary.create({
-        date: dateStr,
-        repositoryId: repositoryId,
-        summary: summaryText,
-        commitCount: commits.length,
-        repositoryCount: repositoryData.length,
-        repositories: repositoryData,
-        formattedCommits: formattedCommits,
-        categories: this._groupByCategory(commits)
-      });
+      // Store in MongoDB for future caching (replace existing if force refresh)
+      await DailySummary.findOneAndUpdate(
+        { date: dateStr, repositoryId: repositoryId },
+        {
+          date: dateStr,
+          repositoryId: repositoryId,
+          summary: summaryText,
+          commitCount: commits.length,
+          repositoryCount: repositoryData.length,
+          repositories: repositoryData,
+          formattedCommits: formattedCommits,
+          categories: this._groupByCategory(commits)
+        },
+        { upsert: true, new: true }
+      );
 
       console.log(`Yesterday summary generated and cached for ${dateStr}`);
       return summaryData;

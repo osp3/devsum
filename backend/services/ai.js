@@ -127,7 +127,7 @@ class AIService {
       }
 
       // Generate new summary
-      console.log(`Generating summary for ${dateStr}...`);
+      console.log(`📝 AI Summary: Generating daily summary for ${dateStr} with ${commits.length} commits`);
       const prompt = this.promptBuilder.createSummaryPrompt(commits);
       const summary = await this._callOpenAI(prompt);
 
@@ -168,7 +168,7 @@ class AIService {
       }
 
       // Generate new suggestions
-      console.log('Generating new task suggestions...');
+      console.log(`📋 AI Tasks: Generating task suggestions based on ${recentCommits.length} recent commits`);
       const prompt = this.promptBuilder.createTaskPrompt(recentCommits);
       const aiResponse = await this._callOpenAI(prompt);
       const tasks = this.promptBuilder.parseTaskResponse(aiResponse);
@@ -190,7 +190,7 @@ class AIService {
   }
   async suggestCommitMessage(diffContent, currentMessage = '', repositoryId = null) {
     await this.init();
-    console.log(`Generating commit message suggestion...`);
+    console.log(`💬 AI Commit: Suggesting commit message (diff: ${diffContent.length} chars, original: "${currentMessage || 'none'}")`);
 
     try {
       const prompt = this.promptBuilder.createCommitMessagePrompt(diffContent, currentMessage);
@@ -258,6 +258,7 @@ class AIService {
   
   //methods
   async _analyzeWithOpenAI(commits) {
+    console.log(`🔍 AI Analysis: Categorizing ${commits.length} commits`);
     const prompt = this.promptBuilder.createCategorizationPrompt(commits);
     const aiResponse = await this._callOpenAI(prompt);
 
@@ -284,8 +285,14 @@ class AIService {
       throw new Error('OpenAI client not confugured');
     }
     try {
+      // Read model from database first, fall back to .env, then default
+      const model = await EnvironmentService.get('OPENAI_MODEL', 'gpt-4o-mini');
+      
+      // Debug logging to show which model is being used
+      console.log(`🤖 OpenAI Request: Using model "${model}"`);
+      
       const response = await openai.chat.completions.create({
-        model: process.env.AI_MODEL || 'gpt-3.5-turbo',
+        model: model,
         messages: [
           {
             role: 'system',
@@ -299,9 +306,11 @@ class AIService {
         temperature: 0.1,
         max_tokens: 1500
       });
+      
+      console.log(`✅ OpenAI Response: Received ${response.choices[0].message.content.trim().length} characters from "${model}"`);
       return response.choices[0].message.content.trim();
     } catch (error) {
-      console.error('OpenAI API call failed:', error.message);
+      console.error(`❌ OpenAI API call failed with model "${await EnvironmentService.get('OPENAI_MODEL', 'gpt-4o-mini')}":`, error.message);
       throw error;
     }
   }

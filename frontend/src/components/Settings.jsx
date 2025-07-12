@@ -6,7 +6,9 @@ const Settings = () => {
   const [settings, setSettings] = useState({
     GITHUB_CLIENT_ID: '',
     GITHUB_CLIENT_SECRET: '',
-    OPENAI_API_KEY: ''
+    OPENAI_API_KEY: '',
+    OPENAI_MODEL: '',
+    SESSION_SECRET: ''
   });
   
   const [originalSettings, setOriginalSettings] = useState({});
@@ -23,7 +25,12 @@ const Settings = () => {
     try {
       setLoading(true);
       const response = await fetch('/api/settings', {
-        credentials: 'include'
+        credentials: 'include',
+        cache: 'no-cache',
+        headers: {
+          'Cache-Control': 'no-cache',
+          'Pragma': 'no-cache'
+        }
       });
       
       if (response.ok) {
@@ -86,6 +93,11 @@ const Settings = () => {
         setOriginalSettings(prev => ({ ...prev, ...changedSettings }));
         // Refresh settings to get masked values
         await fetchSettings();
+        
+        // Navigate back to previous page after successful save
+        setTimeout(() => {
+          navigate(-1);
+        }, 1000); // Give user time to see the success message
       } else {
         setMessage({ type: 'error', text: data.message || 'Failed to save settings' });
       }
@@ -144,6 +156,10 @@ const Settings = () => {
         return 'GitHub Client Secret';
       case 'OPENAI_API_KEY':
         return 'OpenAI API Key';
+      case 'OPENAI_MODEL':
+        return 'OpenAI Model';
+      case 'SESSION_SECRET':
+        return 'Session Secret';
       default:
         return key;
     }
@@ -157,6 +173,10 @@ const Settings = () => {
         return 'Your GitHub OAuth App Client Secret';
       case 'OPENAI_API_KEY':
         return 'Your OpenAI API Key for AI features';
+      case 'OPENAI_MODEL':
+        return 'Select the OpenAI model to use for AI-powered features';
+      case 'SESSION_SECRET':
+        return 'Secret key for session encryption (generate a random string)';
       default:
         return '';
     }
@@ -166,12 +186,55 @@ const Settings = () => {
     return key.includes('SECRET') || key.includes('KEY');
   };
 
+  const getOpenAIModelOptions = () => {
+    return [
+      { value: '', label: 'Select a model...' },
+      { value: 'gpt-4o', label: 'GPT-4o (Latest)' },
+      { value: 'gpt-4o-mini', label: 'GPT-4o Mini (Fast & Efficient)' },
+      { value: 'gpt-4-turbo', label: 'GPT-4 Turbo' },
+      { value: 'gpt-4', label: 'GPT-4' },
+      { value: 'gpt-3.5-turbo', label: 'GPT-3.5 Turbo (Cost Effective)' }
+    ];
+  };
+
+  const renderField = (key) => {
+    if (key === 'OPENAI_MODEL') {
+      return (
+        <select
+          value={settings[key]}
+          onChange={(e) => handleInputChange(key, e.target.value)}
+          className="flex-1 px-3 py-2 bg-[#1a1928] border border-slate-600 rounded-md text-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+        >
+          {getOpenAIModelOptions().map(option => (
+            <option 
+              key={option.value} 
+              value={option.value}
+              className="bg-[#1a1928] text-white"
+            >
+              {option.label}
+            </option>
+          ))}
+        </select>
+      );
+    }
+
+    return (
+      <input
+        type={isFieldSensitive(key) ? 'password' : 'text'}
+        value={settings[key]}
+        onChange={(e) => handleInputChange(key, e.target.value)}
+        className="flex-1 px-3 py-2 bg-[#1a1928] border border-slate-600 rounded-md text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+        placeholder={`Enter your ${getFieldLabel(key)}`}
+      />
+    );
+  };
+
   if (loading) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+      <div className="min-h-screen bg-[#1a1928] flex items-center justify-center">
         <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
-          <p className="text-gray-600">Loading settings...</p>
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500 mx-auto mb-4"></div>
+          <p className="text-white">Loading settings...</p>
         </div>
       </div>
     );
@@ -196,14 +259,14 @@ const Settings = () => {
 
       <div className="py-8 px-4">
         <div className="max-w-2xl mx-auto">
-          <div className="bg-white rounded-lg shadow-md p-6">
-            <h1 className="text-2xl font-bold text-gray-900 mb-6">API Keys & Settings</h1>
+          <div className="bg-[#2d2b3e] rounded-lg shadow-md p-6 border border-slate-600">
+            <h1 className="text-2xl font-bold text-white mb-6">API Keys & Settings</h1>
           
           {message.text && (
-            <div className={`mb-6 p-4 rounded-md ${
-              message.type === 'success' ? 'bg-green-50 border border-green-200 text-green-800' :
-              message.type === 'error' ? 'bg-red-50 border border-red-200 text-red-800' :
-              'bg-blue-50 border border-blue-200 text-blue-800'
+            <div className={`mb-6 p-4 rounded-md border ${
+              message.type === 'success' ? 'bg-green-900/20 border-green-500 text-green-300' :
+              message.type === 'error' ? 'bg-red-900/20 border-red-500 text-red-300' :
+              'bg-blue-900/20 border-blue-500 text-blue-300'
             }`}>
               {message.text}
             </div>
@@ -211,28 +274,22 @@ const Settings = () => {
 
           <div className="space-y-6">
             {Object.keys(settings).map(key => (
-              <div key={key} className="border-b border-gray-200 pb-6">
-                <label className="block text-sm font-medium text-gray-700 mb-2">
+              <div key={key} className="border-b border-slate-600 pb-6">
+                <label className="block text-sm font-medium text-white mb-2">
                   {getFieldLabel(key)}
                 </label>
-                <p className="text-sm text-gray-500 mb-3">
+                <p className="text-sm text-gray-300 mb-3">
                   {getFieldDescription(key)}
                 </p>
                 
                 <div className="flex space-x-3">
-                  <input
-                    type={isFieldSensitive(key) ? 'password' : 'text'}
-                    value={settings[key]}
-                    onChange={(e) => handleInputChange(key, e.target.value)}
-                    className="flex-1 px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                    placeholder={`Enter your ${getFieldLabel(key)}`}
-                  />
+                  {renderField(key)}
                   
-                  {settings[key] && settings[key].trim() && (
+                  {settings[key] && settings[key].trim() && key !== 'OPENAI_MODEL' && (
                     <button
                       onClick={() => handleTest(key, settings[key])}
                       disabled={testing[key]}
-                      className="px-4 py-2 bg-gray-100 text-gray-700 rounded-md hover:bg-gray-200 disabled:opacity-50 disabled:cursor-not-allowed"
+                      className="px-4 py-2 bg-slate-600 text-white rounded-md hover:bg-slate-500 disabled:opacity-50 disabled:cursor-not-allowed"
                     >
                       {testing[key] ? 'Testing...' : 'Test'}
                     </button>
@@ -244,9 +301,9 @@ const Settings = () => {
 
           <div className="mt-8 flex justify-end space-x-3">
             <button
-              onClick={fetchSettings}
+              onClick={() => navigate(-1)}
               disabled={saving}
-              className="px-4 py-2 text-gray-700 bg-gray-100 rounded-md hover:bg-gray-200 disabled:opacity-50 disabled:cursor-not-allowed"
+              className="px-4 py-2 text-white bg-slate-600 rounded-md hover:bg-slate-500 disabled:opacity-50 disabled:cursor-not-allowed"
             >
               Cancel
             </button>

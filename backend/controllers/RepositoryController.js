@@ -18,6 +18,13 @@ class RepositoryController {
       // Update user's cached repositories (following single responsibility)
       await RepositoryController._updateUserRepoCache(req.user, repos);
       
+      // Set cache control headers to prevent browser caching
+      res.set({
+        'Cache-Control': 'no-cache, no-store, must-revalidate',
+        'Pragma': 'no-cache',
+        'Expires': '0'
+      });
+
       res.json({
         success: true,
         data: {
