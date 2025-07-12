@@ -8,10 +8,18 @@ import RepoListing from './components/RepoListing.jsx';
 import RepoAnalytics from './components/RepoAnalytics';
 
 // Wrapper component that checks authentication before rendering protected pages
-function ProtectedRoute({ children, isAuthenticated, isLoading }) {
-  // Use the centralized authentication state instead of making separate calls
-  if (isLoading) return <div>Loading...</div>; // Still checking auth
-  if (!isAuthenticated) return <Navigate to="/" replace />; // Redirect to login
+function ProtectedRoute({ children }) {
+  const [isAuthenticated, setIsAuthenticated] = useState(null); // null = checking, true/false = result
+
+  // Verify user session on component mount
+  useEffect(() => {
+    fetch(`${import.meta.env.VITE_API_URL}/auth/me`, { credentials: 'include' })
+      .then((response) => setIsAuthenticated(response.ok))
+      .catch(() => setIsAuthenticated(false));
+  }, []);
+
+  if (isAuthenticated === null) return <div>Loading...</div>; // Still checking auth
+  if (!isAuthenticated) return <Navigate to='/' replace />; // Redirect to login
   return children; // User is authenticated, show protected content
 }
 
@@ -33,7 +41,7 @@ function App() {
   const fetchRepositories = async (forceRefresh = false) => {
     setReposLoading(true);
     setReposError(null);
-    
+
     try {
       // Add refresh parameter to bypass cache when needed
       const refreshParam = forceRefresh ? '?refresh=true' : '';
@@ -41,26 +49,19 @@ function App() {
         `${import.meta.env.VITE_API_URL}/api/repos${refreshParam}`,
         { credentials: 'include' }
       );
-      
+
       if (!response.ok) {
         throw new Error(`Failed to fetch repositories: ${response.status}`);
       }
-      
+
       const data = await response.json();
-      
+
       if (data.success) {
         setRepositories(data.data.repositories);
-        
+
         // Auto-select first repo so Dashboard has data to display immediately
         if (data.data.repositories.length > 0) {
-          setSelectedRepo(prev => prev || data.data.repositories[0]);
-        }
-        
-        // Log cache status for debugging
-        if (forceRefresh) {
-          console.log('🔄 Repositories fetched with fresh data (cache bypassed)');
-        } else {
-          console.log('📦 Repositories fetched (cache enabled)');
+          setSelectedRepo((prev) => prev || data.data.repositories[0]);
         }
       } else {
         throw new Error('Failed to load repositories');
@@ -118,14 +119,17 @@ function App() {
   };
 
   // === LIFECYCLE HOOKS - App initialization and data fetching ===
-  
-  // Check authentication status on app startup (page load/refresh) - SINGLE SOURCE OF TRUTH
+
+  // Check authentication status on app startup (page load/refresh)
   useEffect(() => {
     const checkAuth = async () => {
       try {
-        const response = await fetch(`${import.meta.env.VITE_API_URL}/auth/me`, { 
-          credentials: 'include' 
-        });
+        const response = await fetch(
+          `${import.meta.env.VITE_API_URL}/auth/me`,
+          {
+            credentials: 'include',
+          }
+        );
         const isAuth = response.ok;
         setIsAuthenticated(isAuth);
       } catch (error) {
@@ -135,7 +139,7 @@ function App() {
         setAuthLoading(false); // Authentication check complete
       }
     };
-    
+
     checkAuth();
   }, []); // Run once on mount
 
@@ -177,32 +181,33 @@ function App() {
   return (
     <div>
       <Routes>
-        <Route path='/' element={<Login />} /> {/* Public route - no auth required */}
-        
+        <Route path='/' element={<Login />} />{' '}
+        {/* Public route - no auth required */}
         {/* Protected routes - all receive shared app state via props */}
-        <Route 
-          path='/dashboard' 
+        <Route
+          path='/dashboard'
           element={
-            <ProtectedRoute isAuthenticated={isAuthenticated} isLoading={authLoading}>
+            <ProtectedRoute>
+              -
               <Dashboard {...appContext} />
             </ProtectedRoute>
-          } 
+          }
         />
-        <Route 
-          path='/repositories' 
+        <Route
+          path='/repositories'
           element={
             <ProtectedRoute isAuthenticated={isAuthenticated} isLoading={authLoading}>
               <RepoListing {...appContext} />
             </ProtectedRoute>
-          } 
+          }
         />
-        <Route 
-          path='/repository' 
+        <Route
+          path='/repository'
           element={
             <ProtectedRoute isAuthenticated={isAuthenticated} isLoading={authLoading}>
               <RepoAnalytics {...appContext} />
             </ProtectedRoute>
-          } 
+          }
         />
       </Routes>
     </div>
