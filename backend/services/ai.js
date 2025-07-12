@@ -9,9 +9,18 @@ import { CommitAnalysis, DailySummary, TaskSuggestion, QualityAnalysis } from '.
 dotenv.config();
 
 // Initialize OpenAI client
-const openai = new OpenAI({
-  apiKey: process.env.OPENAI_API_KEY
-});
+// const openai = new OpenAI({
+//   apiKey: process.env.OPENAI_API_KEY
+// });
+//! trying new initialize for open AI, only if AI key provided(error handling)
+let openai = null;
+if (process.env.OPENAI_API_KEY) {
+  openai = new OpenAI({
+    apiKey: process.env.OPENAI_API_KEY
+  });
+} else {
+  console.warn('OPENAI_API_KEY not found; using fallback AI responses.')
+}
 
 class AIService {
   constructor() {
@@ -256,22 +265,30 @@ class AIService {
   }
 
   async _callOpenAI(prompt) {
-    const response = await openai.chat.completions.create({
-      model: process.env.AI_MODEL || 'gpt-3.5-turbo',
-      messages: [
-        {
-          role: 'system',
-          content: 'You are a helpful developer assistant that analyzes code commits.'
-        },
-        {
-          role: 'user',
-          content: prompt
-        }
-      ],
-      temperature: 0.1,
-      max_tokens: 1500
-    });
-    return response.choices[0].message.content.trim();
+    if (!openai) {
+      throw new Error('OpenAI client not confugured');
+    }
+    try {
+      const response = await openai.chat.completions.create({
+        model: process.env.AI_MODEL || 'gpt-3.5-turbo',
+        messages: [
+          {
+            role: 'system',
+            content: 'You are a helpful developer assistant that analyzes code commits.'
+          },
+          {
+            role: 'user',
+            content: prompt
+          }
+        ],
+        temperature: 0.1,
+        max_tokens: 1500
+      });
+      return response.choices[0].message.content.trim();
+    } catch (error) {
+      console.error('OpenAI API call failed:', error.message);
+      throw error;
+    }
   }
 
   _isMessageImproved(original, suggested) {

@@ -31,6 +31,7 @@ const TodaysSummary = ({ commits, repositoryId, date }) => {
   };
 
   useEffect(() => {
+    
     if (commits && commits.length > 0) {
       summaryData();
     }
@@ -60,8 +61,8 @@ const TodaysSummary = ({ commits, repositoryId, date }) => {
         <h1 className='flex-1 p-2'>{summary} </h1>
         {/* if date want to be center just get ride of the absolute and relative */}
         <span className=' absolute top-2 right-2 text-xs text-gray-500 flex items-start'>
-          {date}
-          {/* {new Date().toLocaleDateString()} */}
+          
+          {new Date().toLocaleDateString()}
 
           {/* {new Date(commit.date).toLocaleDateString()} */}
         </span>
