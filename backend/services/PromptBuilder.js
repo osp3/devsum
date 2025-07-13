@@ -101,7 +101,7 @@ Write a 4-6 sentence summary that captures:
 - Code quality and improvement trends
 - Cross-repository work coordination if applicable
 
-Start with "Today's development work focused on..." and provide actionable insights.
+Start with "Yesterday's development work focused on..." and provide actionable insights.
       `.trim();
     }
 
@@ -109,7 +109,7 @@ Start with "Today's development work focused on..." and provide actionable insig
       return `
       Generate a brief, friendly daily summary of development work.
       
-      TODAY'S COMMITS:
+      YESTERDAY'S COMMITS:
       ${Object.entries(categories).map(([cat, commits]) =>
         `${cat.toUpperCase()}: ${commits.length} commits\n${commits.map(c => `- ${c.message}`).join('\n')}`
       ).join('\n\n')}
@@ -140,15 +140,18 @@ Start with "Today's development work focused on..." and provide actionable insig
       const totalRepositories = new Set(commits.map(c => c.repository)).size;
       
       const aiAnalysisSection = commitsWithAI.length > 0 ? `
-AI-ANALYZED COMMITS (${commitsWithAI.length} commits):
-${commitsWithAI.map(c => `
+DETAILED AI ANALYSIS OF YESTERDAY'S COMMITS (${commitsWithAI.length} commits):
+${commitsWithAI.map((c, index) => `
+COMMIT ${index + 1} [${c.sha?.substring(0, 7)}]:
 - Repository: ${c.repository}
-- Original Message: "${c.message}"
+- Original Message: "${c.message || c.description}"
 - AI Analysis: ${c.aiAnalysis.commitAnalysis}
-- AI Suggested: "${c.aiAnalysis.suggestedMessage}"
-- Description: ${c.aiAnalysis.suggestedDescription}
-- Quality/Impact: ${c.aiAnalysis.confidence > 0.7 ? 'High' : c.aiAnalysis.confidence > 0.5 ? 'Medium' : 'Low'}
-- Diff Size: ${c.aiAnalysis.diffSize || 'N/A'} chars`).join('\n')}
+- AI Suggested Better Message: "${c.aiAnalysis.suggestedMessage}"
+- AI Description: ${c.aiAnalysis.suggestedDescription}
+- Code Quality/Impact: ${c.aiAnalysis.confidence > 0.8 ? 'High Quality' : c.aiAnalysis.confidence > 0.6 ? 'Medium Quality' : 'Needs Improvement'}
+- Confidence Score: ${c.aiAnalysis.confidence}
+- Diff Size: ${c.aiAnalysis.diffSize || 'N/A'} characters
+- Analysis Date: ${c.aiAnalysis.analysisDate}`).join('\n')}
   `.trim() : '';
 
   const basicCommitsSection = commitsWithoutAI.length > 0 ? `
@@ -167,12 +170,15 @@ ${aiAnalysisSection}
 ${basicCommitsSection}
 
 TASK GENERATION INSTRUCTIONS:
-Based on the AI analysis of yesterday's commits, suggest 3-4 priority tasks for today that would:
+Based on the detailed AI analysis above, generate 3-4 specific, actionable tasks for today. Each task should be directly inspired by the AI analysis insights:
 
-1. **Continue Development Momentum**: Build on successful features/fixes from yesterday
-2. **Address Technical Debt**: Fix issues, improve code quality, or resolve TODOs mentioned in AI analysis
-3. **Optimize & Refactor**: Improve areas where AI identified low confidence or complexity
-4. **Cross-Repository Coordination**: Address patterns across multiple repositories if applicable
+1. **Build on AI-Identified Strengths**: Continue work on areas where AI analysis showed high confidence and good practices
+2. **Address AI-Identified Issues**: Fix problems, inconsistencies, or areas marked as "Needs Improvement" by AI analysis
+3. **Complete AI-Suggested Improvements**: Implement the AI's suggested better messages, descriptions, and code enhancements
+4. **Resolve Quality Concerns**: Focus on commits with lower confidence scores or large diff sizes that need attention
+5. **Follow AI Recommendations**: Address specific suggestions from the AI analysis (error handling, refactoring, testing, etc.)
+
+CRITICAL: Each task must reference the specific AI analysis that inspired it. Use the actual commit analysis text, confidence scores, and AI suggestions as the foundation for your tasks.
 
 PRIORITIZATION CRITERIA:
 - HIGH: Critical bugs, security issues, or blocking features
@@ -189,28 +195,40 @@ TASK CATEGORIES:
 
 CRITICAL: You MUST respond with ONLY valid JSON. Do NOT include any markdown formatting, explanations, or other text. Send the JSON object directly.
 
+You MUST include ALL required fields in EVERY task:
+- title (string): Task title
+- description (string): Task description  
+- priority (string): high/medium/low
+- category (string): feature/bugfix/refactor/testing/docs/optimization
+- estimatedTime (string): Time estimate
+- basedOn (string): REQUIRED - Which specific AI analysis or commit pattern inspired this task
+- repositories (array): REQUIRED - Array of repository names this task applies to
+
 Expected JSON format:
 {
   "tasks": [
     {
-      "title": "Fix authentication token validation",
-      "description": "Address the JWT validation issues identified in yesterday's auth commits with medium confidence",
+      "title": "Improve error handling in AuthController methods",
+      "description": "Implement the AI-suggested enhancements to error handling in AuthController methods, creating more specific error messages and improving code readability as identified in commit analysis",
       "priority": "high",
-      "category": "bugfix",
+      "category": "refactor",
       "estimatedTime": "2-3 hours",
-      "basedOn": "AI analysis of auth-related commits showing medium confidence scores",
+      "basedOn": "AI analysis of commit f6658c4: 'This commit focuses on improving error handling within the AuthController methods. It refactors error messages to be more descriptive and enhances code readability' (confidence: 0.85)",
       "repositories": ["devsum"]
     }
   ]
 }
 
 Generate exactly 3-4 tasks that are:
-- Specific and actionable
-- Based on actual AI analysis patterns from the commits above
-- Properly prioritized (high/medium/low)
-- Include realistic time estimates
-- Reference the specific AI insights that inspired them
-- Target the actual repositories mentioned in the commits
+- Directly inspired by the AI analysis insights from specific commits above
+- Include the actual commit SHA and AI analysis text in the basedOn field
+- Address the specific issues, suggestions, or improvements mentioned in the AI analysis
+- Prioritized based on confidence scores and impact (low confidence = high priority)
+- Include realistic time estimates based on diff size and complexity
+- Reference the exact AI commitAnalysis text that inspired each task
+- Target the specific repositories from the analyzed commits
+
+CRITICAL: The basedOn field MUST quote the actual AI analysis text and include the commit SHA for traceability.
 
 RESPOND WITH ONLY THE JSON OBJECT - NO OTHER TEXT.
   `.trim();
@@ -246,6 +264,194 @@ _createBasicTaskPrompt(commits) {
   RESPOND WITH ONLY THE JSON OBJECT - NO OTHER TEXT.
     `.trim();
 }
+
+    createQualityPrompt(commits) {
+      // Group commits by category for better AI analysis
+      // Instead of a random list, AI sees organized patterns
+      const commitsByCategory = commits.reduce((groups, commit) => {
+        const category = commit.category || 'other';
+        if (!groups[category]) groups[category] = [];
+        groups[category].push(commit.message);
+        return groups;
+      }, {});
+        //format for AI - Show category patterns clearly
+          const commitSummary = Object.entries(commitsByCategory)
+        .map(([category, messages]) => 
+          `${category.toUpperCase()} (${messages.length}):\n${messages.map(m => `- ${m}`).join('\n')}`
+        )
+        .join('\n\n');
+
+        return `
+        You are a senior software engineer analyzing code quality patterns from git commits.
+
+          RECENT COMMITS BY CATEGORY:
+          ${commitSummary}
+
+          ANALYSIS TASKS:
+    1. Identify code quality issues and technical debt patterns
+    2. Assess overall development practices  
+    3. Provide actionable recommendations
+
+    LOOK FOR THESE PATTERNS:
+    - Technical debt indicators (TODO, FIXME, quick fix, temporary, hack)
+    - Security-related changes (auth, validation, encryption, security)
+    - Performance improvements or concerns (optimize, performance, slow, memory)
+    - Testing patterns (test, spec, coverage) - or lack thereof
+    - Refactoring vs new features balance
+    - Code maintainability indicators (clean, refactor, organize)
+
+    QUALITY SCORING GUIDELINES:
+    - Good indicators: Descriptive commits, security focus, testing activity, refactoring
+    - Concerning indicators: Many "quick fixes", TODO comments, vague messages, no tests
+
+    Respond with valid JSON only:
+    {
+      "qualityScore": 0.75,
+      "issues": [
+        {
+          "type": "technical_debt",
+          "severity": "medium",
+          "description": "Multiple TODO comments indicate incomplete work",
+          "suggestion": "Schedule dedicated time to address technical debt",
+          "commitCount": 3
+        }
+      ],
+      "insights": [
+        "Good balance of features and bug fixes",
+        "Strong focus on security improvements"
+      ],
+        "recommendations": [
+        "Consider adding unit tests for new features",
+        "Review and prioritize TODO items"
+        ]
+      }
+
+        Quality score should be 0.0-1.0 where:
+        - 0.9-1.0: Excellent (great practices, minimal debt)
+        - 0.7-0.9: Good (solid practices, minor issues)  
+        - 0.5-0.7: Fair (some concerns, needs attention)
+        - 0.3-0.5: Poor (significant issues)
+        - 0.0-0.3: Critical (major problems)
+      `.trim();
+    }
+
+    createCodeAnalysisPrompt(commit, diff) {
+      return `
+You are a senior software engineer performing a detailed code review of this commit.
+
+COMMIT INFO:
+Message: "${commit.message}"
+SHA: ${commit.sha}
+Author: ${commit.author || 'Unknown'}
+Date: ${commit.date || 'Unknown'}
+
+CODE CHANGES (GIT DIFF):
+${diff}
+
+ANALYZE FOR:
+
+1. SECURITY ISSUES:
+   - Authentication/authorization problems
+   - Input validation missing
+   - SQL injection, XSS vulnerabilities
+   - Hardcoded secrets or passwords
+   - Insecure data handling
+
+2. CODE QUALITY ISSUES:
+   - Code smells (long functions, duplicate code)
+   - Poor error handling
+   - Missing edge case handling
+   - Inefficient algorithms
+   - Poor naming conventions
+
+3. MAINTAINABILITY CONCERNS:
+   - Complex logic that's hard to understand
+   - Missing comments for complex code
+   - Tight coupling between components
+   - Violations of SOLID principles
+
+4. PERFORMANCE ISSUES:
+   - Inefficient database queries
+   - Memory leaks potential
+   - Unnecessary loops or computations
+   - Blocking operations
+
+5. BEST PRACTICES:
+   - Proper error handling
+   - Good test coverage additions
+   - Clear variable/function names
+   - Appropriate design patterns
+
+Respond with JSON:
+{
+  "severity": "low|medium|high|critical",
+  "issues": [
+    {
+      "type": "security|performance|maintainability|quality",
+      "severity": "low|medium|high|critical", 
+      "line": "approximate line number or 'multiple'",
+      "description": "Specific issue found",
+      "suggestion": "How to fix it",
+      "example": "Show better code if applicable"
+    }
+  ],
+  "positives": [
+    "Good practices found in this commit"
+  ],
+  "overallAssessment": "Brief summary of code quality",
+  "recommendedActions": [
+    "Specific actionable recommendations"
+  ]
+}
+
+Focus on actionable, specific feedback. If code looks good, say so!
+      `.trim();
+    }
+
+    createCommitAnalysisPrompt(commit, diff) {
+      const maxDiffLength = 2000;
+      const truncatedDiff = diff.length > maxDiffLength
+        ? diff.slice(0, maxDiffLength) + '\n... (diff truncated for analysis)'
+        : diff;
+
+      return `You are a senior developer analyzing a git commit. Provide a comprehensive analysis including a suggested conventional commit message and description.
+
+COMMIT INFO:
+Original Message: "${commit.message || 'No message'}"
+SHA: ${commit.sha?.substring(0, 7)}
+Author: ${commit.author?.name || 'Unknown'}
+Date: ${commit.date || 'Unknown'}
+
+CODE CHANGES (GIT DIFF):
+${truncatedDiff}
+
+TASKS:
+1. Analyze what this commit actually does
+2. Suggest a better conventional commit message (format: type(scope): description)
+3. Provide a clear description of the changes
+4. Assess the quality/impact of the changes
+
+CONVENTIONAL COMMIT TYPES:
+- feat: new feature
+- fix: bug fix
+- docs: documentation
+- style: formatting, missing semi-colons, etc.
+- refactor: code change that neither fixes a bug nor adds a feature
+- test: adding tests
+- chore: updating build tasks, package manager configs, etc.
+
+IMPORTANT: Respond using ONLY raw JSON. Do NOT use markdown code blocks. Send the JSON object directly without any backticks.
+
+Expected JSON format:
+{
+  "suggestedMessage": "feat(auth): add JWT token validation middleware",
+  "description": "Implements JWT token validation middleware for API route protection, including error handling and token expiration checks",
+  "analysis": "This commit adds important security infrastructure by implementing JWT validation. The middleware properly handles token verification, expiration, and error cases. Good separation of concerns and error handling.",
+  "confidence": 0.9,
+  "impact": "medium",
+  "quality": "high"
+}`.trim();
+    }
 
     groupByCategory(commits) {
       return commits.reduce((groups, commit) => {
@@ -310,7 +516,31 @@ _createBasicTaskPrompt(commits) {
     parseTaskResponse(aiResponse) {
       try {
         const parsed = JSON.parse(aiResponse);
-        return parsed.tasks || [];
+        const tasks = parsed.tasks || [];
+        
+        // Validate and ensure each task has required fields
+        return tasks.map((task, index) => {
+          // Ensure all required fields are present
+          const validatedTask = {
+            title: task.title || `Task ${index + 1}`,
+            description: task.description || 'No description provided',
+            priority: task.priority || 'medium',
+            category: task.category || 'feature',
+            estimatedTime: task.estimatedTime || '1-2 hours',
+            basedOn: task.basedOn || 'AI analysis of yesterday\'s commits and development patterns',
+            repositories: task.repositories || ['devsum']
+          };
+          
+          // Log if fields were missing for debugging
+          if (!task.basedOn) {
+            console.warn(`Task "${task.title}" missing basedOn field - added default`);
+          }
+          if (!task.repositories) {
+            console.warn(`Task "${task.title}" missing repositories field - added default`);
+          }
+          
+          return validatedTask;
+        });
       } catch (error) {
         console.error('Failed to parse task response:', error.message);
         return [];

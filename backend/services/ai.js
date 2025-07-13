@@ -33,7 +33,7 @@ class AIService {
     this.initialized = false;
     this.promptBuilder = new PromptBuilder();
     this.cacheManager = new CacheManager();
-    this.qualityAnalyzer = new QualityAnalyzer(openai, this._callOpenAI.bind(this));
+    this.qualityAnalyzer = new QualityAnalyzer(openai, this._callOpenAI.bind(this), this.promptBuilder);
   }
 
   async init() {
@@ -50,7 +50,7 @@ class AIService {
   async reinitializeOpenAI() {
     await initializeOpenAI();
     // Update the quality analyzer with new openai client
-    this.qualityAnalyzer = new QualityAnalyzer(openai, this._callOpenAI.bind(this));
+    this.qualityAnalyzer = new QualityAnalyzer(openai, this._callOpenAI.bind(this), this.promptBuilder);
     console.log('OpenAI client reinitialized');
   }
 
@@ -149,23 +149,37 @@ class AIService {
     }
   }
   // Generate task suggestions with caching
-  async generateTaskSuggestions(recentCommits, repositoryId) {
+  async generateTaskSuggestions(recentCommits, repositoryId, forceRefresh = false) {
     await this.init(); // Ensure DB connection
 
     try {
       // Create signature of recent work
       const workSignature = this.promptBuilder.createWorkSignature(recentCommits);
 
-      // Check for recent similar analysis
-      const recentSuggestion = await TaskSuggestion.findOne({
-        repositoryId: repositoryId,
-        workSignature: workSignature,
-        createdAt: { $gte: new Date(Date.now() - 24 * 60 * 60 * 1000) } // Last 24 hours
-      }).lean();
+      // Check for recent similar analysis (unless force refresh requested)
+      if (!forceRefresh) {
+        const recentSuggestion = await TaskSuggestion.findOne({
+          repositoryId: repositoryId,
+          workSignature: workSignature,
+          createdAt: { $gte: new Date(Date.now() - 24 * 60 * 60 * 1000) } // Last 24 hours
+        }).lean();
 
-      if (recentSuggestion) {
-        console.log('Using recent task suggestions');
-        return recentSuggestion.tasks;
+        if (recentSuggestion) {
+          // Validate cached tasks have required fields (basedOn and repositories)
+          const tasksHaveRequiredFields = recentSuggestion.tasks.every(task => 
+            task.basedOn && task.repositories && Array.isArray(task.repositories)
+          );
+          
+          if (tasksHaveRequiredFields) {
+            console.log('Using recent task suggestions with all required fields');
+            return recentSuggestion.tasks;
+          } else {
+            console.log('Cached tasks missing required fields (basedOn/repositories) - generating fresh suggestions');
+            // Continue to generate new suggestions with proper schema
+          }
+        }
+      } else {
+        console.log('Force refresh requested - bypassing cache for task suggestions');
       }
 
       // Generate new suggestions
@@ -393,14 +407,14 @@ class AIService {
     const categories = this._groupByCategory(commits);
     const total = commits.length;
 
-    return `Today you made ${total} commits across different areas ${Object.keys(categories).join(', ')}. Keep up the great work!`;
+    return `Yesterday you made ${total} commits across different areas ${Object.keys(categories).join(', ')}. Keep up the great work!`;
   }
 
   _fallbackTasks(commits) {
     return [
       {
         title: 'Review recent changes',
-        description: "Look over today's commits and plan next steps",
+        description: "Look over yesterday's commits and plan next steps",
         priority: "medium",
         estimatedTime: "30 minutes"
       }
@@ -413,7 +427,7 @@ class AIService {
     console.log(`🔍 AI Diff Analysis: Analyzing commit ${commit.sha?.substring(0, 7)} (diff: ${diff.length} chars)`);
 
     try {
-      const prompt = this._createCommitAnalysisPrompt(commit, diff);
+      const prompt = this.promptBuilder.createCommitAnalysisPrompt(commit, diff);
       const analysis = await this._callOpenAI(prompt);
       const parsedAnalysis = this._parseCommitAnalysis(analysis);
 
@@ -433,51 +447,7 @@ class AIService {
     }
   }
 
-  // Create prompt for individual commit analysis
-  _createCommitAnalysisPrompt(commit, diff) {
-    const maxDiffLength = 2000;
-    const truncatedDiff = diff.length > maxDiffLength
-      ? diff.slice(0, maxDiffLength) + '\n... (diff truncated for analysis)'
-      : diff;
 
-    return `You are a senior developer analyzing a git commit. Provide a comprehensive analysis including a suggested conventional commit message and description.
-
-COMMIT INFO:
-Original Message: "${commit.message || 'No message'}"
-SHA: ${commit.sha?.substring(0, 7)}
-Author: ${commit.author?.name || 'Unknown'}
-Date: ${commit.date || 'Unknown'}
-
-CODE CHANGES (GIT DIFF):
-${truncatedDiff}
-
-TASKS:
-1. Analyze what this commit actually does
-2. Suggest a better conventional commit message (format: type(scope): description)
-3. Provide a clear description of the changes
-4. Assess the quality/impact of the changes
-
-CONVENTIONAL COMMIT TYPES:
-- feat: new feature
-- fix: bug fix
-- docs: documentation
-- style: formatting, missing semi-colons, etc.
-- refactor: code change that neither fixes a bug nor adds a feature
-- test: adding tests
-- chore: updating build tasks, package manager configs, etc.
-
-IMPORTANT: Respond using ONLY raw JSON. Do NOT use markdown code blocks. Send the JSON object directly without any backticks.
-
-Expected JSON format:
-{
-  "suggestedMessage": "feat(auth): add JWT token validation middleware",
-  "description": "Implements JWT token validation middleware for API route protection, including error handling and token expiration checks",
-  "analysis": "This commit adds important security infrastructure by implementing JWT validation. The middleware properly handles token verification, expiration, and error cases. Good separation of concerns and error handling.",
-  "confidence": 0.9,
-  "impact": "medium",
-  "quality": "high"
-}`.trim();
-  }
 
   // Parse commit analysis response
   _parseCommitAnalysis(response) {

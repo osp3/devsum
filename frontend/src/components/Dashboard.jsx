@@ -16,6 +16,10 @@ const Dashboard = ({
   summaryLoading, // Loading state for summary
   summaryError, // Error state for summary
   refreshSummary, // Function to manually refresh summary
+  taskSuggestions, // AI-generated task suggestions
+  tasksLoading, // Loading state for tasks
+  tasksError, // Error state for tasks
+  refreshTasks, // Function to refresh task suggestions
   user, // Current authenticated user data
 }) => {
   return (
@@ -43,7 +47,10 @@ const Dashboard = ({
         </div>
         <div className="flex-1 border border-slate-400 rounded-2xl w-100 h-120 p-4">
           <TomorrowsPriorities 
-            yesterdaySummary={yesterdaySummary}
+            taskSuggestions={taskSuggestions}
+            tasksLoading={tasksLoading}
+            tasksError={tasksError}
+            refreshTasks={refreshTasks}
           />
         </div>
       </div>

@@ -113,6 +113,7 @@ export async function generateYesterdaySummary(req, res, next) {
 export async function generateTaskSuggestions(req, res, next) {
   try {
     const { yesterdaySummary } = req.body;
+    const forceRefresh = req.query.force === 'true';
 
     if (!yesterdaySummary) {
       return res.status(400).json({
@@ -136,7 +137,8 @@ export async function generateTaskSuggestions(req, res, next) {
 
     const tasks = await AIService.generateTaskSuggestions(
       commits,
-      repositoryId
+      repositoryId,
+      forceRefresh
     );
 
     res.json({
@@ -149,12 +151,14 @@ export async function generateTaskSuggestions(req, res, next) {
           repositoryCount: yesterdaySummary.repositoryCount,
           repositories: yesterdaySummary.repositories?.map(r => r.name) || [],
           aiAnalyzedCommits: commits.filter(c => c.aiAnalysis).length
-        }
+        },
+        fromCache: !forceRefresh
       },
       meta: {
         baseCommitCount: commits.length,
         taskCount: tasks.length,
-        aiEnhanced: commits.some(c => c.aiAnalysis)
+        aiEnhanced: commits.some(c => c.aiAnalysis),
+        forceRefresh: forceRefresh
       },
     });
   } catch (error) {

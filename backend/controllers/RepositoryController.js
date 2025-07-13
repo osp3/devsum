@@ -94,7 +94,7 @@ class RepositoryController {
   static async getRepositoryCommits(req, res, next) {
     try {
       const { owner, repo } = req.params;
-      const { per_page = 20 } = req.query;
+      const { per_page = 20, include_stats = 'true' } = req.query;
       
       // Input validation
       const validation = RepositoryController._validateCommitParams(req.params, req.query);
@@ -106,7 +106,8 @@ class RepositoryController {
       const githubService = new GitHubService(req.user.accessToken);
       
       const options = {
-        per_page: Math.min(parseInt(per_page), 100) // Security: limit to 100, gets latest commits
+        per_page: Math.min(parseInt(per_page), 100), // Security: limit to 100, gets latest commits
+        includeStats: include_stats === 'true' // Request statistics for repository analytics
       };
       
       const commits = await githubService.getCommits(owner, repo, options);
@@ -117,7 +118,8 @@ class RepositoryController {
           repository: `${owner}/${repo}`,
           commits,
           total: commits.length,
-          timestamp: new Date().toISOString()
+          timestamp: new Date().toISOString(),
+          includeStats: options.includeStats
         }
       });
     } catch (error) {

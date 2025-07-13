@@ -30,6 +30,11 @@ function App() {
   const [summaryLoading, setSummaryLoading] = useState(false); // Loading state for summary
   const [summaryError, setSummaryError] = useState(null); // Error state for summary
 
+  // Task suggestions state
+  const [taskSuggestions, setTaskSuggestions] = useState([]); // AI-generated task suggestions
+  const [tasksLoading, setTasksLoading] = useState(false); // Loading state for tasks
+  const [tasksError, setTasksError] = useState(null); // Error state for tasks
+
   // Helper function to detect browser refresh for force refreshing data
   const isRefresh = () => {
     try {
@@ -140,6 +145,55 @@ function App() {
     }
   };
 
+  // Fetch AI-generated task suggestions based on yesterday's summary
+  const fetchTaskSuggestions = async (forceRefresh = false) => {
+    // Guard clause - exit early if no summary data
+    if (!yesterdaySummary) return;
+
+    setTasksLoading(true);
+    setTasksError(null);
+
+    try {
+      // Add force parameter if it's a browser refresh OR manually forced
+      const forceParam = (isRefresh() || forceRefresh) ? '?force=true' : '';
+      
+      const response = await fetch(
+        `${import.meta.env.VITE_API_URL}/api/ai/task-suggestions${forceParam}`,
+        {
+          method: 'POST',
+          headers: { 
+            'Content-Type': 'application/json',
+            'Cache-Control': 'no-cache',
+            'Pragma': 'no-cache'
+          },
+          credentials: 'include',
+          cache: 'no-cache',
+          body: JSON.stringify({
+            yesterdaySummary: yesterdaySummary,
+          }),
+        }
+      );
+
+      if (!response.ok) {
+        throw new Error(`Failed to fetch task suggestions: ${response.status}`);
+      }
+
+      const result = await response.json();
+
+      if (result.success) {
+        setTaskSuggestions(result.data.tasks || []);
+        console.log('🎯 Task suggestions generated:', result.data);
+      } else {
+        throw new Error(result.error || 'Failed to generate task suggestions');
+      }
+    } catch (error) {
+      console.error('Task suggestion error:', error);
+      setTasksError(error.message);
+    } finally {
+      setTasksLoading(false);
+    }
+  };
+
   // === LIFECYCLE HOOKS - App initialization and data fetching ===
 
   // Check authentication status and fetch user data on app startup
@@ -183,17 +237,24 @@ function App() {
       
       if (wasRefreshed) {
         console.log('🔄 Browser refresh detected - fetching fresh data');
-        // Fetch both repositories and yesterday's summary with fresh data
+        // Fetch repositories, yesterday's summary, and task suggestions with fresh data
         fetchRepositories(true);
         fetchYesterdaySummary(true);
       } else {
         console.log('📦 Normal page load - using cached data');
-        // Fetch both repositories and yesterday's summary with cache
+        // Fetch repositories, yesterday's summary, and task suggestions with cache
         fetchRepositories(false);
         fetchYesterdaySummary(false);
       }
     }
   }, [isAuthenticated]); // Run when auth status changes
+
+  // Fetch task suggestions when yesterday's summary becomes available
+  useEffect(() => {
+    if (yesterdaySummary && yesterdaySummary.formattedCommits?.allCommits?.length > 0) {
+      fetchTaskSuggestions();
+    }
+  }, [yesterdaySummary]); // Run when summary changes
 
   // === PROP DRILLING - Package shared state for all child components ===
   const appContext = {
@@ -207,6 +268,10 @@ function App() {
     summaryLoading,         // Loading state for summary
     summaryError,           // Error state for summary
     refreshSummary: () => fetchYesterdaySummary(true),  // Manual refresh function with fresh data
+    taskSuggestions,        // AI-generated task suggestions
+    tasksLoading,           // Loading state for tasks
+    tasksError,             // Error state for tasks
+    refreshTasks: () => fetchTaskSuggestions(true),  // Manual refresh function for tasks
     user,                   // Current authenticated user data
   };
 
