@@ -16,10 +16,11 @@ const Dashboard = ({
   summaryLoading, // Loading state for summary
   summaryError, // Error state for summary
   refreshSummary, // Function to manually refresh summary
+  user, // Current authenticated user data
 }) => {
   return (
     <div className="min-h-screen bg-[#1a1928]">
-      <UserHeader />
+      <UserHeader user={user} />
      
 
       <div className=" border border-slate-400 rounded-2xl p-4 m-6 max-w-6xl mx-auto">

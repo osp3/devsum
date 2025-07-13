@@ -4,11 +4,11 @@ import RepoHeader from './RepoHeader.jsx';
 import RepoMetricDisplay from './RepoMetricDisplay.jsx';
 import RecentCommits from './RecentCommits.jsx';
 
-const RepoAnalytics = () => {
+const RepoAnalytics = ({ user }) => {
   return (
     <div className='min-h-screen bg-[#1a1928]'>
       <h1>repo header</h1>
-      <UserHeader />
+      <UserHeader user={user} />
 
       <div className='flex justify-center'>
         <RepoHeader />

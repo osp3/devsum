@@ -1,34 +1,9 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 
-const UserHeader = () => {
+const UserHeader = ({ user }) => {
   const [isLoggingOut, setIsLoggingOut] = useState(false);
-  const [user, setUser] = useState(null);
   const navigate = useNavigate();
-
-  // Fetch user data from /auth/me endpoint
-  useEffect(() => {
-    const fetchUserData = async () => {
-      try {
-        const response = await fetch(`${import.meta.env.VITE_API_URL}/auth/me`, {
-          credentials: 'include',
-        });
-        
-        if (response.ok) {
-          const userData = await response.json();
-          console.log('👤 User data fetched:', userData);
-          // The backend returns { success: true, user: {...} }, so extract the user object
-          setUser(userData.user);
-        } else {
-          console.warn('⚠️  Failed to fetch user data');
-        }
-      } catch (error) {
-        console.error('❌ Error fetching user data:', error);
-      }
-    };
-
-    fetchUserData();
-  }, []);
 
   const handleLogout = async () => {
     setIsLoggingOut(true);

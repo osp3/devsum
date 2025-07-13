@@ -23,6 +23,7 @@ function App() {
   const [reposError, setReposError] = useState(null); // Error state for repo fetching
   const [isAuthenticated, setIsAuthenticated] = useState(false); // Triggers repo fetch when true
   const [authLoading, setAuthLoading] = useState(true); // Loading state for auth check
+  const [user, setUser] = useState(null); // Current user data from GitHub OAuth
   
   // Yesterday's summary state
   const [yesterdaySummary, setYesterdaySummary] = useState(null); // Yesterday's development summary
@@ -141,7 +142,7 @@ function App() {
 
   // === LIFECYCLE HOOKS - App initialization and data fetching ===
 
-  // Check authentication status on app startup (page load/refresh)
+  // Check authentication status and fetch user data on app startup
   useEffect(() => {
     const checkAuth = async () => {
       setAuthLoading(true);
@@ -152,11 +153,20 @@ function App() {
             credentials: 'include',
           }
         );
-        const isAuth = response.ok;
-        setIsAuthenticated(isAuth);
+        
+        if (response.ok) {
+          const userData = await response.json();
+          console.log('👤 User authenticated and data fetched:', userData);
+          setUser(userData.user); // Extract user object from response
+          setIsAuthenticated(true);
+        } else {
+          setIsAuthenticated(false);
+          setUser(null);
+        }
       } catch (error) {
         console.error('Authentication check failed:', error);
         setIsAuthenticated(false);
+        setUser(null);
       } finally {
         setAuthLoading(false);
       }
@@ -196,7 +206,8 @@ function App() {
     yesterdaySummary,       // Yesterday's development summary
     summaryLoading,         // Loading state for summary
     summaryError,           // Error state for summary
-    refreshSummary: () => fetchYesterdaySummary(true)  // Manual refresh function with fresh data
+    refreshSummary: () => fetchYesterdaySummary(true),  // Manual refresh function with fresh data
+    user,                   // Current authenticated user data
   };
 
   // === RENDER - Route definitions with shared state distribution ===
