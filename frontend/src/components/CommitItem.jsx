@@ -37,56 +37,12 @@ const CommitItem = ({ commit, selectedRepo }) => {
     return message.substring(0, maxLength) + '...';
   };
 
-  return (
-    <div className='bg-[#272633] border border-slate-600 rounded-lg p-4 hover:border-slate-500 transition-colors'>
-      <div className='flex items-start gap-3'>
-        {/* Commit Type Indicator */}
-        <div className={`${getCommitTypeColor(commit.message)} w-8 h-8 rounded-full flex items-center justify-center text-white text-sm font-bold flex-shrink-0`}>
-          {getCommitIcon(commit.message)}
-        </div>
-        
-        {/* Commit Details */}
-        <div className='flex-1 min-w-0'>
-          {/* Commit Message */}
-          <div className='text-white font-medium mb-1'>
-            {truncateMessage(commit.message)}
-          </div>
-          
-          {/* Commit Metadata */}
-          <div className='flex flex-wrap gap-4 text-sm text-gray-400'>
-            <span>
-              👤 {commit.author.name}
-            </span>
-            <span>
-              📅 {formatDate(commit.author.date)}
-            </span>
-            <span>
-              🔗 {commit.sha}
-            </span>
-            {commit.stats && (
-              <span>
-                <span className='text-green-400'>+{commit.stats.additions}</span>
-                {' '}
-                <span className='text-red-400'>-{commit.stats.deletions}</span>
-              </span>
-            )}
-          </div>
-        </div>
-        
-        {/* View Button */}
-        <div className='flex-shrink-0'>
-          <a
-            href={commit.url}
-            target='_blank'
-            rel='noopener noreferrer'
-            className='px-3 py-1 bg-blue-600 hover:bg-blue-700 text-white text-sm rounded transition-colors'
-          >
-            View
-          </a>
-        </div>
-      </div>
-    </div>
-  );
+  return <div>
+
+    <h1>
+      Button with color for every commit should be inside
+    </h1>
+  </div>;
 };
 
 export default CommitItem;
