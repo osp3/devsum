@@ -78,8 +78,14 @@ export class YesterdaySummaryService {
       
       const formattedCommits = SummaryGenerator.structureFormattedCommits(commits);
       
-      // Use AI-powered summary instead of basic formatting
-      const summaryText = await this.aiService.generateDailySummary(commits, repositoryId, new Date(dateStr));
+      // Check if there are any commits - if not, return simple message
+      let summaryText;
+      if (commits.length === 0) {
+        summaryText = "No work found for yesterday";
+      } else {
+        // Use AI-powered summary for actual commits
+        summaryText = await this.aiService.generateDailySummary(commits, repositoryId, new Date(dateStr));
+      }
 
       const summaryData = {
         summary: summaryText,
@@ -118,7 +124,9 @@ export class YesterdaySummaryService {
       const { commits, repositoryData } = await this.fetchAllCommits(repos, start, end);
       
       const formattedCommits = SummaryGenerator.structureFormattedCommits(commits);
-      const summaryText = SummaryGenerator.generateFormattedSummary(commits, repositoryData.length);
+      const summaryText = commits.length === 0 
+        ? "No work found for yesterday" 
+        : SummaryGenerator.generateFormattedSummary(commits, repositoryData.length);
 
       return {
         summary: summaryText,
