@@ -1,7 +1,12 @@
 import React from 'react';
 
 // Component to display repository metrics calculated from commit data
-const RepoMetricDisplay = ({ selectedRepo, commits, loading }) => {
+const RepoMetricDisplay = ({
+  selectedRepo,
+  commits,
+  loading,
+  yesterdaySummary,
+}) => {
   // Calculate various metrics from commits array
   const calculateMetrics = () => {
     // Return default metrics when no commits available
@@ -12,6 +17,7 @@ const RepoMetricDisplay = ({ selectedRepo, commits, loading }) => {
         bugFixes: 0,
         docs: 0,
         refactors: 0,
+        test: 0,
         totalAdditions: 0,
         totalDeletions: 0,
         uniqueAuthors: 0,
@@ -25,6 +31,7 @@ const RepoMetricDisplay = ({ selectedRepo, commits, loading }) => {
       bugFixes: 0,
       docs: 0,
       refactors: 0,
+      test: 0,
       totalAdditions: 0,
       totalDeletions: 0,
       uniqueAuthors: 0,
@@ -44,6 +51,7 @@ const RepoMetricDisplay = ({ selectedRepo, commits, loading }) => {
         metrics.bugFixes++;
       if (message.includes('docs')) metrics.docs++;
       if (message.includes('refactor')) metrics.refactors++;
+      if (message.includes('test')) metrics.refactors++;
 
       // Aggregate code change statistics
       if (commit.stats) {
@@ -65,24 +73,69 @@ const RepoMetricDisplay = ({ selectedRepo, commits, loading }) => {
   // Get calculated metrics for display
   const metrics = calculateMetrics();
 
+  // metric cards with values for display
+
+  const metricCard = [
+    {
+      key: 'totalCommits',
+      label: 'Total Commits',
+      value: metrics.totalCommits,
+      color: 'text-white',
+      show: 'true',
+    },
+    {
+      key: 'feature',
+      label: 'Feature',
+      value: metrics.features,
+      show: metrics.features > 0,
+    },
+    {
+      key: 'bugFixes',
+      label: 'BugFixes',
+      value: metrics.bugFixes,
+      show: metrics.bugFixes > 0,
+    },
+    {
+      key: 'docs',
+      label: 'Docs',
+      value: metrics.docs,
+      show: metrics.docs > 0,
+    },
+    {
+      key: ' refactors',
+      label: 'Refactors',
+      value: metrics.refactors,
+      show: metrics.refactors > 0,
+    },
+    {
+      key: 'test',
+      label: 'Test',
+      value: metrics.test,
+      show: metrics.test > 0,
+    },
+  ];
+// filters metric card to be showed in return
+  const visibleCards = metricCard.filter((card) => card.show);
+
   // Render metrics cards in horizontal layout
   return (
-    <div className="flex flex-row ">
-      {/* Total commits metric card */}
-      <div className="flex-1 min-w-30 flex-item-center border border-slate-400 rounded-lg m-4 ">
-        <h1 className="flex justify-center m-2">6</h1>
-        <h1 className="flex justify-center m-2">Total commits </h1>
-      </div>
-      {/* Features metric card */}
-      <div className="flex-1 min-w-30 flex-item-center border border-slate-400   rounded-lg m-4 ">
-        <h1 className="flex justify-center m-2">6</h1>
-        <h1 className="flex justify-center m-2">Feature</h1>
-      </div>
+    //maps over visible cards array to create component for each metric. it will show only metric cards that contain value > 
+    <div className='flex flex-row gap-4 p-4 flex-wrap'>
+      {visibleCards.map((card) => (
+        <div
+          key={card.key}
+          className='flex-1 min-w-32 flex flex-col items-center justify-center border border-slate-400 rounded-lg p-4 bg-[#272633]'
+        >
+          <h1 className={`text-1xl font-bold ${card.color} mb-2`}>
+            {card.value}
+          </h1>
+          <h2 className='text-sm text-gray-400 text-center'>{card.label}</h2>
+        </div>
+      ))}
     </div>
   );
 };
 
 export default RepoMetricDisplay;
-
 
 // I need to bring from app js yesterday summary
