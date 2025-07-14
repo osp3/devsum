@@ -532,12 +532,12 @@ class AIService {
       console.log(`Analysis complete for ${commit.sha?.substring(0, 7)}: ${parsedAnalysis.suggestedMessage}`);
       
       return { //Step 4 strucuted response construction
-        diffSize: diff.length,
-        suggestedMessage: parsedAnalysis.suggestedMessage,
-        suggestedDescription: parsedAnalysis.description,
-        commitAnalysis: parsedAnalysis.analysis,
-        confidence: parsedAnalysis.confidence,
-        analysisDate: new Date().toISOString()
+        diffSize: diff.length, //raw size of changes
+        suggestedMessage: parsedAnalysis.suggestedMessage, //AI improvements - better commit message
+        suggestedDescription: parsedAnalysis.description, //detailed change description
+        commitAnalysis: parsedAnalysis.analysis, //AI analysis of changes
+        confidence: parsedAnalysis.confidence, //AI's confidence level (0-1)
+        analysisDate: new Date().toISOString() //timestamp for tracking
       };
     } catch (error) {
       console.error(`Failed to analyze commit ${commit.sha?.substring(0, 7)}:`, error.message);
@@ -550,24 +550,24 @@ class AIService {
   // Parse commit analysis response
   _parseCommitAnalysis(response) {
     try {
-      const parsed = JSON.parse(response);
+      const parsed = JSON.parse(response); //parse AI JSON response
       return {
-        suggestedMessage: parsed.suggestedMessage || 'chore: update code',
-        description: parsed.description || 'Code changes made',
-        analysis: parsed.analysis || 'Commit analyzed',
-        confidence: parsed.confidence || 0.5,
-        impact: parsed.impact || 'low',
-        quality: parsed.quality || 'medium'
+        suggestedMessage: parsed.suggestedMessage || 'chore: update code', //xommir message improvement
+        description: parsed.description || 'Code changes made', //detailed descriptions
+        analysis: parsed.analysis || 'Commit analyzed', //detailed descriptions
+        confidence: parsed.confidence || 0.5, //moderate confidence
+        impact: parsed.impact || 'low', //soncervative impact estimate
+        quality: parsed.quality || 'medium' //quality assessment
       };
     } catch (error) {
-      console.error('Failed to parse commit analysis:', error.message);
-      return {
-        suggestedMessage: 'chore: update code',
-        description: 'Code changes made',
-        analysis: 'Unable to analyze commit',
+      console.error('Failed to parse commit analysis:', error.message); //Fallback parsing if JSON parse fails
+      return { //return valid structure with conservative values
+        suggestedMessage: 'chore: update code', //valid conventional format
+        description: 'Code changes made', 
+        analysis: 'Unable to analyze commit', 
         confidence: 0.3,
         impact: 'low',
-        quality: 'unknown'
+        quality: 'unknown' // cannot asses without parsing
       };
     }
   }
