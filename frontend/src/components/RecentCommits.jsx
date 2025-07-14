@@ -1,7 +1,9 @@
 import React from 'react';
 import CommitItem from './CommitItem.jsx';
 
+// Component to display list of recent commits with loading/error states
 const RecentCommits = ({ commits, loading, error, selectedRepo }) => {
+  // Show loading spinner while fetching commits
   if (loading) {
     return (
       <div className="w-full max-w-4xl">
@@ -13,6 +15,7 @@ const RecentCommits = ({ commits, loading, error, selectedRepo }) => {
     );
   }
 
+  // Display error message if commit fetch failed
   if (error) {
     return (
       <div className="w-full max-w-4xl">
@@ -24,6 +27,7 @@ const RecentCommits = ({ commits, loading, error, selectedRepo }) => {
     );
   }
 
+  // Show empty state when no commits are available
   if (!commits || commits.length === 0) {
     return (
       <div className="w-full max-w-4xl">
@@ -37,12 +41,14 @@ const RecentCommits = ({ commits, loading, error, selectedRepo }) => {
     );
   }
 
+  // Render commits list with count in header
   return (
     <div className='w-full max-w-4xl'>
       <h2 className='text-white text-xl mb-4'>
         📝 Recent Commits ({commits.length})
       </h2>
       
+      {/* Map through commits and render individual CommitItem components */}
       <div className='space-y-3'>
         {commits.map((commit) => (
           <CommitItem 

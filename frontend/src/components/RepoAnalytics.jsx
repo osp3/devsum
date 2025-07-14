@@ -4,13 +4,14 @@ import RepoHeader from './RepoHeader.jsx';
 import RepoMetricDisplay from './RepoMetricDisplay.jsx';
 import RecentCommits from './RecentCommits.jsx';
 
+// Main repository analytics page component
 const RepoAnalytics = ({ user, selectedRepo }) => {
-  // State for commit data
+  // State management for commit data and UI feedback
   const [commits, setCommits] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
 
-  // Fetch commit data for the selected repository
+  // Fetch recent commits for the selected repository
   const fetchCommits = async (repo) => {
     if (!repo) return;
     
@@ -18,6 +19,7 @@ const RepoAnalytics = ({ user, selectedRepo }) => {
     setError(null);
     
     try {
+      // Parse repository owner and name from fullName
       const [owner, name] = repo.fullName.split('/');
       const response = await fetch(
         `${import.meta.env.VITE_API_URL}/api/repos/${owner}/${name}/commits?per_page=20`,
@@ -46,14 +48,14 @@ const RepoAnalytics = ({ user, selectedRepo }) => {
     }
   };
 
-  // Fetch commits when selectedRepo changes
+  // Auto-fetch commits when repository selection changes
   useEffect(() => {
     if (selectedRepo) {
       fetchCommits(selectedRepo);
     }
   }, [selectedRepo]);
 
-  // Show message if no repository is selected
+  // Display prompt when no repository is selected
   if (!selectedRepo) {
     return (
       <div className='min-h-screen bg-[#1a1928]'>
@@ -67,16 +69,21 @@ const RepoAnalytics = ({ user, selectedRepo }) => {
     );
   }
 
+  // Main analytics dashboard layout
   return (
     <div className='min-h-screen bg-[#1a1928]'>
       <UserHeader user={user} />
 
+      {/* Repository header section */}
       <div className='flex justify-center'>
         <RepoHeader selectedRepo={selectedRepo} />
       </div>
 
+      {/* Analytics content container */}
       <div className='flex flex-col  items-center  border border-slate-400   rounded-2xl  p-4 gap-6 max-w-6xl mx-auto '>
+        {/* Repository metrics display */}
         <RepoMetricDisplay selectedRepo={selectedRepo} commits={commits} loading={loading} />
+        {/* Recent commits list */}
         <RecentCommits 
           commits={commits} 
           loading={loading} 

@@ -1,8 +1,11 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 
+// Settings management component for API keys and configuration
 const Settings = () => {
   const navigate = useNavigate();
+  
+  // Current settings values displayed in form inputs
   const [settings, setSettings] = useState({
     GITHUB_CLIENT_ID: '',
     GITHUB_CLIENT_SECRET: '',
@@ -11,16 +14,21 @@ const Settings = () => {
     SESSION_SECRET: ''
   });
   
+  // Original settings from server for change detection
   const [originalSettings, setOriginalSettings] = useState({});
+  
+  // UI state management for loading, saving, and user feedback
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState({ type: '', text: '' });
-  const [testing, setTesting] = useState({});
+  const [testing, setTesting] = useState({}); // Track which fields are being tested
 
+  // Fetch settings from server on component mount
   useEffect(() => {
     fetchSettings();
   }, []);
 
+  // Load current settings from backend API with error handling
   const fetchSettings = async () => {
     try {
       setLoading(true);
@@ -36,7 +44,7 @@ const Settings = () => {
       if (response.ok) {
         const data = await response.json();
         setSettings(data.data);
-        setOriginalSettings(data.data);
+        setOriginalSettings(data.data); // Store for change comparison
       } else {
         setMessage({ type: 'error', text: 'Failed to load settings' });
       }
@@ -48,6 +56,7 @@ const Settings = () => {
     }
   };
 
+  // Update individual setting value and clear any existing messages
   const handleInputChange = (key, value) => {
     setSettings(prev => ({
       ...prev,
@@ -59,12 +68,13 @@ const Settings = () => {
     }
   };
 
+  // Save only changed settings to backend and handle navigation
   const handleSave = async () => {
     try {
       setSaving(true);
       setMessage({ type: '', text: '' });
 
-      // Only send changed settings
+      // Only send changed settings to minimize payload and avoid unnecessary updates
       const changedSettings = {};
       Object.keys(settings).forEach(key => {
         if (settings[key] !== originalSettings[key] && settings[key].trim()) {
@@ -91,13 +101,13 @@ const Settings = () => {
       if (response.ok) {
         setMessage({ type: 'success', text: data.message });
         setOriginalSettings(prev => ({ ...prev, ...changedSettings }));
-        // Refresh settings to get masked values
+        // Refresh settings to get masked values from server
         await fetchSettings();
         
-        // Navigate back to previous page after successful save
+        // Navigate back after showing success message
         setTimeout(() => {
           navigate(-1);
-        }, 1000); // Give user time to see the success message
+        }, 1000);
       } else {
         setMessage({ type: 'error', text: data.message || 'Failed to save settings' });
       }
@@ -109,6 +119,7 @@ const Settings = () => {
     }
   };
 
+  // Test individual setting values by calling backend validation endpoint
   const handleTest = async (key, value) => {
     try {
       setTesting(prev => ({ ...prev, [key]: true }));
@@ -142,12 +153,14 @@ const Settings = () => {
     }
   };
 
+  // Check if any settings have been modified from their original values
   const hasChanges = () => {
     return Object.keys(settings).some(key => 
       settings[key] !== originalSettings[key] && settings[key].trim()
     );
   };
 
+  // Convert setting keys to user-friendly display labels
   const getFieldLabel = (key) => {
     switch (key) {
       case 'GITHUB_CLIENT_ID':
@@ -165,6 +178,7 @@ const Settings = () => {
     }
   };
 
+  // Provide helpful descriptions for each setting field
   const getFieldDescription = (key) => {
     switch (key) {
       case 'GITHUB_CLIENT_ID':
@@ -182,10 +196,12 @@ const Settings = () => {
     }
   };
 
+  // Determine if field should be masked (password input) for security
   const isFieldSensitive = (key) => {
     return key.includes('SECRET') || key.includes('KEY');
   };
 
+  // Define available OpenAI model options with descriptions
   const getOpenAIModelOptions = () => {
     return [
       { value: '', label: 'Select a model...' },
@@ -197,6 +213,7 @@ const Settings = () => {
     ];
   };
 
+  // Render appropriate input type based on field (select for models, password for secrets)
   const renderField = (key) => {
     if (key === 'OPENAI_MODEL') {
       return (
@@ -229,6 +246,7 @@ const Settings = () => {
     );
   };
 
+  // Show loading spinner while fetching initial settings
   if (loading) {
     return (
       <div className="min-h-screen bg-[#1a1928] flex items-center justify-center">
@@ -240,9 +258,10 @@ const Settings = () => {
     );
   }
 
+  // Main settings form with navigation header and field sections
   return (
     <div className="min-h-screen bg-[#1a1928]">
-      {/* Navigation Header */}
+      {/* Navigation Header with back button and title */}
       <div className="bg-[#2d2b3e] border-b border-slate-600 p-4">
         <div className="max-w-6xl mx-auto flex justify-between items-center">
           <div className="flex items-center gap-4">
@@ -262,6 +281,7 @@ const Settings = () => {
           <div className="bg-[#2d2b3e] rounded-lg shadow-md p-6 border border-slate-600">
             <h1 className="text-2xl font-bold text-white mb-6">API Keys & Settings</h1>
           
+          {/* Status message display (success, error, info) */}
           {message.text && (
             <div className={`mb-6 p-4 rounded-md border ${
               message.type === 'success' ? 'bg-green-900/20 border-green-500 text-green-300' :
@@ -272,6 +292,7 @@ const Settings = () => {
             </div>
           )}
 
+          {/* Settings form fields with labels, descriptions, and test buttons */}
           <div className="space-y-6">
             {Object.keys(settings).map(key => (
               <div key={key} className="border-b border-slate-600 pb-6">
@@ -285,6 +306,7 @@ const Settings = () => {
                 <div className="flex space-x-3">
                   {renderField(key)}
                   
+                  {/* Test button for validation (except for model selection) */}
                   {settings[key] && settings[key].trim() && key !== 'OPENAI_MODEL' && (
                     <button
                       onClick={() => handleTest(key, settings[key])}
@@ -299,6 +321,7 @@ const Settings = () => {
             ))}
           </div>
 
+          {/* Form action buttons (Cancel/Save) */}
           <div className="mt-8 flex justify-end space-x-3">
             <button
               onClick={() => navigate(-1)}
