@@ -84,10 +84,5 @@ const RepoMetricDisplay = ({ selectedRepo, commits, loading }) => {
 
 export default RepoMetricDisplay;
 
-{
-  /* //working on centering everything in individual boxes
 
-
-//flex1 makes each div take equal spaces , min-w-5 set a min with to the box
- */
-}
+// I need to bring from app js yesterday summary
