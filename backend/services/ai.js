@@ -110,38 +110,18 @@ class AIService {
       return this._fallbackCategorization(commits);
     }
   }
-  // Generate daily summary with MongoDB caching by date
+  // Generate daily summary (caching handled by YesterdaySummaryService)
   async generateDailySummary(commits, repositoryId, date = new Date()) {
     await this.init(); // Ensure DB connection
     const dateStr = date.toISOString().split('T')[0]; // yyyy-mm-dd
 
     try {
-      // Check for cached summary for this day
-      const existing = await DailySummary.findOne({
-        date: dateStr,
-        repositoryId: repositoryId
-      }).lean();
-
-      if (existing) {
-        console.log(`Using cached summary for ${dateStr}`);
-        return existing.summary;
-      }
-
-      // Generate new summary
+      // Generate new summary (no caching - handled by YesterdaySummaryService)
       console.log(`📝 AI Summary: Generating daily summary for ${dateStr} with ${commits.length} commits`);
       const prompt = this.promptBuilder.createSummaryPrompt(commits);
       const summary = await this._callOpenAI(prompt);
 
-      // Store in MongoDB
-      await DailySummary.create({
-        date: dateStr,
-        repositoryId: repositoryId,
-        summary: summary,
-        commitCount: commits.length,
-        categories: this._groupByCategory(commits)
-      });
-
-      console.log('Daily summary generated and cached');
+      console.log('Daily summary generated successfully');
       return summary;
     } catch (error) {
       console.error('Summary generation failed:', error.message);

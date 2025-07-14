@@ -102,7 +102,16 @@ export class YesterdaySummaryService {
         summaryText = "No work found for yesterday";
       } else {
         // Use AI-powered summary for actual commits
-        summaryText = await this.aiService.generateDailySummary(commits, repositoryId, new Date(dateStr));
+        console.log(`📝 DEBUG - Generating AI summary for ${commits.length} commits...`);
+        try {
+          summaryText = await this.aiService.generateDailySummary(commits, repositoryId, new Date(dateStr));
+          console.log(`✅ DEBUG - AI summary generated successfully: "${summaryText.substring(0, 100)}..."`);
+        } catch (aiError) {
+          console.error(`❌ DEBUG - AI summary generation failed:`, aiError.message);
+          // Fallback to SummaryGenerator when AI fails
+          summaryText = SummaryGenerator.generateFormattedSummary(commits, repositoryData.length);
+          console.log(`🔄 DEBUG - Used SummaryGenerator fallback: "${summaryText.substring(0, 100)}..."`);
+        }
       }
 
       const summaryData = {
@@ -138,22 +147,43 @@ export class YesterdaySummaryService {
       
       // Fallback: generate without caching using SummaryGenerator
       console.log('🔄 Falling back to non-cached generation...');
-      const repos = await this.githubService.getUserRepos();
-      const { commits, repositoryData } = await this.fetchAllCommits(repos, start, end);
       
-      const formattedCommits = SummaryGenerator.structureFormattedCommits(commits);
-      const summaryText = commits.length === 0 
-        ? "No work found for yesterday" 
-        : SummaryGenerator.generateFormattedSummary(commits, repositoryData.length);
+      try {
+        const repos = await this.githubService.getUserRepos();
+        const { commits, repositoryData } = await this.fetchAllCommits(repos, start, end);
+        
+        const formattedCommits = SummaryGenerator.structureFormattedCommits(commits);
+        
+        // Fix: Properly generate summary based on commits availability
+        let summaryText;
+        if (commits.length === 0) {
+          summaryText = "No work found for yesterday";
+        } else {
+          // Generate formatted summary using SummaryGenerator as fallback
+          summaryText = SummaryGenerator.generateFormattedSummary(commits, repositoryData.length);
+        }
 
-      return {
-        summary: summaryText,
-        date: dateStr,
-        commitCount: commits.length,
-        repositoryCount: repositoryData.length,
-        repositories: repositoryData,
-        formattedCommits
-      };
+        return {
+          summary: summaryText,
+          date: dateStr,
+          commitCount: commits.length,
+          repositoryCount: repositoryData.length,
+          repositories: repositoryData,
+          formattedCommits
+        };
+      } catch (fallbackError) {
+        console.error('Fallback generation also failed:', fallbackError.message);
+        
+        // Final fallback with empty data
+        return {
+          summary: "Unable to generate summary due to technical issues",
+          date: dateStr,
+          commitCount: 0,
+          repositoryCount: 0,
+          repositories: [],
+          formattedCommits: { total: 0, byRepository: {}, allCommits: [] }
+        };
+      }
     }
   }
 
