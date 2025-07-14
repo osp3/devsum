@@ -35,10 +35,13 @@ const UserHeader = ({ user }) => {
       <div className="max-w-6xl mx-auto flex justify-between items-center">
         {/* Left side - Logo and user greeting */}
         <div className="flex items-center gap-4">
-          {/* Enhanced logo with blue accent */}
-          <h2 className="text-white text-xl font-semibold">
+          {/* Enhanced logo with blue accent - clickable home button */}
+          <button 
+            onClick={() => navigate('/dashboard')}
+            className="text-white text-xl font-semibold hover:text-blue-100 transition-colors cursor-pointer"
+          >
             Dev<span className="text-blue-400">Sum</span>
-          </h2>
+          </button>
           
           {/* Welcome message with user's name */}
           {user && (
