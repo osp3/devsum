@@ -110,9 +110,14 @@ const taskSuggestionSchema = new mongoose.Schema({
     },
     category: {
       type: String,
-      enum: ['feature', 'bugfix', 'refactor', 'docs', 'testing']
+      enum: ['feature', 'bugfix', 'refactor', 'docs', 'testing', 'optimization']
     },
-    estimatedTime: String
+    estimatedTime: String,
+    basedOn: {
+      type: String,
+      required: true
+    },
+    repositories: [String]
   }],
   baseCommits: [String]
 }, {

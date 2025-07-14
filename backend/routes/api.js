@@ -1,11 +1,15 @@
 import express from 'express';
 import { ensureAuthenticated, ensureGitHubToken } from '../middleware/auth.js';
 import RepositoryController from '../controllers/RepositoryController.js';
+import settingsRouter from './settings.js';
 
 // Destructure methods for cleaner route definitions
 const { getUserRepositories, getRepositoryCommits, getCommitDiff, getRateLimit } = RepositoryController;
 
 const router = express.Router();
+
+// Settings routes (only require authentication, not GitHub token)
+router.use('/settings', settingsRouter);
 
 // Apply authentication middleware to ALL routes in this router
 router.use(ensureAuthenticated);
