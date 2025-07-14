@@ -74,7 +74,25 @@ export class YesterdaySummaryService {
       // Generate new summary if not cached or refresh requested
       console.log(`🔄 Generating fresh yesterday summary for ${dateStr}...`);
       const repos = await this.githubService.getUserRepos();
+      
+      // Debug logging for date range
+      console.log(`📅 DEBUG - Date Range:`);
+      console.log(`   Start: ${start.toISOString()} (${start.toLocaleString()})`);
+      console.log(`   End: ${end.toISOString()} (${end.toLocaleString()})`);
+      console.log(`   Duration: ${Math.round((end - start) / (1000 * 60 * 60))} hours`);
+      
       const { commits, repositoryData } = await this.fetchAllCommits(repos, start, end);
+      
+      // Debug logging for returned data
+      console.log(`📊 DEBUG - Fetch Results:`);
+      console.log(`   Repositories found: ${repositoryData.length}`);
+      console.log(`   Total commits found: ${commits.length}`);
+      if (commits.length > 0) {
+        console.log(`   First commit: ${commits[0].sha?.substring(0, 7)} - "${commits[0].message?.substring(0, 50)}..."`);
+        console.log(`   Last commit: ${commits[commits.length - 1].sha?.substring(0, 7)} - "${commits[commits.length - 1].message?.substring(0, 50)}..."`);
+        console.log(`   Commit date range: ${commits[commits.length - 1].date} to ${commits[0].date}`);
+      }
+      console.log(`   Repository details:`, repositoryData.map(r => `${r.name} (${r.commitCount} commits)`));
       
       const formattedCommits = SummaryGenerator.structureFormattedCommits(commits);
       
