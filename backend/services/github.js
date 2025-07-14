@@ -25,6 +25,19 @@ class GitHubService {
       
       console.log(`🔄 Starting to fetch repositories for user...`);
       
+      // Debug: Check what scopes the token has
+      try {
+        const { headers } = await this.octokit.rest.users.getAuthenticated();
+        const scopes = headers['x-oauth-scopes'] || 'unknown';
+        console.log(`🔑 DEBUG - Token scopes: ${scopes}`);
+        
+        if (!scopes.includes('repo')) {
+          console.warn(`⚠️  WARNING - Token does not have 'repo' scope, private repositories will not be accessible`);
+        }
+      } catch (scopeError) {
+        console.warn(`⚠️  Could not verify token scopes:`, scopeError.message);
+      }
+      
       while (true) {
         const { data } = await this.octokit.rest.repos.listForAuthenticatedUser({
           sort: 'updated',
@@ -53,6 +66,30 @@ class GitHubService {
       }
       
       console.log(`✅ Successfully fetched ${allRepos.length} total repositories`);
+      
+      // Debug: Analyze repository visibility
+      const publicRepos = allRepos.filter(repo => !repo.private).length;
+      const privateRepos = allRepos.filter(repo => repo.private).length;
+      console.log(`📊 DEBUG - Repository visibility breakdown:`);
+      console.log(`   Public repositories: ${publicRepos}`);
+      console.log(`   Private repositories: ${privateRepos}`);
+      console.log(`   Total repositories: ${allRepos.length}`);
+      
+      // Debug: Show sample of private repos (if any)
+      const samplePrivateRepos = allRepos.filter(repo => repo.private).slice(0, 3);
+      if (samplePrivateRepos.length > 0) {
+        console.log(`🔒 DEBUG - Sample private repositories:`);
+        samplePrivateRepos.forEach(repo => {
+          console.log(`   - ${repo.full_name} (private: ${repo.private})`);
+        });
+      } else {
+        console.log(`⚠️  DEBUG - No private repositories found in API response`);
+        console.log(`   This could be due to:`);
+        console.log(`   1. User has no private repositories`);
+        console.log(`   2. OAuth app lacks 'repo' scope for this user`);
+        console.log(`   3. User denied private repo access during OAuth`);
+        console.log(`   4. OAuth app is not properly configured for private repos`);
+      }
       
       return allRepos.map(repo => ({
         id: repo.id,

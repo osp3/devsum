@@ -56,79 +56,30 @@ const RepoMetricDisplay = ({ selectedRepo, commits, loading }) => {
 
   const metrics = calculateMetrics();
 
-  if (loading) {
-    return (
-      <div className='w-full max-w-4xl'>
-        <h2 className='text-white text-xl mb-4'>📊 Repository Metrics</h2>
-        <div className='flex justify-center items-center h-32'>
-          <div className='text-gray-300'>Loading metrics...</div>
-        </div>
-      </div>
-    );
-  }
+
 
   return (
-    <div className='w-full max-w-4xl'>
-      <h2 className='text-white text-xl mb-4'>📊 Repository Metrics</h2>
-      
-      {/* First Row - Basic Stats */}
-      <div className='grid grid-cols-2 md:grid-cols-4 gap-4 mb-4'>
-        <div className='bg-[#272633] border border-slate-600 rounded-lg p-4 text-center'>
-          <div className='text-2xl font-bold text-blue-400'>{metrics.totalCommits}</div>
-          <div className='text-sm text-gray-300'>Total Commits</div>
-        </div>
-        
-        <div className='bg-[#272633] border border-slate-600 rounded-lg p-4 text-center'>
-          <div className='text-2xl font-bold text-green-400'>{metrics.features}</div>
-          <div className='text-sm text-gray-300'>✨ Features</div>
-        </div>
-        
-        <div className='bg-[#272633] border border-slate-600 rounded-lg p-4 text-center'>
-          <div className='text-2xl font-bold text-red-400'>{metrics.bugFixes}</div>
-          <div className='text-sm text-gray-300'>🐛 Bug Fixes</div>
-        </div>
-        
-        <div className='bg-[#272633] border border-slate-600 rounded-lg p-4 text-center'>
-          <div className='text-2xl font-bold text-purple-400'>{metrics.uniqueAuthors}</div>
-          <div className='text-sm text-gray-300'>👥 Contributors</div>
-        </div>
+    <div className='flex flex-row '>
+      <div className='flex-1 min-w-30 flex-item-center border border-slate-400 rounded-lg m-4 '>
+        <h1 className='flex justify-center m-2'>6</h1>
+        <h1 className='flex justify-center m-2'>Total commits </h1>
       </div>
-
-      {/* Second Row - Additional Stats */}
-      <div className='grid grid-cols-2 md:grid-cols-4 gap-4'>
-        <div className='bg-[#272633] border border-slate-600 rounded-lg p-4 text-center'>
-          <div className='text-2xl font-bold text-yellow-400'>{metrics.refactors}</div>
-          <div className='text-sm text-gray-300'>🔧 Refactors</div>
-        </div>
-        
-        <div className='bg-[#272633] border border-slate-600 rounded-lg p-4 text-center'>
-          <div className='text-2xl font-bold text-blue-400'>{metrics.docs}</div>
-          <div className='text-sm text-gray-300'>📚 Docs</div>
-        </div>
-        
-        <div className='bg-[#272633] border border-slate-600 rounded-lg p-4 text-center'>
-          <div className='text-2xl font-bold text-green-400'>+{metrics.totalAdditions}</div>
-          <div className='text-sm text-gray-300'>Lines Added</div>
-        </div>
-        
-        <div className='bg-[#272633] border border-slate-600 rounded-lg p-4 text-center'>
-          <div className='text-2xl font-bold text-red-400'>-{metrics.totalDeletions}</div>
-          <div className='text-sm text-gray-300'>Lines Removed</div>
-        </div>
+      <div className='flex-1 min-w-30 flex-item-center border border-slate-400   rounded-lg m-4 '>
+        <h1 className='flex justify-center m-2'>6</h1>
+        <h1 className='flex justify-center m-2'>Feature</h1>
       </div>
-
-      {/* Repository Info */}
-      {selectedRepo && (
-        <div className='mt-4 bg-[#272633] border border-slate-600 rounded-lg p-4'>
-          <div className='text-gray-300 text-sm'>
-            <strong>Repository:</strong> {selectedRepo.fullName} | 
-            <strong> Language:</strong> {selectedRepo.language || 'Not specified'} | 
-            <strong> Last Updated:</strong> {new Date(selectedRepo.updatedAt).toLocaleDateString()}
-          </div>
-        </div>
-      )}
     </div>
   );
 };
 
 export default RepoMetricDisplay;
+
+{
+  /* //working on centering everything in individual boxes
+
+
+//flex1 makes each div take equal spaces , min-w-5 set a min with to the box
+ */
+}
+
+
