@@ -10,6 +10,7 @@
     "test": "echo \"Error: no test specified\" && exit 1",
     "test-caching": "node test-yesterday-caching.js",
     "test-refresh": "node test-refresh-functionality.js",
+    "test-mock-summary": "node test-yesterday-summary-mock.js",
     "clear-cache": "node clear-yesterday-cache.js"
   },
   "keywords": [

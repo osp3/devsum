@@ -6,6 +6,7 @@
  */
 
 import GitHubService from './github.js';
+import aiService from './ai.js';
 import connectDB from '../config/database.js';
 import { DailySummary } from '../models/aiModels.js';
 import { getYesterdayRange, formatDateForAPI } from '../utils/DateUtils.js';
@@ -18,6 +19,7 @@ import { SummaryGenerator } from './SummaryGenerator.js';
 export class YesterdaySummaryService {
   constructor(accessToken) {
     this.githubService = new GitHubService(accessToken);
+    this.aiService = aiService; // Use the exported singleton instance
     this.initialized = false;
   }
 
@@ -27,16 +29,17 @@ export class YesterdaySummaryService {
   async init() {
     if (!this.initialized) {
       await connectDB();
+      await this.aiService.init();
       this.initialized = true;
     }
   }
 
   /**
    * Generate complete yesterday summary with MongoDB caching
-   * @param {boolean} skipCache - Whether to skip cache and generate fresh data
+   * @param {boolean} forceRefresh - Force bypass cache and generate fresh summary
    * @returns {Object} Complete summary data
    */
-  async generateSummary(skipCache = false) {
+  async generateSummary(forceRefresh = false) {
     await this.init(); // Ensure DB connection
     
     const { start, end } = getYesterdayRange();
@@ -44,15 +47,15 @@ export class YesterdaySummaryService {
     const repositoryId = 'ALL_REPOS'; // Special identifier for cross-repository summaries
 
     try {
-      // Check for cached summary for yesterday (skip if refresh requested)
-      if (!skipCache) {
+      // Check for cached summary for yesterday (unless force refresh requested)
+      if (!forceRefresh) {
         const existing = await DailySummary.findOne({
           date: dateStr,
           repositoryId: repositoryId
         }).lean();
 
         if (existing) {
-          console.log(`✅ Using cached yesterday summary for ${dateStr}`);
+          console.log(`Using cached yesterday summary for ${dateStr}`);
           
           // Return cached data in the expected format
           return {
@@ -65,16 +68,42 @@ export class YesterdaySummaryService {
           };
         }
       } else {
-        console.log(`🔄 Bypassing cache for yesterday summary (refresh requested)`);
+        console.log(`Force refresh requested - bypassing cache for ${dateStr}`);
       }
 
       // Generate new summary if not cached or refresh requested
       console.log(`🔄 Generating fresh yesterday summary for ${dateStr}...`);
       const repos = await this.githubService.getUserRepos();
+      
+      // Debug logging for date range
+      console.log(`📅 DEBUG - Date Range:`);
+      console.log(`   Start: ${start.toISOString()} (${start.toLocaleString()})`);
+      console.log(`   End: ${end.toISOString()} (${end.toLocaleString()})`);
+      console.log(`   Duration: ${Math.round((end - start) / (1000 * 60 * 60))} hours`);
+      
       const { commits, repositoryData } = await this.fetchAllCommits(repos, start, end);
       
+      // Debug logging for returned data
+      console.log(`📊 DEBUG - Fetch Results:`);
+      console.log(`   Repositories found: ${repositoryData.length}`);
+      console.log(`   Total commits found: ${commits.length}`);
+      if (commits.length > 0) {
+        console.log(`   First commit: ${commits[0].sha?.substring(0, 7)} - "${commits[0].message?.substring(0, 50)}..."`);
+        console.log(`   Last commit: ${commits[commits.length - 1].sha?.substring(0, 7)} - "${commits[commits.length - 1].message?.substring(0, 50)}..."`);
+        console.log(`   Commit date range: ${commits[commits.length - 1].date} to ${commits[0].date}`);
+      }
+      console.log(`   Repository details:`, repositoryData.map(r => `${r.name} (${r.commitCount} commits)`));
+      
       const formattedCommits = SummaryGenerator.structureFormattedCommits(commits);
-      const summaryText = SummaryGenerator.generateFormattedSummary(commits, repositoryData.length);
+      
+      // Check if there are any commits - if not, return simple message
+      let summaryText;
+      if (commits.length === 0) {
+        summaryText = "No work found for yesterday";
+      } else {
+        // Use AI-powered summary for actual commits
+        summaryText = await this.aiService.generateDailySummary(commits, repositoryId, new Date(dateStr));
+      }
 
       const summaryData = {
         summary: summaryText,
@@ -85,9 +114,10 @@ export class YesterdaySummaryService {
         formattedCommits
       };
 
-      // Store in MongoDB for future caching (regardless of refresh mode)
-      try {
-        await DailySummary.create({
+      // Store in MongoDB for future caching (replace existing if force refresh)
+      await DailySummary.findOneAndUpdate(
+        { date: dateStr, repositoryId: repositoryId },
+        {
           date: dateStr,
           repositoryId: repositoryId,
           summary: summaryText,
@@ -96,29 +126,25 @@ export class YesterdaySummaryService {
           repositories: repositoryData,
           formattedCommits: formattedCommits,
           categories: this._groupByCategory(commits)
-        });
-        console.log(`💾 Fresh yesterday summary generated and cached for ${dateStr}`);
-      } catch (cacheError) {
-        // Handle duplicate key error (cache already exists)
-        if (cacheError.code === 11000) {
-          console.log(`📝 Cache entry already exists for ${dateStr}, skipping cache update`);
-        } else {
-          console.error('Cache storage error:', cacheError.message);
-        }
-      }
+        },
+        { upsert: true, new: true }
+      );
 
+      console.log(`Yesterday summary generated and cached for ${dateStr}`);
       return summaryData;
 
     } catch (error) {
       console.error('Failed to generate yesterday summary:', error.message);
       
-      // Fallback: generate without caching
+      // Fallback: generate without caching using SummaryGenerator
       console.log('🔄 Falling back to non-cached generation...');
       const repos = await this.githubService.getUserRepos();
       const { commits, repositoryData } = await this.fetchAllCommits(repos, start, end);
       
       const formattedCommits = SummaryGenerator.structureFormattedCommits(commits);
-      const summaryText = SummaryGenerator.generateFormattedSummary(commits, repositoryData.length);
+      const summaryText = commits.length === 0 
+        ? "No work found for yesterday" 
+        : SummaryGenerator.generateFormattedSummary(commits, repositoryData.length);
 
       return {
         summary: summaryText,
@@ -145,7 +171,7 @@ export class YesterdaySummaryService {
   }
 
   /**
-   * Fetch commits from all repositories for the specified date range
+   * Fetch commits from all repositories for the specified date range with AI analysis
    * @param {Array} repos - Array of repository objects
    * @param {Date} start - Start date
    * @param {Date} end - End date
@@ -159,14 +185,16 @@ export class YesterdaySummaryService {
       try {
         const [owner, name] = repo.fullName.split('/');
         const commits = await this.githubService.getCommits(owner, name, {
-          per_page: 50,
+          per_page: 10, // Limit to 20 commits per repo for performance
           since: start.toISOString(),
           until: end.toISOString(),
         });
 
         if (commits.length > 0) {
-          // Format commits for this repository
-          const formattedCommits = commits.map(commit => formatCommitObject(commit, repo));
+          console.log(`📥 Processing ${commits.length} commits for ${repo.fullName}`);
+          
+          // Format commits with AI analysis for this repository
+          const formattedCommits = await this._processCommitsWithAI(commits, repo);
           allCommits.push(...formattedCommits);
           
           // Add repository data
@@ -185,5 +213,78 @@ export class YesterdaySummaryService {
     }
 
     return { commits: allCommits, repositoryData };
+  }
+
+  /**
+   * Process commits with AI analysis for each commit
+   * @param {Array} commits - Raw commits from GitHub
+   * @param {Object} repo - Repository object
+   * @returns {Array} Formatted commits with AI analysis
+   */
+  async _processCommitsWithAI(commits, repo) {
+    const formattedCommits = [];
+    const [owner, name] = repo.fullName.split('/');
+    
+    // Limit the number of commits to analyze to prevent excessive API calls
+    const commitsToAnalyze = commits.slice(0, 10); // Max 10 commits per repo
+    
+    for (const commit of commitsToAnalyze) {
+      try {
+        // Get the commit diff
+        const diff = await this._getCommitDiff(owner, name, commit.sha);
+        
+        // Run AI analysis on the diff
+        const aiAnalysis = await this.aiService.analyzeCommitDiff(commit, diff);
+        
+        // Format the commit with AI analysis
+        const formattedCommit = formatCommitObject(commit, repo, aiAnalysis);
+        formattedCommits.push(formattedCommit);
+        
+        console.log(`✅ Analyzed commit ${commit.sha?.substring(0, 7)} in ${repo.name}`);
+        
+      } catch (error) {
+        console.error(`Failed to analyze commit ${commit.sha?.substring(0, 7)} in ${repo.name}:`, error.message);
+        
+        // Fallback: format commit without AI analysis
+        const formattedCommit = formatCommitObject(commit, repo);
+        formattedCommits.push(formattedCommit);
+      }
+    }
+    
+    // Add remaining commits without AI analysis if there are more than 10
+    if (commits.length > 10) {
+      const remainingCommits = commits.slice(10);
+      console.log(`📊 Adding ${remainingCommits.length} commits without AI analysis for ${repo.name}`);
+      
+      for (const commit of remainingCommits) {
+        const formattedCommit = formatCommitObject(commit, repo);
+        formattedCommits.push(formattedCommit);
+      }
+    }
+    
+    return formattedCommits;
+  }
+
+  /**
+   * Get commit diff from GitHub
+   * @param {string} owner - Repository owner
+   * @param {string} name - Repository name
+   * @param {string} sha - Commit SHA
+   * @returns {string} Commit diff
+   */
+  async _getCommitDiff(owner, name, sha) {
+    try {
+      const commitDiff = await this.githubService.getCommitDiff(owner, name, sha);
+      
+      // Extract diff text from files
+      const diffText = commitDiff.files
+        .map(file => file.patch || '')
+        .join('\n');
+      
+      return diffText;
+    } catch (error) {
+      console.error(`Failed to get diff for ${sha}:`, error.message);
+      return ''; // Return empty string if diff fetch fails
+    }
   }
 } 

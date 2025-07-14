@@ -9,6 +9,7 @@ import RepoGrid from './RepoGrid.jsx';
 const RepoListing = ({
   repositories, // array of all user repositories (from App.jsx)
   setSelectedRepo, // function to change selected repository
+  user, // current authenticated user data
 }) => {
   console.log('RepoListing received setSelectedRepo:', typeof setSelectedRepo);
 
@@ -16,7 +17,7 @@ const RepoListing = ({
   return (
     <div>
       {/* Show user information at the top */}
-      <UserHeader />
+      <UserHeader user={user} />
       <RepoGrid repositories={repositories} setSelectedRepo={setSelectedRepo} />
     </div>
   );

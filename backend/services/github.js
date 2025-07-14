@@ -15,17 +15,83 @@ class GitHubService {
   }
 
   /**
-   * Get user's repositories
+   * Get user's repositories with pagination support
    */
   async getUserRepos() {
     try {
-      const { data } = await this.octokit.rest.repos.listForAuthenticatedUser({
-        sort: 'updated',
-        per_page: 100,
-        type: 'all'
-      });
-
-      return data.map(repo => ({
+      const allRepos = [];
+      let page = 1;
+      const perPage = 100;
+      
+      console.log(`🔄 Starting to fetch repositories for user...`);
+      
+      // Debug: Check what scopes the token has
+      try {
+        const { headers } = await this.octokit.rest.users.getAuthenticated();
+        const scopes = headers['x-oauth-scopes'] || 'unknown';
+        console.log(`🔑 DEBUG - Token scopes: ${scopes}`);
+        
+        if (!scopes.includes('repo')) {
+          console.warn(`⚠️  WARNING - Token does not have 'repo' scope, private repositories will not be accessible`);
+        }
+      } catch (scopeError) {
+        console.warn(`⚠️  Could not verify token scopes:`, scopeError.message);
+      }
+      
+      while (true) {
+        const { data } = await this.octokit.rest.repos.listForAuthenticatedUser({
+          sort: 'updated',
+          per_page: perPage,
+          page: page,
+          type: 'all'
+        });
+        
+        console.log(`📥 Fetched ${data.length} repositories from page ${page}`);
+        
+        // Add repos from this page to the total
+        allRepos.push(...data);
+        
+        // If we got less than perPage, we've reached the end
+        if (data.length < perPage) {
+          break;
+        }
+        
+        page++;
+        
+        // Safety check to prevent infinite loops
+        if (page > 50) { // Max 5000 repos (50 pages * 100 per page)
+          console.warn('⚠️  Reached maximum page limit (50) - stopping pagination');
+          break;
+        }
+      }
+      
+      console.log(`✅ Successfully fetched ${allRepos.length} total repositories`);
+      
+      // Debug: Analyze repository visibility
+      const publicRepos = allRepos.filter(repo => !repo.private).length;
+      const privateRepos = allRepos.filter(repo => repo.private).length;
+      console.log(`📊 DEBUG - Repository visibility breakdown:`);
+      console.log(`   Public repositories: ${publicRepos}`);
+      console.log(`   Private repositories: ${privateRepos}`);
+      console.log(`   Total repositories: ${allRepos.length}`);
+      
+      // Debug: Show sample of private repos (if any)
+      const samplePrivateRepos = allRepos.filter(repo => repo.private).slice(0, 3);
+      if (samplePrivateRepos.length > 0) {
+        console.log(`🔒 DEBUG - Sample private repositories:`);
+        samplePrivateRepos.forEach(repo => {
+          console.log(`   - ${repo.full_name} (private: ${repo.private})`);
+        });
+      } else {
+        console.log(`⚠️  DEBUG - No private repositories found in API response`);
+        console.log(`   This could be due to:`);
+        console.log(`   1. User has no private repositories`);
+        console.log(`   2. OAuth app lacks 'repo' scope for this user`);
+        console.log(`   3. User denied private repo access during OAuth`);
+        console.log(`   4. OAuth app is not properly configured for private repos`);
+      }
+      
+      return allRepos.map(repo => ({
         id: repo.id,
         name: repo.name,
         fullName: repo.full_name,
@@ -37,6 +103,7 @@ class GitHubService {
       }));
     } catch (error) {
       console.error('❌ Error fetching repositories:', error.message);
+      console.error('📊 Rate limit info:', await this._logRateLimit());
       throw createGitHubError(error, 'fetching user repositories');
     }
   }
@@ -50,10 +117,10 @@ class GitHubService {
         per_page = 20, // Last 20 commits
         sha = undefined, // branch/commit SHA
         since,
-        until
+        until,
+        includeStats = false // Whether to fetch commit statistics (expensive)
       } = options;
 
-      // const { data } = await this.octokit.rest.repos.listCommits({
       const params = {
         owner,
         repo,
@@ -61,10 +128,65 @@ class GitHubService {
         sha
       };
       if (since) params.since = since;
-        if (until) params.until = until;
+      if (until) params.until = until;
 
-        const { data } = await this.octokit.rest.repos.listCommits(params);
+      const { data } = await this.octokit.rest.repos.listCommits(params);
 
+      // If statistics are requested, fetch them individually (expensive but accurate)
+      if (includeStats) {
+        console.log(`🔄 Fetching statistics for ${data.length} commits in ${owner}/${repo}...`);
+        
+        const commitsWithStats = await Promise.all(
+          data.map(async (commit) => {
+            try {
+              const { data: fullCommit } = await this.octokit.rest.repos.getCommit({
+                owner,
+                repo,
+                ref: commit.sha
+              });
+              
+              return {
+                sha: commit.sha,
+                message: commit.commit.message,
+                author: {
+                  name: commit.commit.author.name,
+                  email: commit.commit.author.email,
+                  date: commit.commit.author.date
+                },
+                url: commit.html_url,
+                stats: {
+                  additions: fullCommit.stats?.additions || 0,
+                  deletions: fullCommit.stats?.deletions || 0,
+                  total: fullCommit.stats?.total || 0
+                }
+              };
+            } catch (error) {
+              console.error(`⚠️  Failed to fetch stats for commit ${commit.sha.substring(0, 7)}:`, error.message);
+              // Return commit without stats as fallback
+              return {
+                sha: commit.sha,
+                message: commit.commit.message,
+                author: {
+                  name: commit.commit.author.name,
+                  email: commit.commit.author.email,
+                  date: commit.commit.author.date
+                },
+                url: commit.html_url,
+                stats: {
+                  additions: 0,
+                  deletions: 0,
+                  total: 0
+                }
+              };
+            }
+          })
+        );
+        
+        console.log(`✅ Successfully fetched statistics for ${commitsWithStats.length} commits`);
+        return commitsWithStats;
+      }
+
+      // Default behavior - return commits without statistics for performance
       return data.map(commit => ({
         sha: commit.sha,
         message: commit.commit.message,
@@ -75,9 +197,9 @@ class GitHubService {
         },
         url: commit.html_url,
         stats: {
-          additions: commit.stats?.additions || 0,
-          deletions: commit.stats?.deletions || 0,
-          total: commit.stats?.total || 0
+          additions: 0,
+          deletions: 0,
+          total: 0
         }
       }));
     } catch (error) {
@@ -140,6 +262,26 @@ class GitHubService {
     } catch (error) {
       console.error('❌ Error checking rate limit:', error.message);
       throw createGitHubError(error, 'checking rate limit');
+    }
+  }
+
+  /**
+   * Helper method to log rate limit information for debugging
+   */
+  async _logRateLimit() {
+    try {
+      const { data } = await this.octokit.rest.rateLimit.get();
+      const rateLimitInfo = {
+        limit: data.rate.limit,
+        remaining: data.rate.remaining,
+        reset: new Date(data.rate.reset * 1000),
+        used: data.rate.used
+      };
+      console.log('📊 Current rate limit status:', rateLimitInfo);
+      return rateLimitInfo;
+    } catch (error) {
+      console.error('Failed to get rate limit info:', error.message);
+      return null;
     }
   }
 }

@@ -30,15 +30,16 @@ export function parseConventionalCommit(message, repoName) {
 }
 
 /**
- * Format commit object with all required fields
+ * Format commit object with all required fields and optional AI analysis
  * @param {Object} commit - Raw commit from GitHub API
  * @param {Object} repo - Repository object
+ * @param {Object} aiAnalysis - Optional AI analysis of the commit
  * @returns {Object} Formatted commit object
  */
-export function formatCommitObject(commit, repo) {
+export function formatCommitObject(commit, repo, aiAnalysis = null) {
   const parsed = parseConventionalCommit(commit.message || '', repo.name);
   
-  return {
+  const formattedCommit = {
     type: parsed.type,
     scope: parsed.scope,
     description: parsed.description,
@@ -49,6 +50,20 @@ export function formatCommitObject(commit, repo) {
     date: commit.date || commit.author?.date,
     url: `https://github.com/${repo.fullName}/commit/${commit.sha}`
   };
+  
+  // Add AI analysis if provided
+  if (aiAnalysis) {
+    formattedCommit.aiAnalysis = {
+      diffSize: aiAnalysis.diffSize,
+      suggestedMessage: aiAnalysis.suggestedMessage,
+      suggestedDescription: aiAnalysis.suggestedDescription,
+      commitAnalysis: aiAnalysis.commitAnalysis,
+      confidence: aiAnalysis.confidence,
+      analysisDate: aiAnalysis.analysisDate
+    };
+  }
+  
+  return formattedCommit;
 }
 
 /**
