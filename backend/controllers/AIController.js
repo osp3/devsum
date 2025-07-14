@@ -86,16 +86,18 @@ export async function generateDailySummary(req, res, next) {
 // testing stuff out my end(erik)
 export async function generateYesterdaySummary(req, res, next) {
   try {
-    const { refresh } = req.query; // Check for refresh parameter
+    const { force } = req.query; // Allow force refresh via query parameter
     const summaryService = new YesterdaySummaryService(req.user.accessToken);
-    const result = await summaryService.generateSummary(refresh === 'true');
-    res.json({ 
-      success: true, 
-      data: {
-        ...result,
-        fromCache: refresh !== 'true' // Indicate whether data is from cache
-      }
+    const result = await summaryService.generateSummary(force === 'true');
+    
+    // Set cache control headers to prevent browser caching
+    res.set({
+      'Cache-Control': 'no-cache, no-store, must-revalidate',
+      'Pragma': 'no-cache',
+      'Expires': '0'
     });
+    
+    res.json({ success: true, data: result });
   } catch (error) {
     console.error('Failed to generate yesterday summary:', error);
     res.status(500).json({
@@ -105,34 +107,62 @@ export async function generateYesterdaySummary(req, res, next) {
   }
 }
 /**
- * Generate task suggestions for tomorrow
+ * Generate task suggestions for tomorrow based on yesterday's AI analysis
  * POST /api/ai/task-suggestions
  */
 export async function generateTaskSuggestions(req, res, next) {
   try {
-    const { recentCommits, repositoryId } = req.body;
+    const { yesterdaySummary } = req.body;
+    const forceRefresh = req.query.force === 'true';
 
-    if (!recentCommits || !repositoryId) {
+    if (!yesterdaySummary) {
       return res.status(400).json({
         success: false,
-        error: 'Recent commits and repositoryId are required',
+        error: 'Yesterday summary is required',
       });
     }
 
+    // Extract commits from the yesterday summary
+    const commits = yesterdaySummary.formattedCommits?.allCommits || [];
+    
+    if (commits.length === 0) {
+      return res.status(400).json({
+        success: false,
+        error: 'No commits found in yesterday summary',
+      });
+    }
+
+    // Use 'ALL_REPOS' as identifier for cross-repository task suggestions
+    const repositoryId = 'ALL_REPOS';
+
     const tasks = await AIService.generateTaskSuggestions(
-      recentCommits,
-      repositoryId
+      commits,
+      repositoryId,
+      forceRefresh
     );
 
     res.json({
       success: true,
-      data: tasks,
+      data: {
+        tasks,
+        summary: yesterdaySummary.summary,
+        baseData: {
+          commitCount: commits.length,
+          repositoryCount: yesterdaySummary.repositoryCount,
+          repositories: yesterdaySummary.repositories?.map(r => r.name) || [],
+          aiAnalyzedCommits: commits.filter(c => c.aiAnalysis).length
+        },
+        fromCache: !forceRefresh
+      },
       meta: {
-        baseCommitCount: recentCommits.length,
+        baseCommitCount: commits.length,
         taskCount: tasks.length,
+        aiEnhanced: commits.some(c => c.aiAnalysis),
+        forceRefresh: forceRefresh
       },
     });
   } catch (error) {
+    console.error('Task generation error:', error);
     res.status(500).json({
       success: false,
       error: 'Failed to generate task suggestions',

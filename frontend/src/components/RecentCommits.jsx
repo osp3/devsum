@@ -1,97 +1,62 @@
 import React from 'react';
 import CommitItem from './CommitItem.jsx';
 
-const RecentCommits = () => {
+// Component to display list of recent commits with loading/error states
+const RecentCommits = ({ commits, loading, error, selectedRepo }) => {
+  // Show loading spinner while fetching commits
+  if (loading) {
+    return (
+      <div className="w-full max-w-4xl">
+        <h2 className="text-white text-xl mb-4">📝 Recent Commits</h2>
+        <div className="flex justify-center items-center h-32">
+          <div className="text-gray-300">Loading commits...</div>
+        </div>
+      </div>
+    );
+  }
 
+  // Display error message if commit fetch failed
+  if (error) {
+    return (
+      <div className="w-full max-w-4xl">
+        <h2 className="text-white text-xl mb-4">📝 Recent Commits</h2>
+        <div className="flex justify-center items-center h-32">
+          <div className="text-red-400">Error: {error}</div>
+        </div>
+      </div>
+    );
+  }
 
-// const RecentCommits = ({ commits }) => {
-//   const actualCommits = commits.filter(commit => !commit.isAI);
-//   const aiCommits = commits.filter(commit => commit.isAI);
+  // Show empty state when no commits are available
+  if (!commits || commits.length === 0) {
+    return (
+      <div className="w-full max-w-4xl">
+        <h2 className="text-white text-xl mb-4">📝 Recent Commits</h2>
+        <div className="flex justify-center items-center h-32">
+          <div className="text-gray-300">
+            No commits found for this repository
+          </div>
+        </div>
+      </div>
+    );
+  }
 
-
+  // Render commits list with count in header
   return (
-    <div className='p4'>
-      {/* sets reccent Commit to the right */}
-      <div className='flex  justify-items-start font-bold text-white'>
-       Recent Commits
-
-
- </div>
- <div className = 'max-h-90 overflow-y-auto pr-3'>
-      <div className='relative flex flex-row justify-between items-center rounded-lg text-[#5b56dd] bg-[#272633] shadow-[-4px_0_0_0px] m-3'>
-        <button className='btn bg-[#44905e] text-white px-3 py-1 rounded'>
-          {} repos
-        </button>
-        <h1 className='flex-1 p-2 text-white'>actual commit message</h1>
-        <span className='absolute top-2 right-2 text-xs text-gray-500'>
-          date
-        </span>
-
-</div>
-
-</div>
- <div className = 'max-h-90 overflow-y-auto pr-3'>
-      <div className='relative flex flex-row justify-between items-center rounded-lg text-[#5b56dd] bg-[#272633] shadow-[-4px_0_0_0px] m-3'>
-        <button className='btn bg-[#44905e] text-white px-3 py-1 rounded'>
-          {} repos
-        </button>
-        <h1 className='flex-1 p-2 text-white'>actual commit message</h1>
-        <span className='absolute top-2 right-2 text-xs text-gray-500'>
-          date
-        </span>
-
-</div>
-</div>
- <div className = 'max-h-90 overflow-y-auto pr-3'>
-      <div className='relative flex flex-row justify-between items-center rounded-lg text-[#5b56dd] bg-[#272633] shadow-[-4px_0_0_0px] m-3'>
-        <button className='btn bg-[#44905e] text-white px-3 py-1 rounded'>
-          {} repos
-        </button>
-        <h1 className='flex-1 p-2 text-white'>actual commit message</h1>
-        <span className='absolute top-2 right-2 text-xs text-gray-500'>
-          date
-        </span>
-
-</div>
-</div>
- <div className = 'max-h-90 overflow-y-auto pr-3'>
-      <div className='relative flex flex-row justify-between items-center rounded-lg text-[#5b56dd] bg-[#272633] shadow-[-4px_0_0_0px] m-3'>
-        <button className='btn bg-[#44905e] text-white px-3 py-1 rounded'>
-          {} repos
-        </button>
-        <h1 className='flex-1 p-2 text-white'>actual commit message</h1>
-        <span className='absolute top-2 right-2 text-xs text-gray-500'>
-          date
-        </span>
-
-</div>
-</div>
- <div className = 'max-h-90 overflow-y-auto pr-3'>
-      <div className='relative flex flex-row justify-between items-center rounded-lg text-[#5b56dd] bg-[#272633] shadow-[-4px_0_0_0px] m-3'>
-        <button className='btn bg-[#44905e] text-white px-3 py-1 rounded'>
-          {} repos
-        </button>
-        <h1 className='flex-1 p-2 text-white'>actual commit message
-          
-        </h1>
-        <span className='absolute top-2 right-2 text-xs text-gray-500'>
-          date
-        </span>
-
-</div>
-</div>
- <div className = 'max-h-90 overflow-y-auto pr-3'>
-      <div className='relative flex flex-row justify-between items-center rounded-lg text-[#5b56dd] bg-[#272633] shadow-[-4px_0_0_0px] m-3'>
-        <button className='btn bg-[#44905e] text-white px-3 py-1 rounded'>
-          {} repos
-        </button>
-        <h1 className='flex-1 p-2 text-white'>actual commit message</h1>
-        <span className='absolute top-2 right-2 text-xs text-gray-500'>
-          date
-        </span>
-
-</div>
-
+    <div className='w-full max-w-4xl'>
+      <h2 className='text-white text-xl mb-4'>
+        📝 Recent Commits ({commits.length})
+      </h2>
+      
+      {/* Map through commits and render individual CommitItem components */}
+      <div className='space-y-3'>
+        {commits.map((commit) => (
+          <CommitItem 
+            key={commit.sha} 
+            commit={commit} 
+            selectedRepo={selectedRepo}
+          />
+        ))}
       </div>
     </div>
 

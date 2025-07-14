@@ -4,38 +4,54 @@ import connectDB from '../config/database.js';
 import PromptBuilder from './PromptBuilder.js';
 import CacheManager from './CacheManager.js';
 import QualityAnalyzer from './QualityAnalyzer.js';
+import EnvironmentService from './EnvironmentService.js';
 import { CommitAnalysis, DailySummary, TaskSuggestion, QualityAnalysis } from '../models/aiModels.js';
 
 dotenv.config();
 
-// Initialize OpenAI client
-// const openai = new OpenAI({
-//   apiKey: process.env.OPENAI_API_KEY
-// });
-//! trying new initialize for open AI, only if AI key provided(error handling)
+// Initialize OpenAI client with environment service
 let openai = null;
-if (process.env.OPENAI_API_KEY) {
-  openai = new OpenAI({
-    apiKey: process.env.OPENAI_API_KEY
-  });
-} else {
-  console.warn('OPENAI_API_KEY not found; using fallback AI responses.')
-}
+const initializeOpenAI = async () => {
+  try {
+    const apiKey = await EnvironmentService.get('OPENAI_API_KEY');
+    if (apiKey) {
+      openai = new OpenAI({ apiKey });
+      console.log('OpenAI client initialized with API key from database/env');
+    } else {
+      console.warn('OPENAI_API_KEY not found in database or env; using fallback AI responses.');
+    }
+  } catch (error) {
+    console.error('Failed to initialize OpenAI client:', error);
+    console.warn('Using fallback AI responses.');
+  }
+};
+
+// OpenAI will be initialized in the init() method to ensure proper async handling
 
 class AIService {
   constructor() {
     this.initialized = false;
     this.promptBuilder = new PromptBuilder();
     this.cacheManager = new CacheManager();
-    this.qualityAnalyzer = new QualityAnalyzer(openai, this._callOpenAI.bind(this));
+    this.qualityAnalyzer = new QualityAnalyzer(openai, this._callOpenAI.bind(this), this.promptBuilder);
   }
 
   async init() {
     if (!this.initialized) {
       await connectDB();
+      // Ensure OpenAI client is initialized
+      await initializeOpenAI();
       this.initialized = true;
       console.log('AI Service initialized with Mongoose models');
     }
+  }
+
+  // Reinitialize OpenAI client when settings are updated
+  async reinitializeOpenAI() {
+    await initializeOpenAI();
+    // Update the quality analyzer with new openai client
+    this.qualityAnalyzer = new QualityAnalyzer(openai, this._callOpenAI.bind(this), this.promptBuilder);
+    console.log('OpenAI client reinitialized');
   }
 
   // Categorize commits with MongoDB caching
@@ -112,7 +128,7 @@ class AIService {
       }
 
       // Generate new summary
-      console.log(`Generating summary for ${dateStr}...`);
+      console.log(`📝 AI Summary: Generating daily summary for ${dateStr} with ${commits.length} commits`);
       const prompt = this.promptBuilder.createSummaryPrompt(commits);
       const summary = await this._callOpenAI(prompt);
 
@@ -133,27 +149,41 @@ class AIService {
     }
   }
   // Generate task suggestions with caching
-  async generateTaskSuggestions(recentCommits, repositoryId) {
+  async generateTaskSuggestions(recentCommits, repositoryId, forceRefresh = false) {
     await this.init(); // Ensure DB connection
 
     try {
       // Create signature of recent work
       const workSignature = this.promptBuilder.createWorkSignature(recentCommits);
 
-      // Check for recent similar analysis
-      const recentSuggestion = await TaskSuggestion.findOne({
-        repositoryId: repositoryId,
-        workSignature: workSignature,
-        createdAt: { $gte: new Date(Date.now() - 24 * 60 * 60 * 1000) } // Last 24 hours
-      }).lean();
+      // Check for recent similar analysis (unless force refresh requested)
+      if (!forceRefresh) {
+        const recentSuggestion = await TaskSuggestion.findOne({
+          repositoryId: repositoryId,
+          workSignature: workSignature,
+          createdAt: { $gte: new Date(Date.now() - 24 * 60 * 60 * 1000) } // Last 24 hours
+        }).lean();
 
-      if (recentSuggestion) {
-        console.log('Using recent task suggestions');
-        return recentSuggestion.tasks;
+        if (recentSuggestion) {
+          // Validate cached tasks have required fields (basedOn and repositories)
+          const tasksHaveRequiredFields = recentSuggestion.tasks.every(task => 
+            task.basedOn && task.repositories && Array.isArray(task.repositories)
+          );
+          
+          if (tasksHaveRequiredFields) {
+            console.log('Using recent task suggestions with all required fields');
+            return recentSuggestion.tasks;
+          } else {
+            console.log('Cached tasks missing required fields (basedOn/repositories) - generating fresh suggestions');
+            // Continue to generate new suggestions with proper schema
+          }
+        }
+      } else {
+        console.log('Force refresh requested - bypassing cache for task suggestions');
       }
 
       // Generate new suggestions
-      console.log('Generating new task suggestions...');
+      console.log(`📋 AI Tasks: Generating task suggestions based on ${recentCommits.length} recent commits`);
       const prompt = this.promptBuilder.createTaskPrompt(recentCommits);
       const aiResponse = await this._callOpenAI(prompt);
       const tasks = this.promptBuilder.parseTaskResponse(aiResponse);
@@ -175,7 +205,7 @@ class AIService {
   }
   async suggestCommitMessage(diffContent, currentMessage = '', repositoryId = null) {
     await this.init();
-    console.log(`Generating commit message suggestion...`);
+    console.log(`💬 AI Commit: Suggesting commit message (diff: ${diffContent.length} chars, original: "${currentMessage || 'none'}")`);
 
     try {
       const prompt = this.promptBuilder.createCommitMessagePrompt(diffContent, currentMessage);
@@ -243,6 +273,7 @@ class AIService {
   
   //methods
   async _analyzeWithOpenAI(commits) {
+    console.log(`🔍 AI Analysis: Categorizing ${commits.length} commits`);
     const prompt = this.promptBuilder.createCategorizationPrompt(commits);
     const aiResponse = await this._callOpenAI(prompt);
 
@@ -269,8 +300,14 @@ class AIService {
       throw new Error('OpenAI client not confugured');
     }
     try {
+      // Read model from database first, fall back to .env, then default
+      const model = await EnvironmentService.get('OPENAI_MODEL', 'gpt-4o-mini');
+      
+      // Debug logging to show which model is being used
+      console.log(`🤖 OpenAI Request: Using model "${model}"`);
+      
       const response = await openai.chat.completions.create({
-        model: process.env.AI_MODEL || 'gpt-3.5-turbo',
+        model: model,
         messages: [
           {
             role: 'system',
@@ -284,9 +321,11 @@ class AIService {
         temperature: 0.1,
         max_tokens: 1500
       });
+      
+      console.log(`✅ OpenAI Response: Received ${response.choices[0].message.content.trim().length} characters from "${model}"`);
       return response.choices[0].message.content.trim();
     } catch (error) {
-      console.error('OpenAI API call failed:', error.message);
+      console.error(`❌ OpenAI API call failed with model "${await EnvironmentService.get('OPENAI_MODEL', 'gpt-4o-mini')}":`, error.message);
       throw error;
     }
   }
@@ -368,18 +407,107 @@ class AIService {
     const categories = this._groupByCategory(commits);
     const total = commits.length;
 
-    return `Today you made ${total} commits across different areas ${Object.keys(categories).join(', ')}. Keep up the great work!`;
+    return `Yesterday you made ${total} commits across different areas ${Object.keys(categories).join(', ')}. Keep up the great work!`;
   }
 
   _fallbackTasks(commits) {
     return [
       {
         title: 'Review recent changes',
-        description: "Look over today's commits and plan next steps",
+        description: "Look over yesterday's commits and plan next steps",
         priority: "medium",
         estimatedTime: "30 minutes"
       }
     ];
+  }
+
+  // Analyze individual commit diff with AI
+  async analyzeCommitDiff(commit, diff) {
+    await this.init();
+    console.log(`🔍 AI Diff Analysis: Analyzing commit ${commit.sha?.substring(0, 7)} (diff: ${diff.length} chars)`);
+
+    try {
+      const prompt = this.promptBuilder.createCommitAnalysisPrompt(commit, diff);
+      const analysis = await this._callOpenAI(prompt);
+      const parsedAnalysis = this._parseCommitAnalysis(analysis);
+
+      console.log(`Analysis complete for ${commit.sha?.substring(0, 7)}: ${parsedAnalysis.suggestedMessage}`);
+      
+      return {
+        diffSize: diff.length,
+        suggestedMessage: parsedAnalysis.suggestedMessage,
+        suggestedDescription: parsedAnalysis.description,
+        commitAnalysis: parsedAnalysis.analysis,
+        confidence: parsedAnalysis.confidence,
+        analysisDate: new Date().toISOString()
+      };
+    } catch (error) {
+      console.error(`Failed to analyze commit ${commit.sha?.substring(0, 7)}:`, error.message);
+      return this._fallbackCommitAnalysis(commit, diff);
+    }
+  }
+
+
+
+  // Parse commit analysis response
+  _parseCommitAnalysis(response) {
+    try {
+      const parsed = JSON.parse(response);
+      return {
+        suggestedMessage: parsed.suggestedMessage || 'chore: update code',
+        description: parsed.description || 'Code changes made',
+        analysis: parsed.analysis || 'Commit analyzed',
+        confidence: parsed.confidence || 0.5,
+        impact: parsed.impact || 'low',
+        quality: parsed.quality || 'medium'
+      };
+    } catch (error) {
+      console.error('Failed to parse commit analysis:', error.message);
+      return {
+        suggestedMessage: 'chore: update code',
+        description: 'Code changes made',
+        analysis: 'Unable to analyze commit',
+        confidence: 0.3,
+        impact: 'low',
+        quality: 'unknown'
+      };
+    }
+  }
+
+  // Fallback commit analysis
+  _fallbackCommitAnalysis(commit, diff) {
+    const diffSize = diff.length;
+    const message = commit.message || 'No message';
+    
+    // Simple heuristics for fallback analysis
+    let suggestedType = 'chore';
+    let description = 'Code changes made';
+    
+    if (message.toLowerCase().includes('fix') || message.toLowerCase().includes('bug')) {
+      suggestedType = 'fix';
+      description = 'Bug fixes and corrections';
+    } else if (message.toLowerCase().includes('feat') || message.toLowerCase().includes('add')) {
+      suggestedType = 'feat';
+      description = 'New feature or functionality added';
+    } else if (message.toLowerCase().includes('refactor') || message.toLowerCase().includes('clean')) {
+      suggestedType = 'refactor';
+      description = 'Code refactoring and improvements';
+    } else if (message.toLowerCase().includes('doc')) {
+      suggestedType = 'docs';
+      description = 'Documentation updates';
+    } else if (message.toLowerCase().includes('test')) {
+      suggestedType = 'test';
+      description = 'Testing updates';
+    }
+
+    return {
+      diffSize,
+      suggestedMessage: `${suggestedType}: ${message.split('\n')[0].slice(0, 50)}`,
+      suggestedDescription: description,
+      commitAnalysis: `Fallback analysis: ${suggestedType} commit with ${diffSize} characters of changes`,
+      confidence: 0.4,
+      analysisDate: new Date().toISOString()
+    };
   }
 }
 

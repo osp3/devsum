@@ -5,6 +5,7 @@ import TodaysSummary from './TodaysSummary.jsx';
 import TomorrowsPriorities from './TomorrowsPriorities.jsx';
 import ShowRepoButton from './ShowReposButton.jsx';
 
+// Main dashboard component with comprehensive app state management
 const Dashboard = ({
   //repositories, // Array of all user repositories
   selectedRepo, // Currently selected repository object
@@ -16,14 +17,21 @@ const Dashboard = ({
   summaryLoading, // Loading state for summary
   summaryError, // Error state for summary
   refreshSummary, // Function to manually refresh summary
+  taskSuggestions, // AI-generated task suggestions
+  tasksLoading, // Loading state for tasks
+  tasksError, // Error state for tasks
+  refreshTasks, // Function to refresh task suggestions
+  user, // Current authenticated user data
 }) => {
   return (
-    <div className='min-h-screen bg-[#1a1928]'>
-      <UserHeader />
-
-      <div className=' border border-slate-400 rounded-2xl p-4 m-6 max-w-6xl mx-auto'>
-        <div className='flex-1 justify-center'>
-          <TodaysMetrics
+    <div className="min-h-screen bg-[#1a1928]">
+      {/* Navigation header with user info and controls */}
+      <UserHeader user={user} />
+     
+      {/* Top metrics section - repository statistics */}
+      <div className=" border border-slate-400 rounded-2xl p-4 m-6 max-w-6xl mx-auto">
+        <div className="flex-1 justify-center">
+          <TodaysMetrics 
             selectedRepo={selectedRepo}
             reposLoading={reposLoading}
             yesterdaySummary={yesterdaySummary}
@@ -31,26 +39,29 @@ const Dashboard = ({
         </div>
       </div>
 
+      {/* Main content area - two column layout */}
       <div className="flex justify-row gap-6 max-w-6xl mx-auto ">
-        <>
-          <div className="flex-3  border border-slate-400 rounded-2xl w-150 h-120 p-4 ">
-            <TodaysSummary 
-              yesterdaySummary={yesterdaySummary}
-              summaryLoading={summaryLoading}
-              summaryError={summaryError}
-              refreshSummary={refreshSummary}
-            />
-          </div>
-          
-          <div className='flex-1 border border-slate-400 rounded-2xl w-100 h-120 p-4'>
-            <TomorrowsPriorities
-              selectedRepo={selectedRepo}
-              reposLoading={reposLoading}
-            />
-          </div>
-        </>
+        {/* Left column - yesterday's development summary */}
+        <div className="flex-3  border border-slate-400 rounded-2xl w-150 h-120 p-4 ">
+          <TodaysSummary 
+            yesterdaySummary={yesterdaySummary}
+            summaryLoading={summaryLoading}
+            summaryError={summaryError}
+            refreshSummary={refreshSummary}
+          />
+        </div>
+        {/* Right column - AI-generated task priorities */}
+        <div className="flex-1 border border-slate-400 rounded-2xl w-100 h-120 p-4">
+          <TomorrowsPriorities 
+            taskSuggestions={taskSuggestions}
+            tasksLoading={tasksLoading}
+            tasksError={tasksError}
+            refreshTasks={refreshTasks}
+          />
+        </div>
       </div>
 
+      {/* Footer elements - repository navigation and status */}
       <ShowRepoButton />
 
       {/* <p>🎉 Successfully logged in with GitHub!</p> */}

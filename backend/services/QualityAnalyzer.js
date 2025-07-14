@@ -1,9 +1,10 @@
 import { QualityAnalysis } from '../models/aiModels.js';
 
 class QualityAnalyzer {
-  constructor(openaiClient, callOpenAI) {
+  constructor(openaiClient, callOpenAI, promptBuilder) {
     this.openai = openaiClient;
     this.callOpenAI = callOpenAI;
+    this.promptBuilder = promptBuilder;
   }
 
 async analyzeCodeQuality(commits, repositoryId, timeframe = 'weekly', repositoryFullName = null) {
@@ -11,10 +12,12 @@ async analyzeCodeQuality(commits, repositoryId, timeframe = 'weekly', repository
 
   try {
     // STEP 1: Check cache first (save money on repeated analysis)
-    const today = new Date().toISOString().split('T')[0];
+    const yesterday = new Date();
+    yesterday.setDate(yesterday.getDate() - 1);
+    const yesterdayStr = yesterday.toISOString().split('T')[0];
     const existing = await QualityAnalysis.findOne({
       repositoryId: repositoryId,
-      analysisDate: today
+      analysisDate: yesterdayStr
     }).lean();
 
     if (existing && timeframe === 'daily') {
@@ -36,7 +39,7 @@ async analyzeCodeQuality(commits, repositoryId, timeframe = 'weekly', repository
     const enhancedQuality = this._enhanceQualityAnalysis(qualityData, commits);
     
     // STEP 4: Store for future caching and historical trends
-    await this._storeQualityAnalysis(enhancedQuality, repositoryId, today);
+    await this._storeQualityAnalysis(enhancedQuality, repositoryId, yesterdayStr);
     
     console.log(`Enhanced quality analysis complete. Score: ${enhancedQuality.qualityScore}`);
     return enhancedQuality;
@@ -123,7 +126,8 @@ async analyzeCodeQuality(commits, repositoryId, timeframe = 'weekly', repository
  * This is the fallback when code diffs aren't available
  */
 async _analyzeCommitMessages(commits) {
-  const prompt = this._createQualityPrompt(commits);
+  console.log(`🔍 AI Quality: Analyzing commit message patterns for ${commits.length} commits`);
+      const prompt = this.promptBuilder.createQualityPrompt(commits);
   const aiResponse = await this.callOpenAI(prompt);
   return this._parseQualityResponse(aiResponse);
 }
@@ -336,7 +340,8 @@ async _analyzeCodeChanges(commits, repositoryFullName) {
  */
 async _analyzeIndividualCommitCode(commit, diff) {
   try {
-    const prompt = this._createCodeAnalysisPrompt(commit, diff);
+    console.log(`🔍 AI Code Quality: Analyzing code diff for commit ${commit.sha.slice(0, 8)} (${diff.split('\n').length} lines)`);
+    const prompt = this.promptBuilder.createCodeAnalysisPrompt(commit, diff);
     const aiResponse = await this.callOpenAI(prompt);
     return this._parseCodeAnalysisResponse(aiResponse);
     
@@ -346,94 +351,7 @@ async _analyzeIndividualCommitCode(commit, diff) {
   }
 }
 
-/**
- * CREATE CODE ANALYSIS PROMPT
- * 
- * This prompt analyzes actual code changes, not just commit messages
- * Much more detailed and specific analysis possible
- * 
- * FOCUS AREAS:
- * - Security vulnerabilities (SQL injection, XSS, auth issues)
- * - Performance problems (inefficient queries, memory leaks)
- * - Code quality issues (complexity, naming, structure)
- * - Best practices violations
- * 
- * @param {Object} commit - Commit metadata
- * @param {String} diff - Git diff content
- * @returns {String} AI prompt for code analysis
- */
-_createCodeAnalysisPrompt(commit, diff) {
-  return `
-You are a senior software engineer performing a detailed code review of this commit.
 
-COMMIT INFO:
-Message: "${commit.message}"
-SHA: ${commit.sha}
-Author: ${commit.author || 'Unknown'}
-Date: ${commit.date || 'Unknown'}
-
-CODE CHANGES (GIT DIFF):
-${diff}
-
-ANALYZE FOR:
-
-1. SECURITY ISSUES:
-   - Authentication/authorization problems
-   - Input validation missing
-   - SQL injection, XSS vulnerabilities
-   - Hardcoded secrets or passwords
-   - Insecure data handling
-
-2. CODE QUALITY ISSUES:
-   - Code smells (long functions, duplicate code)
-   - Poor error handling
-   - Missing edge case handling
-   - Inefficient algorithms
-   - Poor naming conventions
-
-3. MAINTAINABILITY CONCERNS:
-   - Complex logic that's hard to understand
-   - Missing comments for complex code
-   - Tight coupling between components
-   - Violations of SOLID principles
-
-4. PERFORMANCE ISSUES:
-   - Inefficient database queries
-   - Memory leaks potential
-   - Unnecessary loops or computations
-   - Blocking operations
-
-5. BEST PRACTICES:
-   - Proper error handling
-   - Good test coverage additions
-   - Clear variable/function names
-   - Appropriate design patterns
-
-Respond with JSON:
-{
-  "severity": "low|medium|high|critical",
-  "issues": [
-    {
-      "type": "security|performance|maintainability|quality",
-      "severity": "low|medium|high|critical", 
-      "line": "approximate line number or 'multiple'",
-      "description": "Specific issue found",
-      "suggestion": "How to fix it",
-      "example": "Show better code if applicable"
-    }
-  ],
-  "positives": [
-    "Good practices found in this commit"
-  ],
-  "overallAssessment": "Brief summary of code quality",
-  "recommendedActions": [
-    "Specific actionable recommendations"
-  ]
-}
-
-Focus on actionable, specific feedback. If code looks good, say so!
-  `.trim();
-}
 
 /**
  * PARSE CODE ANALYSIS RESPONSE
@@ -658,86 +576,7 @@ _summarizeCodeAnalysis(codeInsights) {
   };
 }
 
- /**
- * CREATE QUALITY ANALYSIS PROMPT
- * 
- * This is the "brain" of quality analysis - how we talk to AI
- * 
- * STRATEGY:
- * - Group commits by type so AI can see patterns
- * - Give AI specific things to look for
- * - Ask for structured JSON response
- * - Focus on actionable insights, not just analysis
- */
-    _createQualityPrompt(commits) {
-  // Group commits by category for better AI analysis
-  // Instead of a random list, AI sees organized patterns
-  const commitsByCategory = commits.reduce((groups, commit) => {
-    const category = commit.category || 'other';
-    if (!groups[category]) groups[category] = [];
-    groups[category].push(commit.message);
-    return groups;
-  }, {});
-    //format for AI - Show category patterns clearly
-      const commitSummary = Object.entries(commitsByCategory)
-    .map(([category, messages]) => 
-      `${category.toUpperCase()} (${messages.length}):\n${messages.map(m => `- ${m}`).join('\n')}`
-    )
-    .join('\n\n');
 
-    return `
-    You are a senior software engineer analyzing code quality patterns from git commits.
-
-      RECENT COMMITS BY CATEGORY:
-      ${commitSummary}
-
-      ANALYSIS TASKS:
-1. Identify code quality issues and technical debt patterns
-2. Assess overall development practices  
-3. Provide actionable recommendations
-
-LOOK FOR THESE PATTERNS:
-- Technical debt indicators (TODO, FIXME, quick fix, temporary, hack)
-- Security-related changes (auth, validation, encryption, security)
-- Performance improvements or concerns (optimize, performance, slow, memory)
-- Testing patterns (test, spec, coverage) - or lack thereof
-- Refactoring vs new features balance
-- Code maintainability indicators (clean, refactor, organize)
-
-QUALITY SCORING GUIDELINES:
-- Good indicators: Descriptive commits, security focus, testing activity, refactoring
-- Concerning indicators: Many "quick fixes", TODO comments, vague messages, no tests
-
-Respond with valid JSON only:
-{
-  "qualityScore": 0.75,
-  "issues": [
-    {
-      "type": "technical_debt",
-      "severity": "medium",
-      "description": "Multiple TODO comments indicate incomplete work",
-      "suggestion": "Schedule dedicated time to address technical debt",
-      "commitCount": 3
-    }
-  ],
-  "insights": [
-    "Good balance of features and bug fixes",
-    "Strong focus on security improvements"
-  ],
-    "recommendations": [
-    "Consider adding unit tests for new features",
-    "Review and prioritize TODO items"
-    ]
-  }
-
-    Quality score should be 0.0-1.0 where:
-    - 0.9-1.0: Excellent (great practices, minimal debt)
-    - 0.7-0.9: Good (solid practices, minor issues)  
-    - 0.5-0.7: Fair (some concerns, needs attention)
-    - 0.3-0.5: Poor (significant issues)
-    - 0.0-0.3: Critical (major problems)
-  `.trim();
-}
 
 /**
  * PARSE QUALITY RESPONSE FROM AI

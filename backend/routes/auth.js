@@ -1,5 +1,5 @@
 import express from 'express';
-import passport from '../config/passport.js';
+import passport, { isOAuthReady } from '../config/passport.js';
 import AuthController from '../controllers/AuthController.js';
 
 // Destructure methods for cleaner route definitions
@@ -14,8 +14,20 @@ const router = express.Router();
  * Handles GitHub OAuth flow
  */
 
+// Middleware to check if OAuth is configured
+const requireOAuth = (req, res, next) => {
+  if (!isOAuthReady()) {
+    return res.status(503).json({
+      error: 'OAuth not configured',
+      message: 'GitHub OAuth credentials are not configured. Please configure them in the Settings page.'
+    });
+  }
+  next();
+};
+
 // Initiate GitHub OAuth login
 router.get('/github', 
+  requireOAuth,
   passport.authenticate('github', { 
     scope: ['user:email', 'repo'] 
   })
@@ -23,6 +35,7 @@ router.get('/github',
 
 // GitHub OAuth callback
 router.get('/github/callback',
+  requireOAuth,
   passport.authenticate('github', { 
     failureRedirect: `${process.env.FRONTEND_URL}/login?error=auth_failed` 
   }),
