@@ -7,12 +7,12 @@ import ShowRepoButton from './ShowReposButton.jsx';
 
 // Main dashboard component with comprehensive app state management
 const Dashboard = ({
-  repositories, // Array of all user repositories
+  //repositories, // Array of all user repositories
   selectedRepo, // Currently selected repository object
-  setSelectedRepo, // Function to change selected repository
+ // setSelectedRepo, // Function to change selected repository
   reposLoading, // Boolean: true while fetching repositories
-  reposError, // String: error message if repo fetch failed
-  refreshRepositories, // Function to manually refresh repository data
+  //reposError, // String: error message if repo fetch failed
+  //refreshRepositories, // Function to manually refresh repository data
   yesterdaySummary, // Yesterday's development summary
   summaryLoading, // Loading state for summary
   summaryError, // Error state for summary
@@ -34,6 +34,7 @@ const Dashboard = ({
           <TodaysMetrics 
             selectedRepo={selectedRepo}
             reposLoading={reposLoading}
+            yesterdaySummary={yesterdaySummary}
           />
         </div>
       </div>
@@ -62,8 +63,8 @@ const Dashboard = ({
 
       {/* Footer elements - repository navigation and status */}
       <ShowRepoButton />
-      <h1>Dashboard</h1>
-      <p>🎉 Successfully logged in with GitHub!</p>
+
+      {/* <p>🎉 Successfully logged in with GitHub!</p> */}
     </div>
   );
 };

@@ -101,8 +101,8 @@ function App() {
     setSummaryError(null);
     
     try {
-      // Add force parameter if it's a browser refresh
-      const forceParam = isRefresh() ? '?force=true' : '';
+      // Add force parameter if it's a browser refresh OR manually forced
+      const forceParam = (isRefresh() || forceRefresh) ? '?force=true' : '';
       
       const response = await fetch(
         `${import.meta.env.VITE_API_URL}/api/ai/yesterday-summary${forceParam}`,
@@ -129,7 +129,7 @@ function App() {
         setYesterdaySummary(data.data);
         
         // Log cache status for debugging
-        if (forceRefresh) {
+        if (forceRefresh || isRefresh()) {
           console.log('🔄 Yesterday summary fetched with fresh data (cache bypassed)');
         } else {
           console.log('📦 Yesterday summary fetched (cache enabled)');
