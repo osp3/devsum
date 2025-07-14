@@ -53,6 +53,7 @@ export async function analyzeCommits(req, res, next) {
 export async function generateDailySummary(req, res, next) {
   try {
     const { commits, repositoryId, date } = req.body;
+    const { force } = req.query; // Allow force refresh via query parameter
 
     if (!commits || !repositoryId) {
       return res.status(400).json({
@@ -64,7 +65,8 @@ export async function generateDailySummary(req, res, next) {
     const summary = await AIService.generateDailySummary(
       commits,
       repositoryId,
-      date ? new Date(date) : new Date()
+      date ? new Date(date) : new Date(),
+      force === 'true'
     );
 
     res.json({
@@ -87,8 +89,12 @@ export async function generateDailySummary(req, res, next) {
 export async function generateYesterdaySummary(req, res, next) {
   try {
     const { force } = req.query; // Allow force refresh via query parameter
+    const forceRefresh = force === 'true';
+    
+    console.log(`🎯 Controller: generateYesterdaySummary called with force=${forceRefresh}`);
+    
     const summaryService = new YesterdaySummaryService(req.user.accessToken);
-    const result = await summaryService.generateSummary(force === 'true');
+    const result = await summaryService.generateSummary(forceRefresh);
     
     // Set cache control headers to prevent browser caching
     res.set({
@@ -97,9 +103,13 @@ export async function generateYesterdaySummary(req, res, next) {
       'Expires': '0'
     });
     
+    console.log(`📤 Controller: Returning summary response to client`);
+    console.log(`📤 Response summary preview: "${result.summary.substring(0, 100)}..."`);
+    console.log(`📤 Response type: ${forceRefresh ? 'FORCE REFRESH' : 'NORMAL (cache enabled)'}`);
+    
     res.json({ success: true, data: result });
   } catch (error) {
-    console.error('Failed to generate yesterday summary:', error);
+    console.error('❌ Controller: Failed to generate yesterday summary:', error);
     res.status(500).json({
       success: false,
       error: 'Failed to generate yesterdays summary'

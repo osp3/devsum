@@ -126,37 +126,49 @@ class AIService {
    * store in MongoDb with metadata
    * return generated summary
    */
-  async generateDailySummary(commits, repositoryId, date = new Date()) {
+  async generateDailySummary(commits, repositoryId, date = new Date(), forceRefresh = false) {
     await this.init(); // Ensure DB connection
     const dateStr = date.toISOString().split('T')[0]; // convert to yyyy-mm-dd
 
     try {
-      // Check for cached summary for this day
-      const existing = await DailySummary.findOne({
-        date: dateStr,
-        repositoryId: repositoryId
-      }).lean();
+      // Check for cached summary for this day (unless force refresh requested)
+      if (!forceRefresh) {
+        const existing = await DailySummary.findOne({
+          date: dateStr,
+          repositoryId: repositoryId
+        }).lean();
 
-      if (existing) {
-        console.log(`Using cached summary for ${dateStr}`);
-        return existing.summary;
+        if (existing) {
+          console.log(`📦 AIService: Using CACHED summary for ${dateStr} (repositoryId: ${repositoryId})`);
+          console.log(`📦 AIService cache hit - Summary preview: "${existing.summary.substring(0, 100)}..."`);
+          return existing.summary;
+        } else {
+          console.log(`📦 AIService: No cached summary found for ${dateStr} - will generate fresh`);
+        }
+      } else {
+        console.log(`🔄 AIService: Force refresh requested - bypassing cache for ${dateStr} (repositoryId: ${repositoryId})`);
       }
 
       // Generate new summary
-      console.log(`📝 AI Summary: Generating daily summary for ${dateStr} with ${commits.length} commits`);
+      console.log(`🤖 AIService: Generating FRESH daily summary for ${dateStr} with ${commits.length} commits (repositoryId: ${repositoryId})`);
       const prompt = this.promptBuilder.createSummaryPrompt(commits);
       const summary = await this._callOpenAI(prompt);
+      console.log(`🤖 AIService: Fresh summary generated - Preview: "${summary.substring(0, 100)}..."`);
 
-      // Store in MongoDB - persistent storage
-      await DailySummary.create({
-        date: dateStr,
-        repositoryId: repositoryId,
-        summary: summary,
-        commitCount: commits.length,
-        categories: this._groupByCategory(commits) // store metadata for analytics
-      });
+      // Store in MongoDB (replace existing if force refresh was used)
+      await DailySummary.findOneAndUpdate(
+        { date: dateStr, repositoryId: repositoryId },
+        {
+          date: dateStr,
+          repositoryId: repositoryId,
+          summary: summary,
+          commitCount: commits.length,
+          categories: this._groupByCategory(commits)
+        },
+        { upsert: true, new: true }
+      );
 
-      console.log('Daily summary generated and cached');
+      console.log(`💾 AIService: Fresh daily summary stored in cache for ${dateStr}`);
       return summary;
     } catch (error) {
       console.error('Summary generation failed:', error.message);
@@ -355,7 +367,8 @@ class AIService {
       const model = await EnvironmentService.get('OPENAI_MODEL', 'gpt-4o-mini');
       
       // Debug logging to show which model is being used
-      console.log(`🤖 OpenAI Request: Using model "${model}"`);
+      console.log(`🤖 OpenAI Request: Sending prompt to model "${model}"`);
+      console.log(`🤖 Prompt preview: "${prompt.substring(0, 150)}..."`);
       
       const response = await openai.chat.completions.create({
         model: model,
@@ -373,8 +386,10 @@ class AIService {
         max_tokens: 1500
       });
       
-      console.log(`✅ OpenAI Response: Received ${response.choices[0].message.content.trim().length} characters from "${model}"`);
-      return response.choices[0].message.content.trim();
+      const responseText = response.choices[0].message.content.trim();
+      console.log(`✅ OpenAI Response: Received ${responseText.length} characters from "${model}"`);
+      console.log(`✅ Response preview: "${responseText.substring(0, 100)}..."`);
+      return responseText;
     } catch (error) {
       console.error(`❌ OpenAI API call failed with model "${await EnvironmentService.get('OPENAI_MODEL', 'gpt-4o-mini')}":`, error.message);
       throw error;
@@ -498,20 +513,25 @@ class AIService {
    * return structured analysis with improvement suggestions
    * Input: commit object + diff string
    * processing: AI ananlysis via specialized prompts
-   * output: structure
+   * output: structured analysis object with multiple insights
+   * flow: Input(commit object + gitdiff string) -> Validation(ensure database connection established) ->
+   * Logging(log analysis start with commit sha and diff size) -> Prompt(build AI prompt combining commit + diff) ->
+   * AI call(send to OpenAI for contextual analysis) -> Parsing(parse AI JSON response into strucutred data) ->
+   * Logging(log completion with usggested message preview) -> Output(return comprehensive analysis object) ->
+   * Fallback(if any step failsm use heuristic analysis)
    */
   async analyzeCommitDiff(commit, diff) {
-    await this.init();
+    await this.init(); // establish db connection if not already done
     console.log(`🔍 AI Diff Analysis: Analyzing commit ${commit.sha?.substring(0, 7)} (diff: ${diff.length} chars)`);
 
     try {
-      const prompt = this.promptBuilder.createCommitAnalysisPrompt(commit, diff);
-      const analysis = await this._callOpenAI(prompt);
-      const parsedAnalysis = this._parseCommitAnalysis(analysis);
+      const prompt = this.promptBuilder.createCommitAnalysisPrompt(commit, diff); //Step1 prompt construction
+      const analysis = await this._callOpenAI(prompt); //Step 2 AI analysis request
+      const parsedAnalysis = this._parseCommitAnalysis(analysis); //Step 3 response parsing
 
       console.log(`Analysis complete for ${commit.sha?.substring(0, 7)}: ${parsedAnalysis.suggestedMessage}`);
       
-      return {
+      return { //Step 4 strucuted response construction
         diffSize: diff.length,
         suggestedMessage: parsedAnalysis.suggestedMessage,
         suggestedDescription: parsedAnalysis.description,

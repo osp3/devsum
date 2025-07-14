@@ -55,7 +55,8 @@ export class YesterdaySummaryService {
         }).lean();
 
         if (existing) {
-          console.log(`Using cached yesterday summary for ${dateStr}`);
+          console.log(`📦 YesterdaySummaryService: Using CACHED yesterday summary for ${dateStr}`);
+          console.log(`📦 Cache hit - Summary preview: "${existing.summary.substring(0, 100)}..."`);
           
           // Return cached data in the expected format
           return {
@@ -66,9 +67,11 @@ export class YesterdaySummaryService {
             repositories: existing.repositories || [],
             formattedCommits: existing.formattedCommits || { total: existing.commitCount, byRepository: {}, allCommits: [] }
           };
+        } else {
+          console.log(`📦 YesterdaySummaryService: No cached summary found for ${dateStr} - will generate fresh`);
         }
       } else {
-        console.log(`Force refresh requested - bypassing cache for ${dateStr}`);
+        console.log(`🔄 YesterdaySummaryService: Force refresh requested - bypassing cache for ${dateStr}`);
       }
 
       // Generate new summary if not cached or refresh requested
@@ -101,8 +104,10 @@ export class YesterdaySummaryService {
       if (commits.length === 0) {
         summaryText = "No work found for yesterday";
       } else {
-        // Use AI-powered summary for actual commits
-        summaryText = await this.aiService.generateDailySummary(commits, repositoryId, new Date(dateStr));
+        // Use AI-powered summary for actual commits - pass through forceRefresh
+        console.log(`🔄 YesterdaySummaryService: Generating fresh summary via AIService (forceRefresh=${forceRefresh})`);
+        summaryText = await this.aiService.generateDailySummary(commits, repositoryId, new Date(dateStr), forceRefresh);
+        console.log(`✅ YesterdaySummaryService: Received summary from AIService - Preview: "${summaryText.substring(0, 100)}..."`);
       }
 
       const summaryData = {
@@ -130,14 +135,15 @@ export class YesterdaySummaryService {
         { upsert: true, new: true }
       );
 
-      console.log(`Yesterday summary generated and cached for ${dateStr}`);
+      console.log(`💾 YesterdaySummaryService: Fresh summary generated and cached for ${dateStr}`);
+      console.log(`💾 Final summary being returned - Preview: "${summaryText.substring(0, 100)}..."`);
       return summaryData;
 
     } catch (error) {
-      console.error('Failed to generate yesterday summary:', error.message);
+      console.error('❌ YesterdaySummaryService: Failed to generate yesterday summary:', error.message);
       
       // Fallback: generate without caching using SummaryGenerator
-      console.log('🔄 Falling back to non-cached generation...');
+      console.log('⚠️  YesterdaySummaryService: Falling back to non-cached generation...');
       const repos = await this.githubService.getUserRepos();
       const { commits, repositoryData } = await this.fetchAllCommits(repos, start, end);
       
@@ -146,6 +152,7 @@ export class YesterdaySummaryService {
         ? "No work found for yesterday" 
         : SummaryGenerator.generateFormattedSummary(commits, repositoryData.length);
 
+      console.log(`⚠️  YesterdaySummaryService: FALLBACK summary generated - Preview: "${summaryText.substring(0, 100)}..."`);
       return {
         summary: summaryText,
         date: dateStr,
