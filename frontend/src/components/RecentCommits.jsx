@@ -92,15 +92,4 @@ const RecentCommits = ({ commits, loading, error, qualityAnalysis, repositoryId 
 export default RecentCommits;
 
 
-//- took out commit items don't think its we need it
- 
-//flex-3  border border-slate-400 rounded-2xl w-150 h-120 p-4
 
-
-//  <div>
-//       <h1>RECENT COMMITS</h1>
-      
-//       <CommitItem />
-
-      
-//     </div>
