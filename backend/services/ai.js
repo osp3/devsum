@@ -34,6 +34,19 @@ class AIService {
     this.promptBuilder = new PromptBuilder();
     this.cacheManager = new CacheManager();
     this.qualityAnalyzer = new QualityAnalyzer(openai, this._callOpenAI.bind(this), this.promptBuilder);
+    this.githubService = null; // Will be set when needed
+  }
+
+  // Set GitHubService instance for authenticated API calls
+  setGitHubService(githubService) {
+    this.githubService = githubService;
+    // Update quality analyzer with authenticated GitHub service
+    this.qualityAnalyzer = new QualityAnalyzer(
+      openai, 
+      this._callOpenAI.bind(this), 
+      this.promptBuilder, 
+      githubService
+    );
   }
 //**'lazy initialization' - avoids connecting to database until actually needed.
 // faster startup, better resource management
@@ -54,8 +67,13 @@ class AIService {
   // Reinitialize OpenAI client when settings are updated
   async reinitializeOpenAI() {
     await initializeOpenAI();
-    // Update the quality analyzer with new openai client
-    this.qualityAnalyzer = new QualityAnalyzer(openai, this._callOpenAI.bind(this), this.promptBuilder);
+    // Update the quality analyzer with new openai client and existing GitHub service
+    this.qualityAnalyzer = new QualityAnalyzer(
+      openai, 
+      this._callOpenAI.bind(this), 
+      this.promptBuilder, 
+      this.githubService
+    );
     console.log('OpenAI client reinitialized');
   }
 

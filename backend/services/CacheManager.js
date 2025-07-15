@@ -101,6 +101,20 @@ class CacheManager {
       console.error(`⚠️ Failed to clear cache for ${owner}/${repo}:`, error.message);
     }
   }
+
+  async clearQualityAnalysisCache(owner, repo) {
+    const repositoryId = `${owner}/${repo}`;
+    
+    try {
+      const result = await QualityAnalysis.deleteMany({
+        repositoryId: repositoryId
+      });
+      
+      console.log(`✅ Cleared ${result.deletedCount} quality analysis cache entries for ${repositoryId}`);
+    } catch (error) {
+      console.error(`⚠️ Failed to clear quality analysis cache for ${repositoryId}:`, error.message);
+    }
+  }
 }
 
 export default CacheManager;

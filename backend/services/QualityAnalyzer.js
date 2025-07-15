@@ -1,10 +1,11 @@
 import { QualityAnalysis } from '../models/aiModels.js';
 
 class QualityAnalyzer {
-  constructor(openaiClient, callOpenAI, promptBuilder) {
+  constructor(openaiClient, callOpenAI, promptBuilder, githubService = null) {
     this.openai = openaiClient;
     this.callOpenAI = callOpenAI;
     this.promptBuilder = promptBuilder;
+    this.githubService = githubService; // Add GitHubService for authenticated API calls
   }
 
 async analyzeCodeQuality(commits, repositoryId, timeframe = 'weekly', repositoryFullName = null) {
@@ -12,18 +13,31 @@ async analyzeCodeQuality(commits, repositoryId, timeframe = 'weekly', repository
 
   try {
     // STEP 1: Check cache first (save money on repeated analysis)
-    const yesterday = new Date();
-    yesterday.setDate(yesterday.getDate() - 1);
-    const yesterdayStr = yesterday.toISOString().split('T')[0];
+    const cacheKey = this._generateCacheKey(commits, repositoryId, timeframe);
+    console.log(`🔑 Generated cache key: ${cacheKey}`);
+    
+    // Look for recent cache entries (within 4 hours) for better cache hit rates
+    const fourHoursAgo = new Date(Date.now() - 4 * 60 * 60 * 1000);
+    
+    console.log(`🔍 Searching for cache with criteria:`, {
+      repositoryId: repositoryId,
+      cacheKey: cacheKey,
+      createdAt_gte: fourHoursAgo.toISOString()
+    });
+    
     const existing = await QualityAnalysis.findOne({
       repositoryId: repositoryId,
-      analysisDate: yesterdayStr
+      cacheKey: cacheKey,
+      createdAt: { $gte: fourHoursAgo }  // Find entries newer than 4 hours
     }).lean();
 
-    if (existing && timeframe === 'daily') {
-      console.log('Using cached enhanced quality analysis');
+    if (existing) {
+      const minutesOld = Math.round((Date.now() - existing.createdAt.getTime()) / (1000 * 60));
+      console.log(`✅ Using cached quality analysis for ${repositoryId} (${minutesOld} minutes old)`);
       return existing;
     }
+    
+    console.log(`❌ No recent cache found for ${repositoryId}, running fresh analysis...`);
 
     // STEP 2: Choose analysis method based on available data
     let qualityData;
@@ -38,11 +52,13 @@ async analyzeCodeQuality(commits, repositoryId, timeframe = 'weekly', repository
     // STEP 3: Add our calculated metrics to AI insights
     const enhancedQuality = this._enhanceQualityAnalysis(qualityData, commits);
     
-    // STEP 4: Store for future caching and historical trends
-    await this._storeQualityAnalysis(enhancedQuality, repositoryId, yesterdayStr);
+    // STEP 4: Store for future caching and historical trends - AWAIT THIS!
+    const today = new Date().toISOString().split('T')[0];
+    console.log(`💾 Storing quality analysis with cache key: ${cacheKey}`);
+    const storedAnalysis = await this._storeQualityAnalysis(enhancedQuality, repositoryId, today, cacheKey);
+    console.log(`✅ Cache storage completed for ${repositoryId}`);
     
-    console.log(`Enhanced quality analysis complete. Score: ${enhancedQuality.qualityScore}`);
-    return enhancedQuality;
+    return storedAnalysis || enhancedQuality;
 
   } catch (error) {
     console.error('Enhanced quality analysis failed:', error.message);
@@ -135,7 +151,7 @@ async _analyzeCommitMessages(commits) {
 /**
  * GET GIT DIFF FOR A COMMIT
  * 
- * Fetches actual code changes for deeper analysis
+ * Fetches actual code changes for deeper analysis using authenticated GitHubService
  * This is where we get the "real" code to analyze
  * 
  * WHY THIS IS POWERFUL:
@@ -152,20 +168,31 @@ async _getCommitDiff(commitSha, repositoryFullName) {
   try {
     console.log(`Fetching diff for commit ${commitSha.slice(0, 8)}...`);
     
-    // INTEGRATION POINT: This will work with Backend Engineer A's GitHub service
-    // For now, we'll create a simple GitHub API call
-    const response = await fetch(`https://api.github.com/repos/${repositoryFullName}/commits/${commitSha}`, {
-      headers: {
-        'Accept': 'application/vnd.github.v3.diff',
-        'User-Agent': 'DevSum-AI-Analysis'
-      }
-    });
-    
-    if (!response.ok) {
-      throw new Error(`GitHub API error: ${response.status}`);
+    if (!this.githubService) {
+      console.error('GitHubService not available for authenticated API calls');
+      return null;
     }
     
-    const diff = await response.text();
+    // Parse repository full name to get owner and repo
+    const [owner, repo] = repositoryFullName.split('/');
+    if (!owner || !repo) {
+      console.error(`Invalid repository format: ${repositoryFullName}`);
+      return null;
+    }
+    
+    // Use authenticated GitHubService instead of direct fetch
+    const commitData = await this.githubService.getCommitDiff(owner, repo, commitSha);
+    
+    // Extract diff content from files
+    const diff = commitData.files
+      .map(file => file.patch || '')
+      .filter(patch => patch.length > 0)
+      .join('\n');
+    
+    if (!diff || diff.trim().length === 0) {
+      console.log(`No diff content available for commit ${commitSha.slice(0, 8)}`);
+      return null;
+    }
     
     // COST CONTROL: Limit diff size to prevent massive AI costs
     const maxDiffSize = 5000; // ~5KB limit
@@ -238,43 +265,8 @@ async _analyzeCommitsWithDiffs(commits, repositoryFullName) {
  * @returns {Array} Selected commits for expensive code analysis
  */
 _selectCommitsForCodeAnalysis(commits) {
-  const selected = [];
-  
-  // STRATEGY 1: Always analyze the 3 most recent commits
-  const recentCommits = commits.slice(0, 3);
-  selected.push(...recentCommits);
-  
-  // STRATEGY 2: Analyze commits with concerning patterns
-  const concerningCommits = commits.filter(commit => {
-    const message = commit.message?.toLowerCase() || '';
-    return message.includes('quick') || 
-           message.includes('hotfix') || 
-           message.includes('urgent') ||
-           message.includes('todo') ||
-           message.includes('fixme') ||
-           message.includes('hack') ||
-           message.includes('temporary');
-  }).slice(0, 3); // Limit to avoid costs
-  
-  // STRATEGY 3: Analyze security-related commits  
-  const securityCommits = commits.filter(commit => {
-    const message = commit.message?.toLowerCase() || '';
-    return message.includes('security') ||
-           message.includes('auth') ||
-           message.includes('encrypt') ||
-           message.includes('validate') ||
-           message.includes('permission') ||
-           message.includes('token');
-  }).slice(0, 2);
-  
-  // COMBINE and DEDUPLICATE
-  const allSelected = [...recentCommits, ...concerningCommits, ...securityCommits];
-  const uniqueSelected = allSelected.filter((commit, index, self) => 
-    index === self.findIndex(c => c.sha === commit.sha)
-  );
-  
-  // FINAL COST CONTROL: Max 5 commits total
-  return uniqueSelected.slice(0, 5);
+  // Analyze all commits for comprehensive code quality insights
+  return commits;
 }
 
 /**
@@ -307,12 +299,56 @@ async _analyzeCodeChanges(commits, repositoryFullName) {
       
       // Send this commit's code changes to AI
       const codeAnalysis = await this._analyzeIndividualCommitCode(commit, diff);
-      codeInsights.push({
-        commitSha: commit.sha,
-        commitMessage: commit.message,
-        linesChanged: lineCount,
-        analysis: codeAnalysis
-      });
+      
+      // Validate the analysis structure before adding to insights
+      if (codeAnalysis && typeof codeAnalysis === 'object') {
+        // Validate and clean the issues array to match schema
+        const validatedIssues = Array.isArray(codeAnalysis.issues) 
+          ? codeAnalysis.issues.map(issue => {
+              // Ensure all issue fields are proper strings
+              const validatedIssue = {
+                type: String(issue.type || 'quality'),
+                severity: String(issue.severity || 'medium'),
+                line: String(issue.line || 'unknown'),
+                description: String(issue.description || 'Issue detected'),
+                suggestion: String(issue.suggestion || 'Review and improve'),
+                example: String(issue.example || '') // Convert null to empty string
+              };
+              
+              // Debug: Log structure for troubleshooting
+              console.log(`📋 Issue validation: ${JSON.stringify(validatedIssue)}`);
+              return validatedIssue;
+            })
+          : [];
+          
+        // Validate and clean other arrays to ensure they contain only strings
+        const validatedPositives = Array.isArray(codeAnalysis.positives) 
+          ? codeAnalysis.positives.filter(item => item != null).map(item => String(item))
+          : [];
+          
+        const validatedRecommendedActions = Array.isArray(codeAnalysis.recommendedActions) 
+          ? codeAnalysis.recommendedActions.filter(item => item != null).map(item => String(item))
+          : [];
+          
+        const insightData = {
+          commitSha: String(commit.sha),
+          commitMessage: String(commit.message),
+          linesChanged: Number(lineCount),
+          analysis: {
+            severity: String(codeAnalysis.severity || 'medium'),
+            issues: validatedIssues,
+            positives: validatedPositives,
+            overallAssessment: String(codeAnalysis.overallAssessment || 'Analysis completed'),
+            recommendedActions: validatedRecommendedActions
+          }
+        };
+        
+        // Debug: Log the complete structure before adding
+        console.log(`📊 Complete insight structure: ${JSON.stringify(insightData, null, 2)}`);
+        codeInsights.push(insightData);
+      } else {
+        console.warn(`⚠️ Invalid analysis structure for commit ${commit.sha.slice(0, 8)}, skipping`);
+      }
       
     } catch (error) {
       console.error(`Code analysis failed for ${commit.sha.slice(0, 8)}:`, error.message);
@@ -362,35 +398,63 @@ _parseCodeAnalysisResponse(aiResponse) {
   try {
     const parsed = JSON.parse(aiResponse);
     
+    // Helper function to parse nested JSON strings that AI sometimes returns
+    const parseIfNeeded = (value) => {
+      if (typeof value === 'string' && (value.startsWith('[') || value.startsWith('{'))) {
+        try {
+          return JSON.parse(value);
+        } catch (e) {
+          console.warn('Failed to parse nested JSON:', value);
+          return value;
+        }
+      }
+      return value;
+    };
+    
+    // Parse issues array (handle both array and JSON string cases)
+    let issues = parseIfNeeded(parsed.issues) || [];
+    if (!Array.isArray(issues)) {
+      console.warn('Issues is not an array after parsing:', typeof issues);
+      issues = [];
+    }
+    
+    // Parse positives and recommendedActions arrays
+    let positives = parseIfNeeded(parsed.positives) || [];
+    if (!Array.isArray(positives)) positives = [];
+    
+    let recommendedActions = parseIfNeeded(parsed.recommendedActions) || [];
+    if (!Array.isArray(recommendedActions)) recommendedActions = [];
+    
     return {
       severity: parsed.severity || 'medium',
-      issues: (parsed.issues || []).map(issue => ({
-        type: issue.type || 'quality',
-        severity: issue.severity || 'medium',
-        line: issue.line || 'unknown',
-        description: issue.description || 'Code issue detected',
-        suggestion: issue.suggestion || 'Review and improve this code',
-        example: issue.example || null
+      issues: issues.map(issue => ({
+        type: String(issue.type || 'quality'),
+        severity: String(issue.severity || 'medium'),
+        line: String(issue.line || 'unknown'),
+        description: String(issue.description || 'Code issue detected'),
+        suggestion: String(issue.suggestion || 'Review and improve this code'),
+        example: String(issue.example || '') // Always return string, never null
       })),
-      positives: parsed.positives || [],
-      overallAssessment: parsed.overallAssessment || 'Code analysis completed',
-      recommendedActions: parsed.recommendedActions || []
+      positives: positives.filter(item => item != null).map(item => String(item)),
+      overallAssessment: String(parsed.overallAssessment || 'Code analysis completed'),
+      recommendedActions: recommendedActions.filter(item => item != null).map(item => String(item))
     };
     
   } catch (error) {
     console.error('Failed to parse code analysis response:', error.message);
     return {
-      severity: 'medium',
+      severity: String('medium'),
       issues: [{
-        type: 'analysis_error',
-        severity: 'low',
-        line: 'unknown',
-        description: 'Unable to fully analyze code changes',
-        suggestion: 'Manual code review recommended'
+        type: String('analysis_error'),
+        severity: String('low'),
+        line: String('unknown'),
+        description: String('Unable to fully analyze code changes'),
+        suggestion: String('Manual code review recommended'),
+        example: String('')
       }],
       positives: [],
-      overallAssessment: 'Code analysis incomplete',
-      recommendedActions: ['Manual review recommended']
+      overallAssessment: String('Code analysis incomplete'),
+      recommendedActions: [String('Manual review recommended')]
     };
   }
 }
@@ -531,28 +595,32 @@ _fallbackCodeAnalysis(commit, diff) {
   const issues = [];
   if (diff.includes('console.log')) {
     issues.push({
-      type: 'quality',
-      severity: 'low',
-      description: 'Debug console.log statements detected',
-      suggestion: 'Remove debug statements before production'
+      type: String('quality'),
+      severity: String('low'),
+      line: String('multiple'),
+      description: String('Debug console.log statements detected'),
+      suggestion: String('Remove debug statements before production'),
+      example: String('')
     });
   }
   
   if (diff.includes('TODO') || diff.includes('FIXME')) {
     issues.push({
-      type: 'maintainability',
-      severity: 'medium',
-      description: 'TODO/FIXME comments added',
-      suggestion: 'Address TODO items or create tickets for them'
+      type: String('maintainability'),
+      severity: String('medium'), 
+      line: String('multiple'),
+      description: String('TODO/FIXME comments added'),
+      suggestion: String('Address TODO items or create tickets for them'),
+      example: String('')
     });
   }
   
   return {
-    severity: issues.length > 0 ? 'medium' : 'low',
+    severity: String(issues.length > 0 ? 'medium' : 'low'),
     issues: issues,
-    positives: addedLines > removedLines ? ['Code additions detected'] : [],
-    overallAssessment: `${addedLines} lines added, ${removedLines} lines removed`,
-    recommendedActions: issues.length > 0 ? ['Address identified issues'] : ['Code looks clean']
+    positives: addedLines > removedLines ? [String('Code additions detected')] : [],
+    overallAssessment: String(`${addedLines} lines added, ${removedLines} lines removed`),
+    recommendedActions: issues.length > 0 ? [String('Address identified issues')] : [String('Code looks clean')]
   };
 }
 
@@ -751,15 +819,23 @@ _calculatePatternHealthScore(patterns, totalCommits) {
 }
 
 /**
- * STORE QUALITY ANALYSIS
+ * STORE ANALYSIS IN DATABASE
+ * Saves quality analysis to database for future caching and historical trends
  */
-async _storeQualityAnalysis(qualityData, repositoryId, date) {
+async _storeQualityAnalysis(qualityData, repositoryId, date, cacheKey) {
   try {
-    await QualityAnalysis.findOneAndUpdate(
-      { repositoryId: repositoryId, analysisDate: date },
+    // Debug the codeAnalysis structure before saving
+    if (qualityData.codeAnalysis && qualityData.codeAnalysis.insights) {
+      console.log(`📊 Saving ${qualityData.codeAnalysis.insights.length} code insights for ${repositoryId}`);
+      console.log(`📊 Sample insight structure:`, JSON.stringify(qualityData.codeAnalysis.insights[0], null, 2));
+    }
+    
+    const storedAnalysis = await QualityAnalysis.findOneAndUpdate(
+      { repositoryId: repositoryId, analysisDate: date, cacheKey: cacheKey },
       {
         repositoryId: repositoryId,
         analysisDate: date,
+        cacheKey: cacheKey,
         qualityScore: qualityData.qualityScore,
         issues: qualityData.issues,
         insights: qualityData.insights,
@@ -768,16 +844,38 @@ async _storeQualityAnalysis(qualityData, repositoryId, date) {
         trends: {
           improvingAreas: [],
           concerningAreas: []
-        }
+        },
+        codeAnalysis: qualityData.codeAnalysis || null,
+        analysisMethod: qualityData.analysisMethod || 'basic'
       },
       { upsert: true, new: true }
     );
     
-    console.log(`Stored quality analysis for ${date}`);
+    console.log(`✅ Stored quality analysis cache for ${repositoryId}`);
+    return storedAnalysis;
     
   } catch (error) {
     console.error('Failed to store quality analysis:', error.message);
+    console.error('Error details:', error);
+    return null;
   }
+}
+
+/**
+ * GENERATE CACHE KEY
+ * Creates a cache key that allows reuse when analyzing similar time periods
+ * Uses repository + timeframe + date + commit count buckets instead of specific commit SHAs
+ */
+_generateCacheKey(commits, repositoryId, timeframe) {
+  // Use repository and timeframe as primary cache key
+  // This allows cache reuse even when new commits are added to similar time periods
+  const today = new Date().toISOString().split('T')[0];
+  
+  // Use commit count buckets to allow cache reuse with minor commit changes
+  // Round to nearest 10 (e.g., 5-14 commits all use bucket "10")
+  const commitCountBucket = Math.floor((commits.length + 5) / 10) * 10;
+  
+  return `quality-${repositoryId.replace('/', '-')}-${timeframe}-${today}-${commitCountBucket}`;
 }
 
 /**

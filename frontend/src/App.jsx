@@ -6,6 +6,7 @@ import Login from './components/Login.jsx';
 import Dashboard from './components/Dashboard.jsx';
 import RepoListing from './components/RepoListing.jsx';
 import RepoAnalytics from './components/RepoAnalytics';
+import CommitAnalysis from './components/CommitAnalysis';
 import Settings from './components/Settings.jsx';
 
 // Wrapper component that uses shared authentication state
@@ -35,20 +36,7 @@ function App() {
   const [tasksLoading, setTasksLoading] = useState(false); // Loading state for tasks
   const [tasksError, setTasksError] = useState(null); // Error state for tasks
 
-  // Helper function to detect browser refresh for force refreshing data
-  const isRefresh = () => {
-    try {
-      // Modern approach - check if it's a reload
-      const navigationEntries = performance.getEntriesByType('navigation');
-      if (navigationEntries.length > 0) {
-        return navigationEntries[0].type === 'reload';
-      }
-      // Fallback for older browsers
-      return performance.navigation?.type === 1;
-    } catch {
-      return false;
-    }
-  };
+  // Browser refresh detection removed - only manual refresh buttons should bypass cache
 
   // Fetch all user repositories - called once on login, cached for entire session
   const fetchRepositories = async (forceRefresh = false) => {
@@ -56,8 +44,8 @@ function App() {
     setReposError(null);
 
     try {
-      // Add force parameter if it's a browser refresh OR manually forced
-      const forceParam = (isRefresh() || forceRefresh) ? '?force=true' : '';
+      // Add force parameter only if manually forced (browser refresh no longer bypasses cache)
+      const forceParam = forceRefresh ? '?force=true' : '';
       
       const response = await fetch(
         `${import.meta.env.VITE_API_URL}/api/repos${forceParam}`,
@@ -101,8 +89,8 @@ function App() {
     setSummaryError(null);
     
     try {
-      // Add force parameter if it's a browser refresh OR manually forced
-      const forceParam = (isRefresh() || forceRefresh) ? '?force=true' : '';
+      // Add force parameter only if manually forced (browser refresh no longer bypasses cache)
+      const forceParam = forceRefresh ? '?force=true' : '';
       
       const response = await fetch(
         `${import.meta.env.VITE_API_URL}/api/ai/yesterday-summary${forceParam}`,
@@ -129,7 +117,7 @@ function App() {
         setYesterdaySummary(data.data);
         
         // Log cache status for debugging
-        if (forceRefresh || isRefresh()) {
+        if (forceRefresh) {
           console.log('🔄 Yesterday summary fetched with fresh data (cache bypassed)');
         } else {
           console.log('📦 Yesterday summary fetched (cache enabled)');
@@ -154,8 +142,8 @@ function App() {
     setTasksError(null);
 
     try {
-      // Add force parameter if it's a browser refresh OR manually forced
-      const forceParam = (isRefresh() || forceRefresh) ? '?force=true' : '';
+      // Add force parameter only if manually forced (browser refresh no longer bypasses cache)
+      const forceParam = forceRefresh ? '?force=true' : '';
       
       const response = await fetch(
         `${import.meta.env.VITE_API_URL}/api/ai/task-suggestions${forceParam}`,
@@ -232,20 +220,10 @@ function App() {
   // Fetch repositories and yesterday's summary when user becomes authenticated
   useEffect(() => {
     if (isAuthenticated) {
-      // Detect browser refresh by checking if page was reloaded
-      const wasRefreshed = performance.getEntriesByType('navigation')[0]?.type === 'reload';
-      
-      if (wasRefreshed) {
-        console.log('🔄 Browser refresh detected - fetching fresh data');
-        // Fetch repositories, yesterday's summary, and task suggestions with fresh data
-        fetchRepositories(true);
-        fetchYesterdaySummary(true);
-      } else {
-        console.log('📦 Normal page load - using cached data');
-        // Fetch repositories, yesterday's summary, and task suggestions with cache
-        fetchRepositories(false);
-        fetchYesterdaySummary(false);
-      }
+      console.log('📦 Loading data with cache enabled - only manual refresh buttons bypass cache');
+      // Always use cache - only manual refresh buttons should bypass cache
+      fetchRepositories(false);
+      fetchYesterdaySummary(false);
     }
   }, [isAuthenticated]); // Run when auth status changes
 
@@ -305,6 +283,14 @@ function App() {
               <RepoAnalytics {...appContext} />
             </ProtectedRoute>
           } 
+        />
+        <Route
+          path='/commit-analysis'
+          element={
+            <ProtectedRoute isAuthenticated={isAuthenticated} authLoading={authLoading}>
+              <CommitAnalysis user={user} />
+            </ProtectedRoute>
+          }
         />
         <Route 
           path='/settings' 
