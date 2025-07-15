@@ -1,7 +1,10 @@
 import React from 'react';
+import { useNavigate } from 'react-router-dom';
 
 // Individual commit display component with props for commit data and AI suggested message
-const CommitItem = ({ commit, suggestedCommitMessage }) => {
+const CommitItem = ({ commit, suggestedCommitMessage, hasQualityAnalysis, qualityAnalysis, repositoryId }) => {
+  const navigate = useNavigate();
+  
   // Format commit date to readable local format
   const formatDate = (dateString) => {
     const date = new Date(dateString);
@@ -10,6 +13,38 @@ const CommitItem = ({ commit, suggestedCommitMessage }) => {
       ' ' +
       date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
     );
+  };
+
+  // Handle view analysis button click
+  const handleViewAnalysis = () => {
+    console.log('🔍 CommitItem handleViewAnalysis triggered');
+    console.log('🔍 hasQualityAnalysis:', hasQualityAnalysis);
+    console.log('🔍 repositoryId:', repositoryId);
+    console.log('🔍 qualityAnalysis:', qualityAnalysis);
+    console.log('🔍 commit.sha:', commit.sha);
+    
+    if (hasQualityAnalysis && repositoryId && qualityAnalysis) {
+      console.log('🔍 Navigating with state:', {
+        qualityAnalysis: qualityAnalysis,
+        repositoryId: repositoryId,
+        commitSha: commit.sha
+      });
+      
+      // Pass the quality analysis data through navigation state to avoid re-fetching
+      navigate(`/commit-analysis?repo=${repositoryId}&commit=${commit.sha}`, {
+        state: {
+          qualityAnalysis: qualityAnalysis, // Pass the actual analysis data
+          repositoryId: repositoryId,
+          commitSha: commit.sha
+        }
+      });
+    } else {
+      console.error('🔍 Cannot navigate - missing data:', {
+        hasQualityAnalysis,
+        repositoryId,
+        hasQualityAnalysisData: !!qualityAnalysis
+      });
+    }
   };
 
   // Determine which message to display - AI suggested or raw commit message
@@ -76,7 +111,7 @@ const CommitItem = ({ commit, suggestedCommitMessage }) => {
           <div className='flex-1'>
             <h1 className='text-white text-md leading-tight'>
               {truncateMessage(displayMessage)}
-            </h1>
+    </h1>
             {/* Show indicator if AI suggested message is being displayed */}
             {suggestedCommitMessage && (
               <div className='flex items-center gap-2 mt-1'>
@@ -89,6 +124,17 @@ const CommitItem = ({ commit, suggestedCommitMessage }) => {
             <p className='text-grey-400 text-sm mt-1'>{commit.author.name}</p>
           </div>
         </div>
+
+        {/* View Analysis button - only shown when quality analysis is available */}
+        {hasQualityAnalysis && (
+          <button
+            onClick={handleViewAnalysis}
+            className='px-3 py-1 bg-blue-600 hover:bg-blue-700 text-white rounded text-xs font-medium transition-colors cursor-pointer'
+            title={`View detailed analysis for commit ${commit.sha.substring(0, 7)}`}
+          >
+            📊 View Analysis
+          </button>
+        )}
 
         <span className='flex-1absolute top-2 right-2 text-xs text-gray-500'>
           {formatDate(commit.author.date)}

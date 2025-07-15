@@ -136,6 +136,11 @@ const qualityAnalysisSchema = new mongoose.Schema({
     required: true,
     index: true
   },
+  cacheKey: {
+    type: String,
+    required: true,
+    index: true
+  },
   qualityScore: {
     type: Number,
     required: true,
@@ -161,7 +166,37 @@ const qualityAnalysisSchema = new mongoose.Schema({
   trends: {
     improvingAreas: [String], // Areas getting better
     concerningAreas: [String] // Areas getting worse
-  }
+  },
+  codeAnalysis: {
+    commitsAnalyzed: Number,
+    totalLinesAnalyzed: Number,
+    insights: [{
+      commitSha: String,
+      commitMessage: String,
+      linesChanged: Number,
+      analysis: {
+        severity: String,
+        issues: [{
+          type: String,
+          severity: String,
+          line: String,
+          description: String,
+          suggestion: String,
+          example: String
+        }],
+        positives: [String],
+        overallAssessment: String,
+        recommendedActions: [String]
+      }
+    }],
+    summary: {
+      totalCommitsAnalyzed: Number,
+      totalIssuesFound: Number,
+      criticalIssuesFound: Number,
+      overallCodeHealth: String
+    }
+  },
+  analysisMethod: String // 'enhanced' or 'basic'
 }, {
   timestamps: true
 });
@@ -170,7 +205,7 @@ const qualityAnalysisSchema = new mongoose.Schema({
 dailySummarySchema.index({ date: 1, repositoryId: 1 }, { unique: true });
 taskSuggestionSchema.index({ repositoryId: 1, workSignature: 1, createdAt: 1 });
 // !quality analysis compound index
-qualityAnalysisSchema.index({ repositoryId: 1, analysisDate: 1 }, { unique: true });
+qualityAnalysisSchema.index({ repositoryId: 1, analysisDate: 1, cacheKey: 1 }, { unique: true });
 
 // Enhanced Commits Cache Schema
 const enhancedCommitsCacheSchema = new mongoose.Schema({

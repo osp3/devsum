@@ -45,6 +45,25 @@ router.delete('/repos/:owner/:repo/commits/cache', async (req, res, next) => {
   }
 });
 
+// Clear quality analysis cache for a specific repository
+router.delete('/repos/:owner/:repo/quality/cache', async (req, res, next) => {
+  try {
+    const { owner, repo } = req.params;
+    const { default: CacheManager } = await import('../services/CacheManager.js');
+    const cacheManager = new CacheManager();
+    
+    await cacheManager.clearQualityAnalysisCache(owner, repo);
+    
+    res.json({
+      success: true,
+      message: `Quality analysis cache cleared for ${owner}/${repo}`,
+      timestamp: new Date().toISOString()
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
 // Get specific commit with diff
 router.get('/repos/:owner/:repo/commits/:sha', getCommitDiff);
 

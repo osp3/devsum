@@ -2,7 +2,7 @@ import React from 'react';
 import CommitItem from './CommitItem.jsx';
 
 // Component to display list of recent commits with loading/error states
-const RecentCommits = ({ commits, loading, error }) => {
+const RecentCommits = ({ commits, loading, error, qualityAnalysis, repositoryId }) => {
   // Show loading spinner while fetching commits
   if (loading) {
     return (
@@ -41,11 +41,35 @@ const RecentCommits = ({ commits, loading, error }) => {
     );
   }
 
+  // Determine if quality analysis is available - check for actual properties from backend
+  const hasQualityAnalysis = qualityAnalysis && (
+    qualityAnalysis.qualityScore !== undefined || 
+    qualityAnalysis.issues || 
+    qualityAnalysis.insights
+  );
+
+  // Check if individual commit analysis (codeAnalysis.insights) is available
+  const hasIndividualCommitAnalysis = qualityAnalysis && 
+    qualityAnalysis.codeAnalysis && 
+    qualityAnalysis.codeAnalysis.insights && 
+    qualityAnalysis.codeAnalysis.insights.length > 0;
+
+  console.log('📊 Quality analysis status:', {
+    hasQualityAnalysis,
+    hasIndividualCommitAnalysis,
+    totalInsights: qualityAnalysis?.codeAnalysis?.insights?.length || 0
+  });
+
   // Render commits list
   return (
     <div className='w-full max-w-4xl'>
       <h2 className='text-white text-xl mb-4'>
         Recent Commits ({commits.length})
+        {hasQualityAnalysis && (
+          <span className='text-sm text-green-400 ml-2'>
+            📊 Analysis Available
+          </span>
+        )}
       </h2>
       
       {/* Map through commits and render individual CommitItem components */}
@@ -55,6 +79,9 @@ const RecentCommits = ({ commits, loading, error }) => {
             key={commit.sha} 
             commit={commit} 
             suggestedCommitMessage={commit.suggestedMessage}
+            hasQualityAnalysis={hasIndividualCommitAnalysis} // Only show if individual analysis available
+            qualityAnalysis={qualityAnalysis} // Pass the actual analysis data
+            repositoryId={repositoryId}
           />
         ))}
       </div>
@@ -63,7 +90,7 @@ const RecentCommits = ({ commits, loading, error }) => {
 };
 
 export default RecentCommits;
-  
+
 
 //- took out commit items don't think its we need it
  
