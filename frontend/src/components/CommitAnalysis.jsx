@@ -28,7 +28,25 @@ const CommitAnalysis = ({ user }) => {
     // Only use data from navigation state (passed from RepoAnalytics)
     if (location.state && location.state.qualityAnalysis) {
       console.log('📊 Using quality analysis data from navigation state');
-      setAnalysisData(location.state.qualityAnalysis);
+      
+      // Find the specific commit analysis from codeAnalysis.insights
+      const qualityAnalysis = location.state.qualityAnalysis;
+      if (qualityAnalysis.codeAnalysis && qualityAnalysis.codeAnalysis.insights) {
+        const commitAnalysis = qualityAnalysis.codeAnalysis.insights.find(
+          insight => insight.commitSha === commitSha
+        );
+        
+        if (commitAnalysis) {
+          console.log('📊 Found commit-specific analysis:', commitAnalysis);
+          setAnalysisData(commitAnalysis);
+        } else {
+          console.error('📊 No analysis found for commit:', commitSha);
+          setError(`No analysis found for commit ${commitSha.substring(0, 8)}`);
+        }
+      } else {
+        console.error('📊 No code analysis insights available');
+        setError('No code analysis insights available');
+      }
       setLoading(false);
     } else {
       // No data provided - redirect back to repository page
@@ -101,7 +119,7 @@ const CommitAnalysis = ({ user }) => {
         {/* Header */}
         <div className="mb-6">
           <h1 className="text-white text-2xl font-bold mb-2">
-            Code Quality Analysis
+            Commit Analysis
           </h1>
           <p className="text-gray-400">
             Repository: <span className="text-white">{repositoryId}</span>
@@ -114,39 +132,56 @@ const CommitAnalysis = ({ user }) => {
         {/* Analysis Results */}
         {analysisData && (
           <div className="space-y-6">
-            {/* Quality Score */}
+            {/* Commit Details */}
             <div className="bg-[#272633] border border-slate-400 rounded-lg p-6">
-              <h2 className="text-white text-xl font-bold mb-4">Quality Score</h2>
-              <div className="flex items-center gap-4">
-                <div className="text-4xl font-bold text-blue-400">
-                  {Math.round(analysisData.qualityScore * 100)}/100
+              <h2 className="text-white text-xl font-bold mb-4">Commit Details</h2>
+              <div className="space-y-3">
+                <div>
+                  <p className="text-gray-400 text-sm">Message</p>
+                  <p className="text-white">{analysisData.commitMessage}</p>
                 </div>
-                <div className="flex-1">
-                  <div className="w-full bg-gray-700 rounded-full h-3">
-                    <div 
-                      className="bg-blue-400 h-3 rounded-full transition-all duration-300"
-                      style={{ width: `${analysisData.qualityScore * 100}%` }}
-                    ></div>
+                <div className="flex gap-6">
+                  <div>
+                    <p className="text-gray-400 text-sm">Lines Changed</p>
+                    <p className="text-white font-mono">{analysisData.linesChanged}</p>
+                  </div>
+                  <div>
+                    <p className="text-gray-400 text-sm">Severity</p>
+                    <span className={`px-2 py-1 rounded text-sm font-medium ${
+                      analysisData.analysis?.severity === 'high' ? 'bg-red-600 text-white' :
+                      analysisData.analysis?.severity === 'medium' ? 'bg-yellow-600 text-white' :
+                      'bg-green-600 text-white'
+                    }`}>
+                      {analysisData.analysis?.severity || 'low'}
+                    </span>
                   </div>
                 </div>
               </div>
             </div>
 
             {/* Issues Found */}
-            {analysisData.issues && analysisData.issues.length > 0 && (
+            {analysisData.analysis?.issues && analysisData.analysis.issues.length > 0 && (
               <div className="bg-[#272633] border border-slate-400 rounded-lg p-6">
-                <h2 className="text-white text-xl font-bold mb-4">Issues Found</h2>
+                <h2 className="text-white text-xl font-bold mb-4">Issues Found ({analysisData.analysis.issues.length})</h2>
                 <div className="space-y-3">
-                  {analysisData.issues.map((issue, index) => (
+                  {analysisData.analysis.issues.map((issue, index) => (
                     <div key={index} className="border-l-4 border-red-500 pl-4">
                       <div className="flex items-center gap-2 mb-1">
                         <span className="text-red-400 font-medium capitalize">
                           {issue.severity} - {issue.type.replace('_', ' ')}
                         </span>
+                        {issue.line && issue.line !== 'unknown' && (
+                          <span className="text-gray-400 text-sm">
+                            Line {issue.line}
+                          </span>
+                        )}
                       </div>
                       <p className="text-gray-300 mb-2">{issue.description}</p>
                       {issue.suggestion && (
                         <p className="text-blue-400 text-sm">💡 {issue.suggestion}</p>
+                      )}
+                      {issue.example && (
+                        <p className="text-green-400 text-sm">📝 Example: {issue.example}</p>
                       )}
                     </div>
                   ))}
@@ -154,58 +189,41 @@ const CommitAnalysis = ({ user }) => {
               </div>
             )}
 
-            {/* Recommendations */}
-            {analysisData.recommendations && analysisData.recommendations.length > 0 && (
+            {/* Positive Aspects */}
+            {analysisData.analysis?.positives && analysisData.analysis.positives.length > 0 && (
               <div className="bg-[#272633] border border-slate-400 rounded-lg p-6">
-                <h2 className="text-white text-xl font-bold mb-4">Recommendations</h2>
+                <h2 className="text-white text-xl font-bold mb-4">Positive Aspects</h2>
                 <ul className="space-y-2">
-                  {analysisData.recommendations.map((rec, index) => (
+                  {analysisData.analysis.positives.map((positive, index) => (
                     <li key={index} className="flex items-start gap-2">
-                      <span className="text-green-400">✓</span>
-                      <span className="text-gray-300">{rec}</span>
+                      <span className="text-green-400 mt-1">✓</span>
+                      <span className="text-gray-300">{positive}</span>
                     </li>
                   ))}
                 </ul>
               </div>
             )}
 
-            {/* Insights */}
-            {analysisData.insights && analysisData.insights.length > 0 && (
+            {/* Overall Assessment */}
+            {analysisData.analysis?.overallAssessment && (
               <div className="bg-[#272633] border border-slate-400 rounded-lg p-6">
-                <h2 className="text-white text-xl font-bold mb-4">Insights</h2>
-                <ul className="space-y-2">
-                  {analysisData.insights.map((insight, index) => (
-                    <li key={index} className="flex items-start gap-2">
-                      <span className="text-blue-400">💡</span>
-                      <span className="text-gray-300">{insight}</span>
-                    </li>
-                  ))}
-                </ul>
+                <h2 className="text-white text-xl font-bold mb-4">Overall Assessment</h2>
+                <p className="text-gray-300 leading-relaxed">{analysisData.analysis.overallAssessment}</p>
               </div>
             )}
 
-            {/* Code Analysis Summary */}
-            {analysisData.codeAnalysis && (
+            {/* Recommended Actions */}
+            {analysisData.analysis?.recommendedActions && analysisData.analysis.recommendedActions.length > 0 && (
               <div className="bg-[#272633] border border-slate-400 rounded-lg p-6">
-                <h2 className="text-white text-xl font-bold mb-4">Code Analysis</h2>
-                <div className="grid grid-cols-2 gap-4 mb-4">
-                  <div>
-                    <p className="text-gray-400">Commits Analyzed</p>
-                    <p className="text-white text-lg">{analysisData.codeAnalysis.commitsAnalyzed}</p>
-                  </div>
-                  <div>
-                    <p className="text-gray-400">Lines Analyzed</p>
-                    <p className="text-white text-lg">{analysisData.codeAnalysis.totalLinesAnalyzed}</p>
-                  </div>
-                </div>
-                {analysisData.codeAnalysis.summary && (
-                  <div>
-                    <p className="text-gray-400 mb-2">Overall Health</p>
-                    <p className="text-green-400 capitalize">
-                      {analysisData.codeAnalysis.summary.overallCodeHealth}
-                    </p>
-                  </div>
-                )}
+                <h2 className="text-white text-xl font-bold mb-4">Recommended Actions</h2>
+                <ul className="space-y-2">
+                  {analysisData.analysis.recommendedActions.map((action, index) => (
+                    <li key={index} className="flex items-start gap-2">
+                      <span className="text-yellow-400">⚡</span>
+                      <span className="text-gray-300">{action}</span>
+                    </li>
+                  ))}
+                </ul>
               </div>
             )}
           </div>

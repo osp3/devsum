@@ -132,7 +132,7 @@ const CommitItem = ({ commit, suggestedCommitMessage, hasQualityAnalysis, qualit
             className='px-3 py-1 bg-blue-600 hover:bg-blue-700 text-white rounded text-xs font-medium transition-colors cursor-pointer'
             title={`View detailed analysis for commit ${commit.sha.substring(0, 7)}`}
           >
-            📊 View Analysis
+            View Analysis
           </button>
         )}
 
