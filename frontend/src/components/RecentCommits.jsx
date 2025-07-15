@@ -46,6 +46,7 @@ const RecentCommits = ({ commits, loading, error }) => {
     <div className='w-full max-w-4xl'>
       <h2 className='text-white text-xl mb-4'>
         Recent Commits ({commits.length})
+      
       </h2>
       
       {/* Map through commits and render individual CommitItem components */}
@@ -65,15 +66,4 @@ const RecentCommits = ({ commits, loading, error }) => {
 export default RecentCommits;
   
 
-//- took out commit items don't think its we need it
- 
-//flex-3  border border-slate-400 rounded-2xl w-150 h-120 p-4
 
-
-//  <div>
-//       <h1>RECENT COMMITS</h1>
-      
-//       <CommitItem />
-
-      
-//     </div>
