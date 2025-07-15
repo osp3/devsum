@@ -5,7 +5,7 @@ const TomorrowsPriorities = ({
   taskSuggestions, // Array of AI-generated task suggestions
   tasksLoading, // Loading state for task generation
   tasksError, // Error state for task suggestions
-  refreshTasks, // Function to regenerate task suggestions
+ // refreshTasks, // Function to regenerate task suggestions
 }) => {
   //handle loading states first
   if(tasksLoading)return <div className='p-4 text-white'>Loading tasks...</div>
@@ -24,6 +24,7 @@ const TomorrowsPriorities = ({
       </div>
       
       <div className='max-h-130 overflow-y-auto pr-2'>
+        
         {tasks.map((task, index) => (
           <div key={index} className='mb-4'>
         
