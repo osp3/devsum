@@ -7,28 +7,30 @@ const TomorrowsPriorities = ({
   tasksError, // Error state for task suggestions
   refreshTasks, // Function to regenerate task suggestions
 }) => {
+  if(tasksLoading)return <div className='p-4 text-white'>Loading tasks...</div>
+  if(tasksError) return <div className= 'p-4 text-white'>Error:{tasksError}</div>
+ if(!taskSuggestions)return <div className = 'p4 text-white'>no task available</div>
   return (
     <div className="">
       {/* Header section with priorities title */}
-      <div className="flex justify-center  text-[#5b56dd] text-2xl">
+      <div className="flex justify-start font-bold text-1x p-2">
         <h1>Today's Priorities </h1>
       </div>
       
       {/* Priority tasks list container */}
-      <div className="m-3">
+      <div className="m-3 ">
         {/* Hardcoded task list - should be replaced with dynamic taskSuggestions */}
-        <ul className="flex flex-col gap-3  items-start rounded-lg text-[#5d58da]  ">
+        <div className="flex flex-col gap-3 p-1 items-start rounded-lg text-[#5d58da] ">
+          
+
+
           {/* Sample priority task item */}
-          <li className="bg-[#272633] border border-[#5d58da] rounded-lg p-3 text-[#FFFFFF] ">
+          <li className="bg-[#272633] border border-[#5d58da] rounded-lg p-2 text-[#FFFFFF] ">
             <span className="text-3xl flex-row item-center text-white "></span>
-            <span> Start working on analysis page</span>
+            <span>{taskSuggestions.description}</span>
           </li>
 
-          {/* Another sample task item */}
-          <li className="bg-[#272633] border border-[#5d58da] rounded-lg p-3 text-[#FFFFFF]">
-            List of things to do tomorrow morning
-          </li>
-        </ul>
+        </div>
       </div>
     </div>
   );

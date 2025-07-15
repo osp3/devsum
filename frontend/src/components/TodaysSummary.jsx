@@ -41,7 +41,7 @@ const TodaysSummary = ({ yesterdaySummary, summaryLoading, summaryError }) => {
                 {commits.map((commit, index) => (
                   <div key={commit.sha || index} className='bg-[#272633] rounded-lg p-3 border-l-4 border-[#5b56dd]'>
                     <div className='flex items-center gap-2 text-xs text-gray-400'>
-                      <spam>{commit.description}</spam>
+                      <h3>{commit.description}</h3>
                       
                       
                       <span className = 'flex-1absolute top-2 right-2 text-xs text-gray-500'>{new Date(commit.date).toLocaleString()}</span>
