@@ -23,15 +23,10 @@ const RepoHeader = ({ selectedRepo }) => {
      
       {/* Analysis status display section */}
       <div className=" border border-slate-400 rounded-2xl p-4 m-6 max-w-6xl mx-auto">
-        <h1> Analysis complete repoName</h1>
+        <h1 className="text-white text-xl">Analysis complete for {selectedRepo.name}</h1>
       </div>
     </div>
   );
 };
-
-{/* Orphaned element - appears to be duplicate analysis status section */}
-<div className=" border border-slate-400 rounded-2xl p-4 m-6 max-w-6xl ">
-  <h1> Analysis complete for repoName</h1>
-</div>;
 
 export default RepoHeader;
