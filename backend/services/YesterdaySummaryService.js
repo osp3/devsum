@@ -200,18 +200,24 @@ export class YesterdaySummaryService {
         if (commits.length > 0) {
           console.log(`📥 Processing ${commits.length} commits for ${repo.fullName}`);
           
-          // Format commits with AI analysis for this repository
-          const formattedCommits = await this._processCommitsWithAI(commits, repo);
-          allCommits.push(...formattedCommits);
+          // Filter out merge commits from today-summary results
+          const filteredCommits = this._filterMergeCommits(commits);
+          console.log(`📊 Filtered out ${commits.length - filteredCommits.length} merge commits, ${filteredCommits.length} regular commits remaining`);
           
-          // Add repository data
-          repositoryData.push({
-            id: repo.id.toString(),
-            name: repo.name,
-            fullName: repo.fullName,
-            commitCount: commits.length,
-            _id: generateFakeObjectId()
-          });
+          if (filteredCommits.length > 0) {
+            // Format commits with AI analysis for this repository
+            const formattedCommits = await this._processCommitsWithAI(filteredCommits, repo);
+            allCommits.push(...formattedCommits);
+            
+            // Add repository data
+            repositoryData.push({
+              id: repo.id.toString(),
+              name: repo.name,
+              fullName: repo.fullName,
+              commitCount: filteredCommits.length,
+              _id: generateFakeObjectId()
+            });
+          }
         }
       } catch (error) {
         console.error(`Error fetching commits for ${repo.fullName}:`, error.message);
@@ -293,5 +299,30 @@ export class YesterdaySummaryService {
       console.error(`Failed to get diff for ${sha}:`, error.message);
       return ''; // Return empty string if diff fetch fails
     }
+  }
+
+  /**
+   * Filter out merge commits from the commit list
+   * @param {Array} commits - Array of commit objects
+   * @returns {Array} Filtered commits without merge commits
+   */
+  _filterMergeCommits(commits) {
+    return commits.filter(commit => {
+      // Check if it's a merge commit by parents count
+      const isMergeCommit = commit.parents && commit.parents.length > 1;
+      
+      // Also check for merge commit patterns in the message as fallback
+      const mergeMessagePatterns = [
+        /^Merge pull request #\d+/i,
+        /^Merge branch/i,
+        /^Merge remote-tracking branch/i,
+        /^Merge \w+/i
+      ];
+      const hasMergeMessage = mergeMessagePatterns.some(pattern => 
+        pattern.test(commit.message)
+      );
+      
+      return !(isMergeCommit || hasMergeMessage);
+    });
   }
 } 
