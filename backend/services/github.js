@@ -115,6 +115,7 @@ class GitHubService {
     try {
       const {
         per_page = 20, // Last 20 commits
+        page = 1, // Page number for pagination
         sha = undefined, // branch/commit SHA
         since,
         until,
@@ -125,6 +126,7 @@ class GitHubService {
         owner,
         repo,
         per_page,
+        page,
         sha
       };
       if (since) params.since = since;
@@ -154,6 +156,7 @@ class GitHubService {
                   date: commit.commit.author.date
                 },
                 url: commit.html_url,
+                parents: commit.parents || [], // Include parents for merge commit detection
                 stats: {
                   additions: fullCommit.stats?.additions || 0,
                   deletions: fullCommit.stats?.deletions || 0,
@@ -172,6 +175,7 @@ class GitHubService {
                   date: commit.commit.author.date
                 },
                 url: commit.html_url,
+                parents: commit.parents || [], // Include parents for merge commit detection
                 stats: {
                   additions: 0,
                   deletions: 0,
@@ -196,6 +200,7 @@ class GitHubService {
           date: commit.commit.author.date
         },
         url: commit.html_url,
+        parents: commit.parents || [], // Include parents for merge commit detection
         stats: {
           additions: 0,
           deletions: 0,

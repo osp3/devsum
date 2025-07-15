@@ -1,4 +1,4 @@
-import { CommitAnalysis, DailySummary, TaskSuggestion, QualityAnalysis } from '../models/aiModels.js';
+import { CommitAnalysis, DailySummary, TaskSuggestion, QualityAnalysis, EnhancedCommitsCache } from '../models/aiModels.js';
 /**CommitAnalysis: individual commit categorization 
  * Caching strategy
  * store immediately after AI analysis -> QUery by date ranges for trends -> 
@@ -42,6 +42,64 @@ class CacheManager {
     .lean(); //Return plain JS objects rather than Mongoose docs (JSON serialization)
 
     return history; //Return: Array of daily summary docs sorted by date
+  }
+
+  // Enhanced Commits Cache Methods
+  async getCachedEnhancedCommits(owner, repo, per_page = 10) {
+    const cacheKey = `${owner}/${repo}:enhanced-commits:${per_page}`;
+    
+    try {
+      const cached = await EnhancedCommitsCache.findOne({ cacheKey }).lean();
+      
+      if (cached && cached.expiresAt > new Date()) {
+        console.log(`✅ Cache hit for ${cacheKey}`);
+        return cached.commits;
+      }
+      
+      console.log(`❌ Cache miss for ${cacheKey}`);
+      return null;
+    } catch (error) {
+      console.error(`⚠️ Cache lookup failed for ${cacheKey}:`, error.message);
+      return null;
+    }
+  }
+
+  async storeEnhancedCommits(owner, repo, commits, per_page = 10) {
+    const cacheKey = `${owner}/${repo}:enhanced-commits:${per_page}`;
+    const repositoryId = `${owner}/${repo}`;
+    
+    try {
+      await EnhancedCommitsCache.findOneAndUpdate(
+        { cacheKey },
+        {
+          repositoryId,
+          owner,
+          repo,
+          commits,
+          cacheKey,
+          expiresAt: new Date(Date.now() + 30 * 60 * 1000) // 30 minutes TTL
+        },
+        { upsert: true, new: true }
+      );
+      
+      console.log(`✅ Cached ${commits.length} enhanced commits for ${cacheKey}`);
+    } catch (error) {
+      console.error(`⚠️ Failed to cache enhanced commits for ${cacheKey}:`, error.message);
+    }
+  }
+
+  async clearEnhancedCommitsCache(owner, repo) {
+    const cachePattern = `${owner}/${repo}:enhanced-commits:`;
+    
+    try {
+      const result = await EnhancedCommitsCache.deleteMany({
+        cacheKey: { $regex: `^${cachePattern}` }
+      });
+      
+      console.log(`✅ Cleared ${result.deletedCount} cached entries for ${owner}/${repo}`);
+    } catch (error) {
+      console.error(`⚠️ Failed to clear cache for ${owner}/${repo}:`, error.message);
+    }
   }
 }
 
