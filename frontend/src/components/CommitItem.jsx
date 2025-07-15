@@ -152,7 +152,7 @@ const CommitItem = ({ commit, suggestedCommitMessage, hasQualityAnalysis, qualit
           </button>
         )}
 
-        <span className='flex-1absolute top-2 right-2 text-xs text-gray-500'>
+        <span className='flex-1 absolute top-2 right-2 text-xs text-gray-500'>
           {formatDate(commit.author.date)}
         </span>
       </div>

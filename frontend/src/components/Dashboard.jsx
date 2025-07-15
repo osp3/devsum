@@ -42,7 +42,7 @@ const Dashboard = ({
       {/* Main content area - two column layout */}
       <div className="flex justify-row gap-6 max-w-6xl mx-auto ">
         {/* Left column - yesterday's development summary */}
-        <div className="flex-3  border border-slate-400 rounded-2xl w-150 h-120 p-4 ">
+        <div className="flex-3  border border-slate-400 rounded-2xl w-150 h-150 p-4  ">
           <TodaysSummary 
             yesterdaySummary={yesterdaySummary}
             summaryLoading={summaryLoading}
@@ -51,7 +51,7 @@ const Dashboard = ({
           />
         </div>
         {/* Right column - AI-generated task priorities */}
-        <div className="flex-1 border border-slate-400 rounded-2xl w-100 h-120 p-4">
+        <div className="flex-1 border border-slate-400 rounded-2xl w-100 h-150 p-4">
           <TomorrowsPriorities 
             taskSuggestions={taskSuggestions}
             tasksLoading={tasksLoading}
