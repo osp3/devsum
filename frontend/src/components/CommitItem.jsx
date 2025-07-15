@@ -152,17 +152,6 @@ const CommitItem = ({ commit, suggestedCommitMessage, hasQualityAnalysis, qualit
           </button>
         )}
 
-        {/* View Analysis button - only shown when quality analysis is available */}
-        {hasQualityAnalysis && (
-          <button
-            onClick={handleViewAnalysis}
-            className='px-3 py-1 bg-blue-600 hover:bg-blue-700 text-white rounded text-xs font-medium transition-colors cursor-pointer'
-            title={`View detailed analysis for commit ${commit.sha.substring(0, 7)}`}
-          >
-            View Analysis
-          </button>
-        )}
-
         <span className='flex-1 absolute top-2 right-2 text-xs text-gray-500'>
           {formatDate(commit.author.date)}
         </span>
