@@ -67,7 +67,7 @@ const RecentCommits = ({ commits, loading, error, qualityAnalysis, repositoryId 
         Recent Commits ({commits.length})
         {hasQualityAnalysis && (
           <span className='text-sm text-green-400 ml-2'>
-            📊 Analysis Available
+          Analysis Available
           </span>
         )}
       </h2>
