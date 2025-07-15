@@ -267,6 +267,7 @@ export async function analyzeCodeQuality(req, res, next) {
       repositoryId,
       timeframe = 'weekly',
       repositoryFullName,
+      forceRefresh = false
     } = req.body;
 
     if (!commits || !repositoryId) {
@@ -274,6 +275,21 @@ export async function analyzeCodeQuality(req, res, next) {
         success: false,
         error: 'Commits and repositoryId are required',
       });
+    }
+
+    // Clear cache if force refresh is requested
+    if (forceRefresh) {
+      console.log(`🔄 Force refresh requested for ${repositoryId} quality analysis`);
+      const { default: CacheManager } = await import('../services/CacheManager.js');
+      const cacheManager = new CacheManager();
+      await cacheManager.clearQualityAnalysisCache(...repositoryId.split('/'));
+    }
+
+    // Create GitHubService for authenticated API calls if repository analysis is needed
+    if (repositoryFullName && req.user?.accessToken) {
+      const githubService = new GithubService(req.user.accessToken);
+      AIService.setGitHubService(githubService);
+      console.log(`🔑 AIController: Set authenticated GitHubService for ${repositoryFullName}`);
     }
 
     const qualityAnalysis = await AIService.analyzeCodeQuality(

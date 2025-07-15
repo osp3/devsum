@@ -35,7 +35,9 @@ class PromptBuilder {
   Commits:
   ${commitList}
   
-  Respond with valid JSON only:
+  IMPORTANT: Respond with ONLY raw JSON. Do not use markdown code blocks or any formatting. Your response must start with { and end with }.
+  
+  Return this exact JSON structure:
   {
     "analysis": [
     {
@@ -312,7 +314,9 @@ _createBasicTaskPrompt(commits) {
     - Good indicators: Descriptive commits, security focus, testing activity, refactoring
     - Concerning indicators: Many "quick fixes", TODO comments, vague messages, no tests
 
-    Respond with valid JSON only:
+    IMPORTANT: Respond with ONLY raw JSON. Do not use markdown code blocks or any formatting. Your response must start with { and end with }.
+    
+    Return this exact JSON structure:
     {
       "qualityScore": 0.75,
       "issues": [
@@ -391,7 +395,9 @@ ANALYZE FOR:
    - Clear variable/function names
    - Appropriate design patterns
 
-Respond with JSON:
+IMPORTANT: Respond with ONLY raw JSON. Do not use markdown code blocks or any formatting. Your response must start with { and end with }.
+
+Return this exact JSON structure:
 {
   "severity": "low|medium|high|critical",
   "issues": [
