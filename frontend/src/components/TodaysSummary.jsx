@@ -25,41 +25,9 @@ const TodaysSummary = ({
           {yesterdaySummary.date}
         </span>
       </div>
-      <div className='relative flex flex-row justify-between items-center rounded-lg text-[#5b56dd] bg-[#272633] shadow-[-4px_0_0_0px] m-3'>
-        <button className='btn bg-[#44905e] text-white px-3 py-1 rounded'>
-          {yesterdaySummary.repositoryCount} repos
-        </button>
-        <h1 className='flex-1 p-2 text-white'>{yesterdaySummary.summary}</h1>
-        <span className='absolute top-2 right-2 text-xs text-gray-500'>
-          {yesterdaySummary.date}
-        </span>
-      </div>
-<div className='relative flex flex-row justify-between items-center rounded-lg text-[#5b56dd] bg-[#272633] shadow-[-4px_0_0_0px] m-3'>
-        <button className='btn bg-[#44905e] text-white px-3 py-1 rounded'>
-          {yesterdaySummary.repositoryCount} repos
-        </button>
-        <h1 className='flex-1 p-2 text-white'>{yesterdaySummary.summary}</h1>
-        <span className='absolute top-2 right-2 text-xs text-gray-500'>
-          {yesterdaySummary.date}
-        </span>
-      </div><div className='relative flex flex-row justify-between items-center rounded-lg text-[#5b56dd] bg-[#272633] shadow-[-4px_0_0_0px] m-3'>
-        <button className='btn bg-[#44905e] text-white px-3 py-1 rounded'>
-          {yesterdaySummary.repositoryCount} repos
-        </button>
-        <h1 className='flex-1 p-2 text-white'>{yesterdaySummary.summary}</h1>
-        <span className='absolute top-2 right-2 text-xs text-gray-500'>
-          {yesterdaySummary.date}
-        </span>
-      </div>
-      <div className='relative flex flex-row justify-between items-center rounded-lg text-[#5b56dd] bg-[#272633] shadow-[-4px_0_0_0px] m-3'>
-        <button className='btn bg-[#44905e] text-white px-3 py-1 rounded'>
-          {yesterdaySummary.repositoryCount} repos
-        </button>
-        <h1 className='flex-1 p-2 text-white'>{yesterdaySummary.summary}</h1>
-        <span className='absolute top-2 right-2 text-xs text-gray-500'>
-          {yesterdaySummary.date}
-        </span>
-      </div>
+     
+
+   
 </div>
     </div>
   );

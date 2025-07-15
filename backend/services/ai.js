@@ -35,7 +35,12 @@ class AIService {
     this.cacheManager = new CacheManager();
     this.qualityAnalyzer = new QualityAnalyzer(openai, this._callOpenAI.bind(this), this.promptBuilder);
   }
-
+//**'lazy initialization' - avoids connecting to database until actually needed.
+// faster startup, better resource management
+// flow: check if already initialized (prevent duplicate connections)
+// connect to mongodb through connectdb utility
+// set initialized flag to true
+// log success message */
   async init() {
     if (!this.initialized) {
       await connectDB();
@@ -57,41 +62,42 @@ class AIService {
   // Categorize commits with MongoDB caching
   // 1. Check if commits already analyzed 2. Only send new commits to OpenAI
   // 3. Store results in MongoDB 4. Return combined results
+  //batch processing reduces api calls, persistent caching eliminated redundant analysis, and fallback ensures system never fails completely
   async categorizeCommits(commits) {
     await this.init(); // Ensure DB connection
     console.log(`Analyzing ${commits.length} commits...`);
 
     try {
-      // Check which commits have already been analyzed
-      const commitHashes = commits.map(c => c.sha);
+      // step 1 cache lookup - check which commits have already been analyzed
+      const commitHashes = commits.map(c => c.sha); //extract unique commit identifiers
       const existingAnalysis = await CommitAnalysis.find({ 
-        commitHash: { $in: commitHashes } 
-      }).lean();
+        commitHash: { $in: commitHashes } //mongodb query find docs where commitHash is in array
+      }).lean(); //lean() returns plain JS objects (faster, less memory)
 
-      // Create map of existing results
+      // step 2 create lookup map, conver array to hashmap for 0(1) lookups
       const analyzed = new Map();
       existingAnalysis.forEach(result => {
-        analyzed.set(result.commitHash, result);
+        analyzed.set(result.commitHash, result); // map commitHash -> analysis  result
       });
 
-      // Find commits that need analysis
+      // step 3 identify work needed - filter commits requiring ai analysis
       const unanalyzedCommits = commits.filter(commit => !analyzed.has(commit.sha));
       console.log(`Found ${existingAnalysis.length} cached, analyzing ${unanalyzedCommits.length} new commits`);
 
-      // Analyze new commits with AI
+      // step 4 AI analysis - only process unanalyzed commits (cost optimization)
       let newAnalysis = [];
       if (unanalyzedCommits.length > 0) {
         newAnalysis = await this._analyzeWithOpenAI(unanalyzedCommits);
         
-        // Store new analysis in MongoDB
+        // step 5 persistent caching store results for future use
         await this.cacheManager.storeAnalysis(newAnalysis);
       }
 
-      // Combine cached + new results
+      // step 6 merge results - combine cached + fresh analysis
       const allResults = commits.map(commit => {
-        const cached = analyzed.get(commit.sha);
+        const cached = analyzed.get(commit.sha); //try cache first
         if (cached) {
-          return {
+          return { // return cached result wit original commit data
             ...commit,
             category: cached.category,
             confidence: cached.confidence,
@@ -99,21 +105,30 @@ class AIService {
             analyzedAt: cached.analyzedAt
           };
         }
+        //return fresh analysis or fallback 
         const fresh = newAnalysis.find(a => a.sha === commit.sha);
         return fresh || { ...commit, category: 'other', confidence: 0.5 };
       });
 
       console.log(`Analysis complete: ${allResults.length} commits categorized`);
       return allResults;
-    } catch (error) {
+    } catch (error) { //fallabck if AI fails, use keyword-based categorization 
       console.error('AI analysis failed:', error.message);
       return this._fallbackCategorization(commits);
     }
   }
   // Generate daily summary with MongoDB caching by date
+  /**flow:
+   * generate cache key from date and repository
+   * check mongodb for existing summary
+   * if found return cached summary
+   * if not found generate with AI
+   * store in MongoDb with metadata
+   * return generated summary
+   */
   async generateDailySummary(commits, repositoryId, date = new Date(), forceRefresh = false) {
     await this.init(); // Ensure DB connection
-    const dateStr = date.toISOString().split('T')[0]; // yyyy-mm-dd
+    const dateStr = date.toISOString().split('T')[0]; // convert to yyyy-mm-dd
 
     try {
       // Check for cached summary for this day (unless force refresh requested)
@@ -157,7 +172,7 @@ class AIService {
       return summary;
     } catch (error) {
       console.error('Summary generation failed:', error.message);
-      return this._fallbackSummary(commits);
+      return this._fallbackSummary(commits); //simple fallback summary
     }
   }
   // Generate task suggestions with caching
@@ -200,26 +215,39 @@ class AIService {
       const aiResponse = await this._callOpenAI(prompt);
       const tasks = this.promptBuilder.parseTaskResponse(aiResponse);
 
-      // Store suggestions
+      // Persistent storage, cache with metadata
       await TaskSuggestion.create({
         repositoryId: repositoryId,
         workSignature: workSignature,
         tasks: tasks,
-        baseCommits: recentCommits.map(c => c.sha)
+        baseCommits: recentCommits.map(c => c.sha) //track which commits influenced suggestions
       });
 
       console.log(`Generated ${tasks.length} new task suggestions`);
       return tasks;
     } catch (error) {
       console.error('Task generation failed:', error.message);
-      return this._fallbackTasks(recentCommits);
+      return this._fallbackTasks(recentCommits); //simple fallback tasks
     }
   }
+  /**Commit message improvement
+   * process: 
+   * take git diff content
+   * take current commit message (if any)
+   * send both to AI for analysis
+   * AI suggests improved message following conventions
+   * return comparison with improvement metrics
+   * Quality Assessment:
+   * conventional format (feat:, fix:, docs:, etc.)
+   * descriptiveness (longer, more specific)
+   * context awareness (based on actual code changes)
+   */
   async suggestCommitMessage(diffContent, currentMessage = '', repositoryId = null) {
     await this.init();
     console.log(`💬 AI Commit: Suggesting commit message (diff: ${diffContent.length} chars, original: "${currentMessage || 'none'}")`);
 
     try {
+      //AI analysis to create improved commit message
       const prompt = this.promptBuilder.createCommitMessagePrompt(diffContent, currentMessage);
       const suggestion = await this._callOpenAI(prompt);
       const cleanSuggestion = this.promptBuilder.cleanCommitSuggestion(suggestion);
@@ -227,6 +255,7 @@ class AIService {
 
       console.log(`Suggestion generated: "${cleanSuggestion}"`);
 
+      //return analysis  include original, suggested, and improvement metrics
       return {
         original: currentMessage,
         suggested: cleanSuggestion,
@@ -244,16 +273,23 @@ class AIService {
   }
 
   // Get analysis history
+  //provide historical insights and trend analysis, passes to cacheManager for optimized querying
   async getAnalysisHistory(repositoryId, days = 30) {
   await this.init(); // Ensure DB connection
   return await this.cacheManager.getAnalysisHistory(repositoryId, days);
   }
 
+  //code quality analysis
+  //provide deep analysis of code quality trends
+  //qualityanalyzer handles complex analysis
   async analyzeCodeQuality(commits, repositoryId, timeframe = 'weekly', repositoryFullName = null) {
   await this.init(); // Ensure DB connection
   return await this.qualityAnalyzer.analyzeCodeQuality(commits, repositoryId, timeframe, repositoryFullName);
   }
 
+  //quality trend analysis
+  //track code quality improvements/degradation over time
+  //qualityanalyzer provides trend analysis
   async getQualityTrends(repositoryId, days = 30) {
   await this.init(); // Ensure DB connection
   return await this.qualityAnalyzer.getQualityTrends(repositoryId, days);
@@ -283,7 +319,13 @@ class AIService {
 
 
   
-  //methods
+  //private methods
+  /** build structured prompt for commit categorization
+   * send to openai API
+   * parse response into structured data
+   * handle parsing errors gracefully
+   * error handling falls back to keyword based analysis
+   */
   async _analyzeWithOpenAI(commits) {
     console.log(`🔍 AI Analysis: Categorizing ${commits.length} commits`);
     const prompt = this.promptBuilder.createCategorizationPrompt(commits);
@@ -298,6 +340,11 @@ class AIService {
   }
 
 
+  /**Commit grouping utility
+   * reduce pattern for grouping
+   * input: array of commits wiht category property
+   * output: object with category keys and commit arrays as values
+   */
   _groupByCategory(commits) {
     return commits.reduce((groups, commit) => {
       const category = commit.category || 'other';
@@ -307,6 +354,10 @@ class AIService {
     }, {});
   }
 
+  /** OpenAI communication/details
+   * model, temp(randomness), max tokens, and system message(ai context ie developer assistant)
+   * throws error for upstream handling
+   */
   async _callOpenAI(prompt) {
     if (!openai) {
       throw new Error('OpenAI client not confugured');
@@ -345,6 +396,13 @@ class AIService {
     }
   }
 
+  /**Commit message quality assessment
+   * criteria for improvement:
+   * conventional format, descriptiveness, original is basic.
+   * if no original any suggestion is improvement
+   * compare lengths
+   * detect basic/lazy messages
+   */
   _isMessageImproved(original, suggested) {
     if (!original || original.trim().length === 0) {
       return true;
@@ -357,12 +415,19 @@ class AIService {
     return hasConventionalFormat || isMoreDescriptive || originalIsBasic;
   }
 
+  /**fallback commit message suggestion
+   * rule based analysis when AI unavailable
+   * analyze diff content for keywords, determine commit type, generate conventional format message, use original message if available
+   * Detection rules: 'test'/'spec' -> docs: type, 'README'/'docs' -> docs: type, 'fix'/'bug' -> fix: type, 'function'/'class' -> feat: type, Default -> chore: type
+   * 
+   */
   _fallbackCommitSuggestion(currentMessage, diffContent) {
     console.log('Using fallback commit message suggestion');
 
     let suggestedType = 'chore';
     let description = 'update code';
 
+    //rule based type detection
     if (diffContent.includes('test') || diffContent.includes('spec')) {
       suggestedType = 'test';
       description = 'add or update tests';
@@ -377,6 +442,7 @@ class AIService {
       description = 'add new functionality';
     }
 
+    //generate conventional format message
     const fallbackSuggestion = currentMessage.trim()
       ? `${suggestedType}: ${currentMessage}`
       : `${suggestedType}: ${description}`;
@@ -393,6 +459,7 @@ class AIService {
     };
   }
 
+  /** */
   _fallbackCategorization(commits) {
     console.log('Using fallback keyword categorization');
 
@@ -418,6 +485,10 @@ class AIService {
     });
   }
 
+  /**fallback daily summary
+   * simple template based summary when AI unavailable
+   * group commits by category, count total commits, list category names, generate encouraging message
+   */
   _fallbackSummary(commits) {
     const categories = this._groupByCategory(commits);
     const total = commits.length;
@@ -437,24 +508,36 @@ class AIService {
   }
 
   // Analyze individual commit diff with AI
+  /**
+   * combine commit metadata (author, timestamp, message) with git diff - both sent to AI for analysis
+   * return structured analysis with improvement suggestions
+   * Input: commit object + diff string
+   * processing: AI ananlysis via specialized prompts
+   * output: structured analysis object with multiple insights
+   * flow: Input(commit object + gitdiff string) -> Validation(ensure database connection established) ->
+   * Logging(log analysis start with commit sha and diff size) -> Prompt(build AI prompt combining commit + diff) ->
+   * AI call(send to OpenAI for contextual analysis) -> Parsing(parse AI JSON response into strucutred data) ->
+   * Logging(log completion with usggested message preview) -> Output(return comprehensive analysis object) ->
+   * Fallback(if any step failsm use heuristic analysis)
+   */
   async analyzeCommitDiff(commit, diff) {
-    await this.init();
+    await this.init(); // establish db connection if not already done
     console.log(`🔍 AI Diff Analysis: Analyzing commit ${commit.sha?.substring(0, 7)} (diff: ${diff.length} chars)`);
 
     try {
-      const prompt = this.promptBuilder.createCommitAnalysisPrompt(commit, diff);
-      const analysis = await this._callOpenAI(prompt);
-      const parsedAnalysis = this._parseCommitAnalysis(analysis);
+      const prompt = this.promptBuilder.createCommitAnalysisPrompt(commit, diff); //Step1 prompt construction
+      const analysis = await this._callOpenAI(prompt); //Step 2 AI analysis request
+      const parsedAnalysis = this._parseCommitAnalysis(analysis); //Step 3 response parsing
 
       console.log(`Analysis complete for ${commit.sha?.substring(0, 7)}: ${parsedAnalysis.suggestedMessage}`);
       
-      return {
-        diffSize: diff.length,
-        suggestedMessage: parsedAnalysis.suggestedMessage,
-        suggestedDescription: parsedAnalysis.description,
-        commitAnalysis: parsedAnalysis.analysis,
-        confidence: parsedAnalysis.confidence,
-        analysisDate: new Date().toISOString()
+      return { //Step 4 strucuted response construction
+        diffSize: diff.length, //raw size of changes
+        suggestedMessage: parsedAnalysis.suggestedMessage, //AI improvements - better commit message
+        suggestedDescription: parsedAnalysis.description, //detailed change description
+        commitAnalysis: parsedAnalysis.analysis, //AI analysis of changes
+        confidence: parsedAnalysis.confidence, //AI's confidence level (0-1)
+        analysisDate: new Date().toISOString() //timestamp for tracking
       };
     } catch (error) {
       console.error(`Failed to analyze commit ${commit.sha?.substring(0, 7)}:`, error.message);
@@ -467,29 +550,31 @@ class AIService {
   // Parse commit analysis response
   _parseCommitAnalysis(response) {
     try {
-      const parsed = JSON.parse(response);
+      const parsed = JSON.parse(response); //parse AI JSON response
       return {
-        suggestedMessage: parsed.suggestedMessage || 'chore: update code',
-        description: parsed.description || 'Code changes made',
-        analysis: parsed.analysis || 'Commit analyzed',
-        confidence: parsed.confidence || 0.5,
-        impact: parsed.impact || 'low',
-        quality: parsed.quality || 'medium'
+        suggestedMessage: parsed.suggestedMessage || 'chore: update code', //xommir message improvement
+        description: parsed.description || 'Code changes made', //detailed descriptions
+        analysis: parsed.analysis || 'Commit analyzed', //detailed descriptions
+        confidence: parsed.confidence || 0.5, //moderate confidence
+        impact: parsed.impact || 'low', //soncervative impact estimate
+        quality: parsed.quality || 'medium' //quality assessment
       };
     } catch (error) {
-      console.error('Failed to parse commit analysis:', error.message);
-      return {
-        suggestedMessage: 'chore: update code',
-        description: 'Code changes made',
-        analysis: 'Unable to analyze commit',
+      console.error('Failed to parse commit analysis:', error.message); //Fallback parsing if JSON parse fails
+      return { //return valid structure with conservative values
+        suggestedMessage: 'chore: update code', //valid conventional format
+        description: 'Code changes made', 
+        analysis: 'Unable to analyze commit', 
         confidence: 0.3,
         impact: 'low',
-        quality: 'unknown'
+        quality: 'unknown' // cannot asses without parsing
       };
     }
   }
 
   // Fallback commit analysis
+  //always availablw, fast execution, consistent results, better than no analysis.
+  //not as accurate as AI, no actual code comparison
   _fallbackCommitAnalysis(commit, diff) {
     const diffSize = diff.length;
     const message = commit.message || 'No message';

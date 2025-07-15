@@ -1,19 +1,25 @@
+/** Wokrflow Integration
+ * Git data import -> PromptBuilder structuresd for AI analysis -> AI responses ->
+ * PromptBuilder parses into application data -> Dashboard Display -> PromptBuilder insights
+ * -> User actions -> PromptBuilder generates improvement suggestions
+ */
+
 class PromptBuilder {
   constructor() {
   }
 
   createWorkSignature(commits) {
     //signature of recent work patterns for smart caching
-    const categories = this.groupByCategory(commits);
-    const signature = Object.keys(categories)
+    const categories = this.groupByCategory(commits); //step 1 Organize commits into logical categories
+    const signature = Object.keys(categories) //Step 2 Create signature - organize alphabetical order
       .sort().map(cat => `${cat}:${categories[cat].length}`)
       .join('|');
 
     return signature;
   }
 
-  createCategorizationPrompt(commits) {
-    const commitList = commits.map((commit, index) =>
+  createCategorizationPrompt(commits) { //Prompt for categorizing git commits by type
+    const commitList = commits.map((commit, index) => //Create numbered list for AI analysis
     `${index + 1}. ${commit.message}`
   ).join('\n');
   return `
@@ -44,8 +50,8 @@ class PromptBuilder {
   }
 
     createSummaryPrompt(commits) {
-      const categories = this.groupByCategory(commits);
-      const hasAIAnalysis = commits.some(c => c.aiAnalysis);
+      const categories = this.groupByCategory(commits); //check what level of analysis data is available
+      const hasAIAnalysis = commits.some(c => c.aiAnalysis); //detection of analysis data
   
       if (hasAIAnalysis) {
         return this._createEnhancedSummaryPrompt(commits, categories);
@@ -55,10 +61,10 @@ class PromptBuilder {
     }
 
     _createEnhancedSummaryPrompt(commits, categories) {
-      const commitsWithAI = commits.filter(c => c.aiAnalysis);
+      const commitsWithAI = commits.filter(c => c.aiAnalysis); //separate AI analyzed from basic commits
       const commitsWithoutAI = commits.filter(c => !c.aiAnalysis);
       
-      const totalRepositories = new Set(commits.map(c => c.repository)).size;
+      const totalRepositories = new Set(commits.map(c => c.repository)).size; //repo analysis
       
       const aiAnalysisSection = commitsWithAI.length > 0 ? `
 AI-ANALYZED COMMITS (${commitsWithAI.length} commits):
@@ -78,6 +84,7 @@ ${Object.entries(this.groupByCategory(commitsWithoutAI)).map(([cat, commits]) =>
 ).join('\n\n')}
       `.trim() : '';
 
+      //instructions for AI comprehensive analysis
       return `
 Generate a comprehensive daily development summary based on AI analysis of individual commits.
 
@@ -104,7 +111,7 @@ Write a 4-6 sentence summary that captures:
 Start with "Yesterday's development work focused on..." and provide actionable insights.
       `.trim();
     }
-
+    //Generate Summaries when only commit messages are available - used when no diff available
     _createBasicSummaryPrompt(commits, categories) {
       return `
       Generate a brief, friendly daily summary of development work.
@@ -122,22 +129,22 @@ Start with "Yesterday's development work focused on..." and provide actionable i
       Keep it positive and professional. Start with "Today you..."
       `.trim();
     }
-  
+    //cretae next step suggestions
     createTaskPrompt(commits) {
-      const hasAIAnalysis = commits.some(c => c.aiAnalysis);
+      const hasAIAnalysis = commits.some(c => c.aiAnalysis); //check for AI analysis availability
 
-      if (hasAIAnalysis) {
+      if (hasAIAnalysis) { //choose appropriate task gen strategy (enhanced path vs basic path)
         return this._createEnhancedTaskPrompt(commits);
       } else {
         return this._createBasicTaskPrompt(commits);
       }
     }
-
+    //Generate AI task suggestions using diff analysis
     _createEnhancedTaskPrompt(commits) {
-      const commitsWithAI = commits.filter(c => c.aiAnalysis);
+      const commitsWithAI = commits.filter(c => c.aiAnalysis); //Separate AI-analyzed from basic commits
       const commitsWithoutAI = commits.filter(c => !c.aiAnalysis);
       
-      const totalRepositories = new Set(commits.map(c => c.repository)).size;
+      const totalRepositories = new Set(commits.map(c => c.repository)).size; //multi repo development scope
       
       const aiAnalysisSection = commitsWithAI.length > 0 ? `
 DETAILED AI ANALYSIS OF YESTERDAY'S COMMITS (${commitsWithAI.length} commits):
@@ -154,6 +161,7 @@ COMMIT ${index + 1} [${c.sha?.substring(0, 7)}]:
 - Analysis Date: ${c.aiAnalysis.analysisDate}`).join('\n')}
   `.trim() : '';
 
+  //additional commits without AI analysis
   const basicCommitsSection = commitsWithoutAI.length > 0 ? `
 ADDITIONAL COMMITS (${commitsWithoutAI.length} commits):
 ${commitsWithoutAI.map(c => `- ${c.message} (${c.repository})`).join('\n')}
@@ -235,7 +243,7 @@ RESPOND WITH ONLY THE JSON OBJECT - NO OTHER TEXT.
 }
 
 _createBasicTaskPrompt(commits) {
-  const recentWork = commits.slice(0, 10).map(c => c.message).join('\n- ');
+  const recentWork = commits.slice(0, 10).map(c => c.message).join('\n- '); //extract patterns from recent commits
 
   return `
   Based on recent development work, suggest 3-4 priority tasks for tomorrow.
@@ -274,7 +282,7 @@ _createBasicTaskPrompt(commits) {
         groups[category].push(commit.message);
         return groups;
       }, {});
-        //format for AI - Show category patterns clearly
+        //format for AI - Show category patterns
           const commitSummary = Object.entries(commitsByCategory)
         .map(([category, messages]) => 
           `${category.toUpperCase()} (${messages.length}):\n${messages.map(m => `- ${m}`).join('\n')}`
@@ -335,6 +343,7 @@ _createBasicTaskPrompt(commits) {
       `.trim();
     }
 
+    //Comprehensive code review of individual commits with git diff
     createCodeAnalysisPrompt(commit, diff) {
       return `
 You are a senior software engineer performing a detailed code review of this commit.
@@ -455,13 +464,14 @@ Expected JSON format:
 
     groupByCategory(commits) {
       return commits.reduce((groups, commit) => {
-        const category = commit.category || 'other';
-        if (!groups[category]) groups[category] = [];
-        groups[category].push(commit);
-        return groups;
+        const category = commit.category || 'other'; //default for unclassified commits
+        if (!groups[category]) groups[category] = []; // intialize category array if needed
+        groups[category].push(commit); //add commit to appropriate category
+        return groups; //return accumulator for next iteration
       }, {});
     }
 
+    //Organize commits by category
     createCommitMessagePrompt(diffContent, currentMessage) {
       const maxDiffLength = 1500;
       const truncatedDiff = diffContent.length > maxDiffLength

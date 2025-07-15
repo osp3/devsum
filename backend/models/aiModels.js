@@ -172,9 +172,56 @@ taskSuggestionSchema.index({ repositoryId: 1, workSignature: 1, createdAt: 1 });
 // !quality analysis compound index
 qualityAnalysisSchema.index({ repositoryId: 1, analysisDate: 1 }, { unique: true });
 
+// Enhanced Commits Cache Schema
+const enhancedCommitsCacheSchema = new mongoose.Schema({
+  repositoryId: {
+    type: String,
+    required: true,
+    index: true
+  },
+  owner: {
+    type: String,
+    required: true
+  },
+  repo: {
+    type: String,
+    required: true
+  },
+  commits: [{
+    sha: String,
+    message: String,
+    author: {
+      name: String,
+      email: String,
+      date: Date
+    },
+    url: String,
+    parents: [{ sha: String }],
+    suggestedMessage: String,
+    stats: {
+      additions: Number,
+      deletions: Number,
+      total: Number
+    }
+  }],
+  cacheKey: {
+    type: String,
+    required: true,
+    unique: true
+  },
+  expiresAt: {
+    type: Date,
+    default: () => new Date(Date.now() + 30 * 60 * 1000), // 30 minutes TTL
+    index: { expireAfterSeconds: 0 }
+  }
+}, {
+  timestamps: true
+});
+
 // Export models
 export const CommitAnalysis = mongoose.model('CommitAnalysis', commitAnalysisSchema);
 export const DailySummary = mongoose.model('DailySummary', dailySummarySchema);
 export const TaskSuggestion = mongoose.model('TaskSuggestion', taskSuggestionSchema); 
 // !quality analysis export
 export const QualityAnalysis = mongoose.model('QualityAnalysis', qualityAnalysisSchema);
+export const EnhancedCommitsCache = mongoose.model('EnhancedCommitsCache', enhancedCommitsCacheSchema);

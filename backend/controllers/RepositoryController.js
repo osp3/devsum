@@ -1,4 +1,6 @@
 import GitHubService from '../services/github.js';
+import AIService from '../services/ai.js';
+import CacheManager from '../services/CacheManager.js';
 import { createValidationError, createServerError, createGitHubError } from '../utils/errors.js';
 
 /**
@@ -41,60 +43,43 @@ class RepositoryController {
       // Log repository breakdown
       const privateRepos = repos.filter(r => r.private).length;
       const publicRepos = repos.length - privateRepos;
-      console.log(`📊 Repository breakdown for ${req.user.username}: ${publicRepos} public, ${privateRepos} private`);
+      console.log(`📊 Repository breakdown: ${publicRepos} public, ${privateRepos} private`);
       
-      // Skip cache update if force refresh parameter is provided
+      // If not forcing refresh, update the user's repository cache
       if (!forceRefresh) {
-        // Update user's cached repositories (following single responsibility)
         await RepositoryController._updateUserRepoCache(req.user, repos);
-      } else {
-        console.log('🔄 Bypassing repository cache due to force refresh parameter');
       }
       
-      // Set cache control headers to prevent browser caching
-      res.set({
-        'Cache-Control': 'no-cache, no-store, must-revalidate',
-        'Pragma': 'no-cache',
-        'Expires': '0'
-      });
-
       res.json({
         success: true,
         data: {
           repositories: repos,
-          total: repos.length,
           lastUpdated: new Date().toISOString(),
-          fromCache: !forceRefresh, // Indicate whether data is from cache
-          fetchTime: fetchTime,
-          breakdown: {
-            public: publicRepos,
-            private: privateRepos
-          }
+          fromCache: false // Always fresh from GitHub API
+        },
+        meta: {
+          totalRepos: repos.length,
+          privateCount: privateRepos,
+          publicCount: publicRepos,
+          fetchTime: fetchTime
         }
       });
     } catch (error) {
       console.error(`❌ Error fetching repositories for ${req.user.username}:`, error.message);
-      console.error(`📊 User details: GitHub ID: ${req.user.githubId}, Username: ${req.user.username}`);
-      console.error(`📊 Error details:`, {
-        status: error.status,
-        message: error.message,
-        stack: error.stack?.split('\n')[0] // Just first line of stack trace
-      });
-      
       const err = error.status 
-        ? createGitHubError(error, `fetching repos for ${req.user.username}`)
+        ? createGitHubError(error, `fetching repositories for ${req.user.username}`)
         : createServerError('Failed to fetch repositories', `user: ${req.user.username}`);
       return next(err);
     }
   }
 
   /**
-   * Get commits for a specific repository
+   * Get commits for a specific repository with AI-suggested commit messages
    */
   static async getRepositoryCommits(req, res, next) {
     try {
       const { owner, repo } = req.params;
-      const { per_page = 20, include_stats = 'true' } = req.query;
+      const { per_page = 10, include_stats = 'true', force_refresh = 'false' } = req.query;
       
       // Input validation
       const validation = RepositoryController._validateCommitParams(req.params, req.query);
@@ -104,22 +89,126 @@ class RepositoryController {
       }
       
       const githubService = new GitHubService(req.user.accessToken);
+      const cacheManager = new CacheManager();
+      const targetCommitCount = Math.min(parseInt(per_page), 50); // Limit to 50 for security
+      const includeStats = include_stats === 'true'; // Store this for later use
+      const forceRefresh = force_refresh === 'true';
       
-      const options = {
-        per_page: Math.min(parseInt(per_page), 100), // Security: limit to 100, gets latest commits
-        includeStats: include_stats === 'true' // Request statistics for repository analytics
+      // Check cache first (unless force refresh is requested)
+      if (!forceRefresh) {
+        const cachedCommits = await cacheManager.getCachedEnhancedCommits(owner, repo, targetCommitCount);
+        if (cachedCommits) {
+          console.log(`🚀 Returning ${cachedCommits.length} cached enhanced commits for ${owner}/${repo}`);
+          return res.json({
+            success: true,
+            data: {
+              repository: `${owner}/${repo}`,
+              commits: cachedCommits,
+              total: cachedCommits.length,
+              timestamp: new Date().toISOString(),
+              includeStats: includeStats,
+              aiEnhanced: cachedCommits.filter(c => c.suggestedMessage).length,
+              fromCache: true
+            }
+          });
+        }
+      }
+      
+      // Function to filter out merge commits
+      const filterMergeCommits = (commits) => {
+        return commits.filter(commit => {
+          // Check if it's a merge commit by parents count
+          const isMergeCommit = commit.parents && commit.parents.length > 1;
+          
+          // Also check for merge commit patterns in the message as fallback
+          const mergeMessagePatterns = [
+            /^Merge pull request #\d+/i,
+            /^Merge branch/i,
+            /^Merge remote-tracking branch/i,
+            /^Merge \w+/i
+          ];
+          const hasMergeMessage = mergeMessagePatterns.some(pattern => 
+            pattern.test(commit.message)
+          );
+          
+          return !(isMergeCommit || hasMergeMessage);
+        });
       };
       
-      const commits = await githubService.getCommits(owner, repo, options);
+      // Keep fetching commits until we have enough non-merge commits
+      let allCommits = [];
+      let filteredCommits = [];
+      let page = 1;
+      const maxPages = 5; // Prevent infinite loops
+      
+      while (filteredCommits.length < targetCommitCount && page <= maxPages) {
+        const options = {
+          per_page: 20, // Fetch 20 at a time
+          includeStats: includeStats,
+          page: page
+        };
+        
+        const pageCommits = await githubService.getCommits(owner, repo, options);
+        
+        // If no more commits, break
+        if (pageCommits.length === 0) {
+          break;
+        }
+        
+        allCommits = allCommits.concat(pageCommits);
+        filteredCommits = filterMergeCommits(allCommits);
+        
+        console.log(`📊 Page ${page}: Got ${pageCommits.length} commits, ${filteredCommits.length} non-merge commits so far`);
+        page++;
+      }
+      
+      // Take only the number we need
+      const commits = filteredCommits.slice(0, targetCommitCount);
+      
+      console.log(`📊 Final result: ${commits.length} non-merge commits out of ${allCommits.length} total commits fetched`);
+      
+      // Add AI-suggested commit messages to each commit
+      const enhancedCommits = await Promise.all(
+        commits.map(async (commit) => {
+          try {
+            // Get the commit diff for AI analysis
+            const commitDiff = await githubService.getCommitDiff(owner, repo, commit.sha);
+            
+            // Generate AI-suggested commit message
+            const aiAnalysis = await AIService.analyzeCommitDiff(commit, commitDiff.files.map(f => f.patch || '').join('\n'));
+            
+            // Add suggested message to the commit
+            return {
+              ...commit,
+              suggestedMessage: aiAnalysis.suggestedMessage
+            };
+          } catch (error) {
+            console.error(`Failed to generate AI suggestion for commit ${commit.sha.substring(0, 7)}:`, error.message);
+            
+            // Return commit without AI suggestion if analysis fails
+            return {
+              ...commit,
+              suggestedMessage: null
+            };
+          }
+        })
+      );
+      
+      console.log(`✅ Enhanced ${enhancedCommits.filter(c => c.suggestedMessage).length}/${enhancedCommits.length} commits with AI suggestions`);
+      
+      // Cache the enhanced commits for future requests
+      await cacheManager.storeEnhancedCommits(owner, repo, enhancedCommits, targetCommitCount);
       
       res.json({
         success: true,
         data: {
           repository: `${owner}/${repo}`,
-          commits,
-          total: commits.length,
+          commits: enhancedCommits,
+          total: enhancedCommits.length,
           timestamp: new Date().toISOString(),
-          includeStats: options.includeStats
+          includeStats: includeStats,
+          aiEnhanced: enhancedCommits.filter(c => c.suggestedMessage).length,
+          fromCache: false
         }
       });
     } catch (error) {

@@ -1,7 +1,7 @@
 import React from 'react';
 
-// Individual commit display component with props for commit data and selected repo
-const CommitItem = ({ commit, selectedRepo }) => {
+// Individual commit display component with props for commit data and AI suggested message
+const CommitItem = ({ commit, suggestedCommitMessage }) => {
   // Format commit date to readable local format
   const formatDate = (dateString) => {
     const date = new Date(dateString);
@@ -10,6 +10,11 @@ const CommitItem = ({ commit, selectedRepo }) => {
       ' ' +
       date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
     );
+  };
+
+  // Determine which message to display - AI suggested or raw commit message
+  const getDisplayMessage = () => {
+    return suggestedCommitMessage || commit.message;
   };
 
   // Return Tailwind background color class based on commit type
@@ -59,46 +64,53 @@ const CommitItem = ({ commit, selectedRepo }) => {
     return 'commit';
    
   };
+
   // Shorten commit messages that exceed maximum length
   const truncateMessage = (message, maxLength = 300) => {
     if (message.length <= maxLength) return message;
     return message.substring(0, maxLength) + '...';
   };
 
-  // Placeholder render - actual commit item UI to be implemented
+  // Get the message to display (AI suggested or raw)
+  const displayMessage = getDisplayMessage();
+
+  // Render commit item UI
   return (
     <div>
-     
-        <div className='relative flex flex-row  items-center rounded-lg text-[#5b56dd] bg-[#272633] shadow-[-4px_0_0_0px] p-3 gap-3'>
+      <div className='relative flex flex-row items-center rounded-lg text-[#5b56dd] bg-[#272633] shadow-[-4px_0_0_0px] p-3 gap-3'>
         {/* calls function to find commit color and type of commit message */}
-         <button
-          
-            className={`btn ${getCommitTypeColor(
-              commit.message
-            )} text-white px-3 py-1 rounded flex items-center gap-2 min-w-fit text-xs font-medium`}
-          >
-    
-            <span>{getCommitType(commit.message)}</span>
-          </button>
-          
-
-          
-          <div ClassName='flex items-center gap-3 flex-1'>
-            {/* leading-tight make the spacing between lines tighter*/}
+        <button
+          className={`btn ${getCommitTypeColor(
+            displayMessage
+          )} text-white px-3 py-1 rounded flex items-center gap-2 min-w-fit text-xs font-medium`}
+        >
+          <span>{getCommitType(displayMessage)}</span>
+        </button>
+        
+        <div className='flex items-center gap-3 flex-1'>
+          {/* leading-tight make the spacing between lines tighter*/}
+          <div className='flex-1'>
             <h1 className='text-white text-md leading-tight'>
-              
-              {truncateMessage(commit.message)}
+              {truncateMessage(displayMessage)}
             </h1>
-{/* not sure but in other to align to commit message had to add p-2 instead of p-1 */}
-            <p className='text-grey-400 text-sm mt-1 '>{commit.author.name}</p>
+            {/* Show indicator if AI suggested message is being displayed */}
+            {suggestedCommitMessage && (
+              <div className='flex items-center gap-2 mt-1'>
+                <span className='text-xs text-gray-500'>
+                  Original: {truncateMessage(commit.message, 500)}
+                </span>
+              </div>
+            )}
+            {/* Author name */}
+            <p className='text-grey-400 text-sm mt-1'>{commit.author.name}</p>
           </div>
-
-          <span className=' flex-1absolute top-2 right-2 text-xs text-gray-500'>
-            {formatDate(commit.author.date)}
-          </span>
         </div>
+
+        <span className='flex-1absolute top-2 right-2 text-xs text-gray-500'>
+          {formatDate(commit.author.date)}
+        </span>
       </div>
-   
+    </div>
   );
 };
 

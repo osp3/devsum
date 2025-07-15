@@ -2,12 +2,12 @@ import React from 'react';
 import CommitItem from './CommitItem.jsx';
 
 // Component to display list of recent commits with loading/error states
-const RecentCommits = ({ commits, loading, error, selectedRepo }) => {
+const RecentCommits = ({ commits, loading, error }) => {
   // Show loading spinner while fetching commits
   if (loading) {
     return (
       <div className="w-full max-w-4xl">
-        <h2 className="text-white text-xl mb-4"> Recent Commits</h2>
+        <h2 className="text-white text-xl mb-4">Recent Commits</h2>
         <div className="flex justify-center items-center h-32">
           <div className="text-gray-300">Loading commits...</div>
         </div>
@@ -19,7 +19,7 @@ const RecentCommits = ({ commits, loading, error, selectedRepo }) => {
   if (error) {
     return (
       <div className="w-full max-w-4xl">
-        <h2 className="text-white text-xl mb-4">📝 Recent Commits</h2>
+        <h2 className="text-white text-xl mb-4">Recent Commits</h2>
         <div className="flex justify-center items-center h-32">
           <div className="text-red-400">Error: {error}</div>
         </div>
@@ -31,7 +31,7 @@ const RecentCommits = ({ commits, loading, error, selectedRepo }) => {
   if (!commits || commits.length === 0) {
     return (
       <div className="w-full max-w-4xl">
-        <h2 className="text-white text-xl mb-4"> Recent Commits</h2>
+        <h2 className="text-white text-xl mb-4">Recent Commits</h2>
         <div className="flex justify-center items-center h-32">
           <div className="text-gray-300">
             No commits found for this repository
@@ -41,11 +41,12 @@ const RecentCommits = ({ commits, loading, error, selectedRepo }) => {
     );
   }
 
-  // Render commits list with count in header
+  // Render commits list
   return (
     <div className='w-full max-w-4xl'>
       <h2 className='text-white text-xl mb-4'>
         Recent Commits ({commits.length})
+      
       </h2>
       
       {/* Map through commits and render individual CommitItem components */}
@@ -54,12 +55,11 @@ const RecentCommits = ({ commits, loading, error, selectedRepo }) => {
           <CommitItem 
             key={commit.sha} 
             commit={commit} 
-            selectedRepo={selectedRepo}
+            suggestedCommitMessage={commit.suggestedMessage}
           />
         ))}
       </div>
     </div>
-
   );
 };
 
