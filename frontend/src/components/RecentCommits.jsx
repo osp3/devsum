@@ -2,7 +2,7 @@ import React from 'react';
 import CommitItem from './CommitItem.jsx';
 
 // Component to display list of recent commits with loading/error states
-const RecentCommits = ({ commits, loading, error, selectedRepo }) => {
+const RecentCommits = ({ commits, loading, error }) => {
   // Show loading spinner while fetching commits
   if (loading) {
     return (
@@ -41,11 +41,19 @@ const RecentCommits = ({ commits, loading, error, selectedRepo }) => {
     );
   }
 
+  // Count commits with AI-enhanced messages
+  const enhancedCommitsCount = commits.filter(commit => commit.suggestedMessage).length;
+
   // Render commits list with count in header
   return (
     <div className='w-full max-w-4xl'>
       <h2 className='text-white text-xl mb-4'>
         📝 Recent Commits ({commits.length})
+        {enhancedCommitsCount > 0 && (
+          <span className='text-blue-400 text-sm ml-2'>
+            • {enhancedCommitsCount} AI Enhanced
+          </span>
+        )}
       </h2>
       
       {/* Map through commits and render individual CommitItem components */}
@@ -54,12 +62,11 @@ const RecentCommits = ({ commits, loading, error, selectedRepo }) => {
           <CommitItem 
             key={commit.sha} 
             commit={commit} 
-            selectedRepo={selectedRepo}
+            suggestedCommitMessage={commit.suggestedMessage}
           />
         ))}
       </div>
     </div>
-
   );
 };
 
