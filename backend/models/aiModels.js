@@ -148,17 +148,18 @@ const qualityAnalysisSchema = new mongoose.Schema({
     max: 1 // 0.0 = terrible code quality, 1.0 = excellent
   },
   issues: [{
-    type: {
-      type: String,
-      enum: ['technical_debt', 'security', 'performance', 'maintainability', 'testing']
+    type: { 
+      type: String, 
+      enum: ['technical_debt', 'security', 'performance', 'maintainability', 'testing', 'code_quality']
     },
-    severity: {
-      type: String,
-      enum: ['low', 'medium', 'high', 'critical']
+    severity: { 
+      type: String, 
+      enum: ['low', 'medium', 'high', 'critical'] 
     },
     description: String,
     suggestion: String,
-    commitCount: Number // How many commits contributed to this issue
+    commitCount: Number,
+    location: String // Optional location field for code issues
   }],
   insights: [String], // AI-generated observations
   recommendations: [String], // AI-generated actionable advice
@@ -177,12 +178,12 @@ const qualityAnalysisSchema = new mongoose.Schema({
       analysis: {
         severity: String,
         issues: [{
-          type: String,
-          severity: String,
-          line: String,
-          description: String,
-          suggestion: String,
-          example: String
+          type: { type: String },
+          severity: { type: String },
+          line: { type: String },
+          description: { type: String },
+          suggestion: { type: String },
+          example: { type: String }
         }],
         positives: [String],
         overallAssessment: String,

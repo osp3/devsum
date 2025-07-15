@@ -398,9 +398,36 @@ _parseCodeAnalysisResponse(aiResponse) {
   try {
     const parsed = JSON.parse(aiResponse);
     
+    // Helper function to parse nested JSON strings that AI sometimes returns
+    const parseIfNeeded = (value) => {
+      if (typeof value === 'string' && (value.startsWith('[') || value.startsWith('{'))) {
+        try {
+          return JSON.parse(value);
+        } catch (e) {
+          console.warn('Failed to parse nested JSON:', value);
+          return value;
+        }
+      }
+      return value;
+    };
+    
+    // Parse issues array (handle both array and JSON string cases)
+    let issues = parseIfNeeded(parsed.issues) || [];
+    if (!Array.isArray(issues)) {
+      console.warn('Issues is not an array after parsing:', typeof issues);
+      issues = [];
+    }
+    
+    // Parse positives and recommendedActions arrays
+    let positives = parseIfNeeded(parsed.positives) || [];
+    if (!Array.isArray(positives)) positives = [];
+    
+    let recommendedActions = parseIfNeeded(parsed.recommendedActions) || [];
+    if (!Array.isArray(recommendedActions)) recommendedActions = [];
+    
     return {
       severity: parsed.severity || 'medium',
-      issues: (parsed.issues || []).map(issue => ({
+      issues: issues.map(issue => ({
         type: String(issue.type || 'quality'),
         severity: String(issue.severity || 'medium'),
         line: String(issue.line || 'unknown'),
@@ -408,9 +435,9 @@ _parseCodeAnalysisResponse(aiResponse) {
         suggestion: String(issue.suggestion || 'Review and improve this code'),
         example: String(issue.example || '') // Always return string, never null
       })),
-      positives: (parsed.positives || []).filter(item => item != null).map(item => String(item)),
+      positives: positives.filter(item => item != null).map(item => String(item)),
       overallAssessment: String(parsed.overallAssessment || 'Code analysis completed'),
-      recommendedActions: (parsed.recommendedActions || []).filter(item => item != null).map(item => String(item))
+      recommendedActions: recommendedActions.filter(item => item != null).map(item => String(item))
     };
     
   } catch (error) {
