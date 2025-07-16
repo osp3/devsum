@@ -68,8 +68,9 @@ app.use(session({
   resave: false,
   saveUninitialized: false,
   cookie: {
-    secure: process.env.NODE_ENV === 'production',
+    secure: process.env.NODE_ENV === 'production', // HTTPS required in production
     httpOnly: true,
+    sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax', // Allow cross-origin in production
     maxAge: 24 * 60 * 60 * 1000 // 24 hours
   }
 }));
@@ -103,7 +104,26 @@ console.log('🔗 Mounting AI routes on /api/ai');
 app.use('/api/ai', aiRoutes);
 console.log('✅ All routes mounted successfully');
 
-// API test endpoint
+// Serve static files from frontend/dist in production
+if (process.env.NODE_ENV === 'production') {
+  // Serve static files
+  app.use(express.static(join(__dirname, '../frontend/dist')));
+  
+  // Serve React app for all non-API routes
+  app.get('*', (req, res) => {
+    // Don't serve index.html for API routes
+    if (req.path.startsWith('/api') || req.path.startsWith('/auth') || req.path.startsWith('/health')) {
+      return res.status(404).json({
+        error: 'API route not found',
+        path: req.originalUrl
+      });
+    }
+    
+    res.sendFile(join(__dirname, '../frontend/dist/index.html'));
+  });
+}
+
+// API test endpoint  
 app.get('/api/test', (req, res) => {
   res.json({
     message: 'DevSum Backend API is working!',
@@ -134,13 +154,15 @@ app.use((err, req, res, next) => {
   return res.status(errorObj.status).json(errorObj.message);
 });
 
-// 404 handler
-app.use('*', (req, res) => {
-  res.status(404).json({
-    error: 'Route not found',
-    path: req.originalUrl
+// 404 handler for development (production uses React app catch-all)
+if (process.env.NODE_ENV !== 'production') {
+  app.use('*', (req, res) => {
+    res.status(404).json({
+      error: 'Route not found',
+      path: req.originalUrl
+    });
   });
-});
+}
 
 // Start server
 const server = app.listen(PORT, () => {
