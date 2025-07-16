@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 
 // UserHeader displays the navigation header that appears at the top of all authenticated pages
 // Provides different functionality based on current route:
@@ -10,6 +10,7 @@ const UserHeader = ({ user }) => {
   // Track logout process state to prevent double-clicks
   const [isLoggingOut, setIsLoggingOut] = useState(false);
   const navigate = useNavigate(); // React Router hook
+  const location = useLocation(); // React Router hook for current location
 
   // Handle user logout with session cleanup and redirect
   const handleLogout = async () => {
@@ -31,21 +32,15 @@ const UserHeader = ({ user }) => {
     }
   };
 
-  // Handle logo click - navigate to dashboard from certain pages
+  // Handle logo click - navigate to dashboard from any page except dashboard
   const handleLogoClick = () => {
-    // Only make logo clickable on repositories and repository pages
-    if (
-      location.pathname === '/repositories' || // from repo list page
-      location.pathname === '/repository' // from individual repo page
-    ) {
-      navigate('/dashboard'); // navigate back to main dashboard
+    if (location.pathname !== '/dashboard') {
+      navigate('/dashboard'); // Only navigate if not already on dashboard
     }
   };
 
-  // Check if logo should be clickable
-  const isLogoClickable =
-    location.pathname === '/repositories' ||
-    location.pathname === '/repository';
+  // Logo is clickable everywhere except on dashboard
+  const isLogoClickable = location.pathname !== '/dashboard';
 
   // Extract user's display name with fallback hierarchy
   const getDisplayName = () => {
