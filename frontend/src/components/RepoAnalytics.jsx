@@ -221,7 +221,7 @@ const RepoAnalytics = ({ user, selectedRepo }) => {
                   : 'bg-blue-600 hover:bg-blue-700 cursor-pointer'
               }`}
             >
-              {isRefreshing ? '🔄 Refreshing...' : '🔄 Refresh Analysis'}
+              {isRefreshing ? 'Refreshing...' : ' Refresh Analysis'}
             </button>
           </div>
 
