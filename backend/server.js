@@ -25,6 +25,10 @@ console.log('Importing AI routes...');
 import aiRoutes from './routes/ai.js';
 console.log('✅ All route imports completed');
 
+// Fix memory leak warnings by increasing max listeners
+process.setMaxListeners(20);
+console.log('🔧 Set process max listeners to 20 to prevent memory leak warnings');
+
 // Connect to MongoDB
 await connectDB();
 
@@ -32,20 +36,21 @@ await connectDB();
 console.log('🔐 Initializing GitHub OAuth...');
 await initializeOAuth();
 
-// Debug: Show actual GitHub config being used
-console.log('🔍 GitHub OAuth Configuration Debug:');
+// ===== CRITICAL DEBUG: GitHub OAuth Configuration =====
+console.log('🚨🔍 ===== GITHUB OAUTH CONFIGURATION DEBUG =====');
 try {
   const EnvironmentService = (await import('./services/EnvironmentService.js')).default;
   const clientID = await EnvironmentService.get('GITHUB_CLIENT_ID');
   const clientSecret = await EnvironmentService.get('GITHUB_CLIENT_SECRET');
   const callbackURL = await EnvironmentService.get('GITHUB_CALLBACK_URL', process.env.GITHUB_CALLBACK_URL);
   
-  console.log('   CLIENT_ID:', clientID ? `${clientID.substring(0, 8)}...` : 'NOT SET');
-  console.log('   CLIENT_SECRET:', clientSecret ? 'SET' : 'NOT SET');
-  console.log('   CALLBACK_URL:', callbackURL);
-  console.log('   Source: Database settings override env variables');
+  console.log('🔑 CLIENT_ID:', clientID ? `${clientID.substring(0, 12)}...${clientID.slice(-4)}` : '❌ NOT SET');
+  console.log('🔒 CLIENT_SECRET:', clientSecret ? `✅ SET (${clientSecret.length} chars)` : '❌ NOT SET');
+  console.log('🔗 CALLBACK_URL:', callbackURL || '❌ NOT SET');
+  console.log('📋 Source: Database settings override env variables');
+  console.log('🚨🔍 ============================================');
 } catch (error) {
-  console.error('   Error reading GitHub config:', error.message);
+  console.error('❌ ERROR READING GITHUB CONFIG:', error.message);
 }
 
 // Create Express app
@@ -152,6 +157,32 @@ app.use('/auth', (req, res, next) => {
 // Passport middleware
 app.use(passport.initialize());
 app.use(passport.session());
+
+// Session debugging middleware (AFTER passport so req.user is populated)
+app.use((req, res, next) => {
+  if (req.path.startsWith('/auth')) {
+    console.log('🍪 Session Debug:', {
+      sessionID: req.sessionID,
+      hasUser: !!req.user,
+      userId: req.user?.id,
+      username: req.user?.username,
+      cookieConfig: {
+        secure: req.session?.cookie?.secure,
+        sameSite: req.session?.cookie?.sameSite,
+        domain: req.session?.cookie?.domain,
+        httpOnly: req.session?.cookie?.httpOnly,
+        maxAge: req.session?.cookie?.maxAge
+      },
+      headers: {
+        origin: req.headers.origin,
+        referer: req.headers.referer,
+        userAgent: req.headers['user-agent']?.substring(0, 50) + '...',
+        cookieHeader: req.headers.cookie ? req.headers.cookie.substring(0, 100) + '...' : 'MISSING'
+      }
+    });
+  }
+  next();
+});
 
 // Request logging middleware
 app.use((req, res, next) => {
@@ -268,10 +299,14 @@ if (process.env.NODE_ENV !== 'production') {
 
 // Start server
 const server = app.listen(PORT, () => {
+  console.log('\n🎉 ===== DEVSUM BACKEND STARTUP COMPLETE =====');
   console.log(`🚀 Server running on http://localhost:${PORT}`);
   console.log(`📊 Health check: http://localhost:${PORT}/health`);
+  console.log(`🔍 Debug cookies: http://localhost:${PORT}/debug/cookies`);
   console.log(`🔐 GitHub OAuth: http://localhost:${PORT}/auth/github`);
   console.log(`🔧 Environment: ${process.env.NODE_ENV || 'development'}`);
+  console.log(`⚡ Ready to handle requests!`);
+  console.log('============================================\n');
 });
 
 // Graceful shutdown function
