@@ -88,9 +88,30 @@ app.use(session({
     secure: process.env.NODE_ENV === 'production', // HTTPS required in production
     httpOnly: true,
     sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax', // Allow cross-origin in production
-    maxAge: 24 * 60 * 60 * 1000 // 24 hours
+    maxAge: 24 * 60 * 60 * 1000, // 24 hours
+    domain: process.env.NODE_ENV === 'production' ? undefined : undefined // Let browser handle domain
   }
 }));
+
+// Session debugging middleware
+app.use((req, res, next) => {
+  if (req.path.startsWith('/auth')) {
+    console.log('🍪 Session Debug:', {
+      sessionID: req.sessionID,
+      hasUser: !!req.user,
+      userId: req.user?.id,
+      username: req.user?.username,
+      cookieSecure: req.session.cookie.secure,
+      cookieSameSite: req.session.cookie.sameSite,
+      headers: {
+        origin: req.headers.origin,
+        referer: req.headers.referer,
+        cookie: req.headers.cookie ? 'present' : 'missing'
+      }
+    });
+  }
+  next();
+});
 
 // Passport middleware
 app.use(passport.initialize());
@@ -100,6 +121,22 @@ app.use(passport.session());
 app.use((req, res, next) => {
   console.log(`${new Date().toISOString()} - ${req.method} ${req.path}`);
   next();
+});
+
+// Root endpoint for basic info
+app.get('/', (req, res) => {
+  res.json({
+    service: 'DevSum Backend API',
+    environment: process.env.NODE_ENV || 'development',
+    frontend_url: process.env.FRONTEND_URL || 'Not configured',
+    timestamp: new Date().toISOString(),
+    endpoints: [
+      'GET /health - Health check',
+      'GET /auth/github - GitHub OAuth login',
+      'GET /auth/me - Current user info',
+      'GET /api/test - API test'
+    ]
+  });
 });
 
 // Health check endpoint
@@ -121,24 +158,8 @@ console.log('🔗 Mounting AI routes on /api/ai');
 app.use('/api/ai', aiRoutes);
 console.log('✅ All routes mounted successfully');
 
-// Serve static files from frontend/dist in production
-if (process.env.NODE_ENV === 'production') {
-  // Serve static files
-  app.use(express.static(join(__dirname, '../frontend/dist')));
-  
-  // Serve React app for all non-API routes
-  app.get('*', (req, res) => {
-    // Don't serve index.html for API routes
-    if (req.path.startsWith('/api') || req.path.startsWith('/auth') || req.path.startsWith('/health')) {
-      return res.status(404).json({
-        error: 'API route not found',
-        path: req.originalUrl
-      });
-    }
-    
-    res.sendFile(join(__dirname, '../frontend/dist/index.html'));
-  });
-}
+// Static file serving disabled - frontend deployed separately to Vercel
+// Frontend is served from https://devsum.vercel.app
 
 // API test endpoint  
 app.get('/api/test', (req, res) => {
