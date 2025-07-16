@@ -11,7 +11,7 @@ const ShowReposButton = () => {
   return (
     <div className='flex justify-center '>
       <button
-        className='bg-[#262728] boarder-2 boarder-black btn flex items-center m-5'
+        className='bg-[#262728]  hover:bg-blue-700  transition-colors cursor-pointer boarder-2 boarder-black btn flex items-center m-5'
         onClick={handleClick}
       >
         <h1>GitHub Repos</h1>
@@ -21,3 +21,6 @@ const ShowReposButton = () => {
 };
 
 export default ShowReposButton;
+
+
+//className='px-3 py-1 bg-blue-600 hover:bg-blue-700 text-white rounded text-xs font-medium transition-colors cursor-pointer'

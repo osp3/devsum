@@ -178,10 +178,10 @@ const CommitAnalysis = ({ user }) => {
                       </div>
                       <p className="text-gray-300 mb-2">{issue.description}</p>
                       {issue.suggestion && (
-                        <p className="text-blue-400 text-sm">💡 {issue.suggestion}</p>
+                        <p className="text-blue-400 text-sm"> {issue.suggestion}</p>
                       )}
                       {issue.example && (
-                        <p className="text-green-400 text-sm">📝 Example: {issue.example}</p>
+                        <p className="text-green-400 text-sm">Example: {issue.example}</p>
                       )}
                     </div>
                   ))}
@@ -219,7 +219,7 @@ const CommitAnalysis = ({ user }) => {
                 <ul className="space-y-2">
                   {analysisData.analysis.recommendedActions.map((action, index) => (
                     <li key={index} className="flex items-start gap-2">
-                      <span className="text-yellow-400">⚡</span>
+                     
                       <span className="text-gray-300">{action}</span>
                     </li>
                   ))}

@@ -10,7 +10,7 @@ const TodaysSummary = ({ yesterdaySummary, summaryLoading, summaryError }) => {
   return (
    <div className='p-2'>
       <div className='flex justify-items-start font-bold text-white'>
-        Yesterday's Development Summary
+       Summary
       </div>
       {/* add a height of 90  to the scroll bar with a padding od 2*/}
       <div className='max-h-130  overflow-y-auto pr-2'>
@@ -19,12 +19,7 @@ const TodaysSummary = ({ yesterdaySummary, summaryLoading, summaryError }) => {
             {yesterdaySummary.repositoryCount} repos
           </button> */}
 
-           <div className=' '>
-           
-               {new Date(yesterdaySummary.date).toLocaleString()}
-       
-    
-          </div>
+          
           <h1 className='flex-1 p-2 text-white'>{yesterdaySummary.summary}</h1>
          
         </div>
