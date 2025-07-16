@@ -32,6 +32,22 @@ await connectDB();
 console.log('🔐 Initializing GitHub OAuth...');
 await initializeOAuth();
 
+// Debug: Show actual GitHub config being used
+console.log('🔍 GitHub OAuth Configuration Debug:');
+try {
+  const EnvironmentService = (await import('./services/EnvironmentService.js')).default;
+  const clientID = await EnvironmentService.get('GITHUB_CLIENT_ID');
+  const clientSecret = await EnvironmentService.get('GITHUB_CLIENT_SECRET');
+  const callbackURL = await EnvironmentService.get('GITHUB_CALLBACK_URL', process.env.GITHUB_CALLBACK_URL);
+  
+  console.log('   CLIENT_ID:', clientID ? `${clientID.substring(0, 8)}...` : 'NOT SET');
+  console.log('   CLIENT_SECRET:', clientSecret ? 'SET' : 'NOT SET');
+  console.log('   CALLBACK_URL:', callbackURL);
+  console.log('   Source: Database settings override env variables');
+} catch (error) {
+  console.error('   Error reading GitHub config:', error.message);
+}
+
 // Create Express app
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -98,31 +114,7 @@ app.use(session({
   proxy: process.env.NODE_ENV === 'production' // Trust proxy in production
 }));
 
-// Enhanced session and cookie debugging middleware
-app.use((req, res, next) => {
-  if (req.path.startsWith('/auth')) {
-    console.log('🍪 Session Debug:', {
-      sessionID: req.sessionID,
-      hasUser: !!req.user,
-      userId: req.user?.id,
-      username: req.user?.username,
-      cookieConfig: {
-        secure: req.session.cookie.secure,
-        sameSite: req.session.cookie.sameSite,
-        domain: req.session.cookie.domain,
-        httpOnly: req.session.cookie.httpOnly,
-        maxAge: req.session.cookie.maxAge
-      },
-      headers: {
-        origin: req.headers.origin,
-        referer: req.headers.referer,
-        userAgent: req.headers['user-agent']?.substring(0, 50) + '...',
-        cookieHeader: req.headers.cookie ? req.headers.cookie.substring(0, 100) + '...' : 'MISSING'
-      }
-    });
-  }
-  next();
-});
+// Session debugging middleware (will be moved after passport initialization)
 
 // Add response headers for cross-origin cookies
 app.use((req, res, next) => {
