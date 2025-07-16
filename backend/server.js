@@ -84,16 +84,21 @@ app.use(session({
   secret: sessionSecret,
   resave: false,
   saveUninitialized: false,
+  name: 'devsum.session', // Explicit session name
   cookie: {
     secure: process.env.NODE_ENV === 'production', // HTTPS required in production
     httpOnly: true,
     sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax', // Allow cross-origin in production
     maxAge: 24 * 60 * 60 * 1000, // 24 hours
     domain: process.env.NODE_ENV === 'production' ? undefined : undefined // Let browser handle domain
-  }
+  },
+  // Force session to be saved even if not modified
+  rolling: true,
+  // Save session back to store on every request  
+  proxy: process.env.NODE_ENV === 'production' // Trust proxy in production
 }));
 
-// Session debugging middleware
+// Enhanced session and cookie debugging middleware
 app.use((req, res, next) => {
   if (req.path.startsWith('/auth')) {
     console.log('🍪 Session Debug:', {
@@ -101,15 +106,54 @@ app.use((req, res, next) => {
       hasUser: !!req.user,
       userId: req.user?.id,
       username: req.user?.username,
-      cookieSecure: req.session.cookie.secure,
-      cookieSameSite: req.session.cookie.sameSite,
+      cookieConfig: {
+        secure: req.session.cookie.secure,
+        sameSite: req.session.cookie.sameSite,
+        domain: req.session.cookie.domain,
+        httpOnly: req.session.cookie.httpOnly,
+        maxAge: req.session.cookie.maxAge
+      },
       headers: {
         origin: req.headers.origin,
         referer: req.headers.referer,
-        cookie: req.headers.cookie ? 'present' : 'missing'
+        userAgent: req.headers['user-agent']?.substring(0, 50) + '...',
+        cookieHeader: req.headers.cookie ? req.headers.cookie.substring(0, 100) + '...' : 'MISSING'
       }
     });
   }
+  next();
+});
+
+// Add response headers for cross-origin cookies
+app.use((req, res, next) => {
+  // Add headers to help with cross-origin cookies
+  if (process.env.NODE_ENV === 'production') {
+    res.header('Access-Control-Allow-Credentials', 'true');
+    res.header('Vary', 'Origin');
+  }
+  next();
+});
+
+// Special middleware for auth routes to ensure cookies are set properly
+app.use('/auth', (req, res, next) => {
+  // Override res.redirect for auth routes to ensure cookie headers
+  const originalRedirect = res.redirect;
+  res.redirect = function(url) {
+    console.log('🔄 Auth redirect to:', url);
+    console.log('🍪 Setting session cookie explicitly');
+    
+    // Ensure session is saved before redirect
+    req.session.save((err) => {
+      if (err) {
+        console.error('❌ Session save error:', err);
+      } else {
+        console.log('✅ Session saved before redirect');
+      }
+      
+      // Call original redirect
+      originalRedirect.call(this, url);
+    });
+  };
   next();
 });
 
@@ -147,6 +191,34 @@ app.get('/health', (req, res) => {
     uptime: process.uptime(),
     authenticated: !!req.user
   });
+});
+
+// Cookie debug endpoint
+app.get('/debug/cookies', (req, res) => {
+  const cookieInfo = {
+    sessionID: req.sessionID,
+    hasUser: !!req.user,
+    username: req.user?.username,
+    cookieHeaders: req.headers.cookie || 'NO COOKIES',
+    sessionData: req.session,
+    cookieConfig: {
+      secure: req.session?.cookie?.secure,
+      sameSite: req.session?.cookie?.sameSite,
+      domain: req.session?.cookie?.domain,
+      httpOnly: req.session?.cookie?.httpOnly,
+      maxAge: req.session?.cookie?.maxAge
+    }
+  };
+  
+  // Try to manually set a test cookie
+  res.cookie('test-cookie', 'test-value', {
+    secure: process.env.NODE_ENV === 'production',
+    httpOnly: false, // Allow JS access for testing
+    sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax',
+    maxAge: 60000 // 1 minute for testing
+  });
+  
+  res.json(cookieInfo);
 });
 
 // Routes
@@ -251,4 +323,4 @@ process.on('uncaughtException', (err) => {
 process.on('unhandledRejection', (reason, promise) => {
   console.error('💥 Unhandled Rejection at:', promise, 'reason:', reason);
   gracefulShutdown('UNHANDLED_REJECTION');
-}); 
+});
