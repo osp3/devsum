@@ -28,16 +28,18 @@ const TodaysSummary = ({ yesterdaySummary, summaryLoading, summaryError }) => {
           {yesterdaySummary.formattedCommits?.byRepository && 
            Object.entries(yesterdaySummary.formattedCommits.byRepository).map(([repoName, commits]) => (
             <div key={repoName} className='mb-4'>
+
               {/* Repository Header */}
               <div className='bg-[#1e1d2b] rounded-lg p-3 mb-2'>
                 <div className='flex items-center justify-between'>
                   <h2 className='text-white font-semibold text-lg'>{repoName}</h2>
                   
+                  
                 </div>
               </div>
               
               {/* Commits for this repository */}
-              <div className=' relative flex flex-col item center ml-4 space-y-2'>
+              <div className=' relative flex flex-col item-center ml-4 space-y-2'>
                 {commits.map((commit, index) => (
                   <div key={commit.sha || index} className='bg-[#272633] rounded-lg p-3 border-l-4 border-[#5b56dd]'>
                     <div className='flex items-center gap-2 text-xs text-gray-400'>
