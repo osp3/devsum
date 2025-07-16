@@ -46,7 +46,24 @@ app.use(helmet({
 
 // Middleware
 app.use(cors({
-  origin: process.env.FRONTEND_URL || 'http://localhost:5173',
+  origin: function (origin, callback) {
+    // Remove trailing slash from FRONTEND_URL if present
+    const allowedOrigin = (process.env.FRONTEND_URL || 'http://localhost:5173').replace(/\/$/, '');
+    
+    // Allow requests with no origin (mobile apps, Postman, etc.)
+    if (!origin) return callback(null, true);
+    
+    // Check if origin matches (with or without trailing slash)
+    const normalizedOrigin = origin.replace(/\/$/, '');
+    
+    if (normalizedOrigin === allowedOrigin) {
+      return callback(null, true);
+    }
+    
+    // Log for debugging
+    console.log(`🚫 CORS blocked: origin=${origin}, allowed=${allowedOrigin}`);
+    return callback(new Error('Not allowed by CORS'));
+  },
   credentials: true
 }));
 app.use(express.json());
