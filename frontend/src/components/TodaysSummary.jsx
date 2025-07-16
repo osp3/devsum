@@ -39,15 +39,14 @@ const TodaysSummary = ({ yesterdaySummary, summaryLoading, summaryError }) => {
               </div>
               
               {/* Commits for this repository */}
-              <div className=' relative flex flex-col item-center ml-4 space-y-2'>
+              <div className='  flex justify-between flex-col ml-4 space-y-2'>
                 {commits.map((commit, index) => (
                   <div key={commit.sha || index} className='bg-[#272633] rounded-lg p-3 border-l-4 border-[#5b56dd]'>
-                    <div className='flex items-center gap-2 text-xs text-gray-400'>
+                    <div className=' flex   justify-between items-center flex-row gap-2 text-xs text-gray-400'>
                       <h3>{commit.description}</h3>
-                      
-                      
-                      <span className = 'flex-1absolute top-2 right-2 text-xs text-gray-500'>{new Date(commit.date).toLocaleString()}</span>
-                      
+                      <span className="text-xs text-gray-500 whitespace-nowrap">{new Date(commit.date).toLocaleString()}</span>
+
+                     
                     </div>
                   </div>
                 ))}
