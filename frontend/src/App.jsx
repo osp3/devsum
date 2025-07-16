@@ -35,8 +35,17 @@ function App() {
   const [taskSuggestions, setTaskSuggestions] = useState([]); // AI-generated task suggestions
   const [tasksLoading, setTasksLoading] = useState(false); // Loading state for tasks
   const [tasksError, setTasksError] = useState(null); // Error state for tasks
+  const [isBrowserRefresh, setIsBrowserRefresh] = useState(false); // Track if current session started with browser refresh
 
-  // Browser refresh detection removed - only manual refresh buttons should bypass cache
+  // Browser refresh detection using Performance API
+  const detectBrowserRefresh = () => {
+    // Check if page was loaded via browser refresh
+    const navigationType = performance.getEntriesByType('navigation')[0]?.type;
+    const isReload = navigationType === 'reload';
+    
+    console.log('🔍 Navigation type detected:', navigationType, 'isReload:', isReload);
+    return isReload;
+  };
 
   // Fetch all user repositories - called once on login, cached for entire session
   const fetchRepositories = async (forceRefresh = false) => {
@@ -44,7 +53,7 @@ function App() {
     setReposError(null);
 
     try {
-      // Add force parameter only if manually forced (browser refresh no longer bypasses cache)
+      // Add force parameter if manually forced or browser refresh detected
       const forceParam = forceRefresh ? '?force=true' : '';
       
       const response = await fetch(
@@ -68,6 +77,13 @@ function App() {
       if (data.success) {
         setRepositories(data.data.repositories);
 
+        // Log cache status for debugging
+        if (forceRefresh) {
+          console.log('🔄 Repositories fetched with fresh data (cache bypassed)');
+        } else {
+          console.log('📦 Repositories fetched (cache enabled)');
+        }
+
         // Auto-select first repo so Dashboard has data to display immediately
         if (data.data.repositories.length > 0) {
           setSelectedRepo((prev) => prev || data.data.repositories[0]);
@@ -89,7 +105,7 @@ function App() {
     setSummaryError(null);
     
     try {
-      // Add force parameter only if manually forced (browser refresh no longer bypasses cache)
+      // Add force parameter if manually forced or browser refresh detected
       const forceParam = forceRefresh ? '?force=true' : '';
       
       const response = await fetch(
@@ -142,7 +158,7 @@ function App() {
     setTasksError(null);
 
     try {
-      // Add force parameter only if manually forced (browser refresh no longer bypasses cache)
+      // Add force parameter if manually forced or browser refresh detected
       const forceParam = forceRefresh ? '?force=true' : '';
       
       const response = await fetch(
@@ -170,6 +186,13 @@ function App() {
 
       if (result.success) {
         setTaskSuggestions(result.data.tasks || []);
+        
+        // Log cache status for debugging
+        if (forceRefresh) {
+          console.log('🔄 Task suggestions fetched with fresh data (cache bypassed)');
+        } else {
+          console.log('📦 Task suggestions fetched (cache enabled)');
+        }
         console.log('🎯 Task suggestions generated:', result.data);
       } else {
         throw new Error(result.error || 'Failed to generate task suggestions');
@@ -220,19 +243,27 @@ function App() {
   // Fetch repositories and yesterday's summary when user becomes authenticated
   useEffect(() => {
     if (isAuthenticated) {
-      console.log('📦 Loading data with cache enabled - only manual refresh buttons bypass cache');
-      // Always use cache - only manual refresh buttons should bypass cache
-      fetchRepositories(false);
-      fetchYesterdaySummary(false);
+      const browserRefreshDetected = detectBrowserRefresh();
+      setIsBrowserRefresh(browserRefreshDetected);
+      
+      if (browserRefreshDetected) {
+        console.log('🔄 Browser refresh detected - fetching fresh data (cache bypassed)');
+      } else {
+        console.log('📦 Loading data with cache enabled');
+      }
+      
+      // Use fresh data on browser refresh, cached data otherwise
+      fetchRepositories(browserRefreshDetected);
+      fetchYesterdaySummary(browserRefreshDetected);
     }
   }, [isAuthenticated]); // Run when auth status changes
 
   // Fetch task suggestions when yesterday's summary becomes available
   useEffect(() => {
     if (yesterdaySummary && yesterdaySummary.formattedCommits?.allCommits?.length > 0) {
-      fetchTaskSuggestions();
+      fetchTaskSuggestions(isBrowserRefresh);
     }
-  }, [yesterdaySummary]); // Run when summary changes
+  }, [yesterdaySummary, isBrowserRefresh]); // Run when summary changes or refresh status changes
 
   // === PROP DRILLING - Package shared state for all child components ===
   const appContext = {
