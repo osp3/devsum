@@ -9,113 +9,80 @@ import { CommitAnalysis, DailySummary, TaskSuggestion, QualityAnalysis } from '.
 
 dotenv.config();
 
-// Initialize OpenAI client with environment service
-let openai = null;
-const initializeOpenAI = async () => {
-  try {
-    const apiKey = await EnvironmentService.get('OPENAI_API_KEY');
-    if (apiKey) {
-      openai = new OpenAI({ apiKey });
-      console.log('OpenAI client initialized with API key from database/env');
-    } else {
-      console.warn('OPENAI_API_KEY not found in database or env; using fallback AI responses.');
-    }
-  } catch (error) {
-    console.error('Failed to initialize OpenAI client:', error);
-    console.warn('Using fallback AI responses.');
-  }
-};
-
-// OpenAI will be initialized in the init() method to ensure proper async handling
-
 class AIService {
   constructor() {
     this.initialized = false;
     this.promptBuilder = new PromptBuilder();
     this.cacheManager = new CacheManager();
-    this.qualityAnalyzer = new QualityAnalyzer(openai, this._callOpenAI.bind(this), this.promptBuilder);
     this.githubService = null; // Will be set when needed
   }
 
   // Set GitHubService instance for authenticated API calls
   setGitHubService(githubService) {
     this.githubService = githubService;
-    // Update quality analyzer with authenticated GitHub service
-    this.qualityAnalyzer = new QualityAnalyzer(
-      openai, 
-      this._callOpenAI.bind(this), 
-      this.promptBuilder, 
-      githubService
-    );
   }
-//**'lazy initialization' - avoids connecting to database until actually needed.
-// faster startup, better resource management
-// flow: check if already initialized (prevent duplicate connections)
-// connect to mongodb through connectdb utility
-// set initialized flag to true
-// log success message */
+
+  /**
+   * Create OpenAI client with user-specific API key
+   * @param {string} userApiKey - User's OpenAI API key
+   * @param {string} userModel - User's preferred OpenAI model
+   * @returns {OpenAI} OpenAI client instance
+   */
+  _createOpenAIClient(userApiKey, userModel = 'gpt-4o-mini') {
+    if (!userApiKey) {
+      throw new Error('User OpenAI API key is required');
+    }
+    return new OpenAI({ apiKey: userApiKey });
+  }
+
+  /**
+   * Lazy initialization - avoids connecting to database until actually needed.
+   * Faster startup, better resource management
+   */
   async init() {
     if (!this.initialized) {
       await connectDB();
-      // Ensure OpenAI client is initialized
-      await initializeOpenAI();
       this.initialized = true;
       console.log('AI Service initialized with Mongoose models');
     }
   }
 
-  // Reinitialize OpenAI client when settings are updated
-  async reinitializeOpenAI() {
-    await initializeOpenAI();
-    // Update the quality analyzer with new openai client and existing GitHub service
-    this.qualityAnalyzer = new QualityAnalyzer(
-      openai, 
-      this._callOpenAI.bind(this), 
-      this.promptBuilder, 
-      this.githubService
-    );
-    console.log('OpenAI client reinitialized');
-  }
-
   // Categorize commits with MongoDB caching
-  // 1. Check if commits already analyzed 2. Only send new commits to OpenAI
-  // 3. Store results in MongoDB 4. Return combined results
-  //batch processing reduces api calls, persistent caching eliminated redundant analysis, and fallback ensures system never fails completely
-  async categorizeCommits(commits) {
+  async categorizeCommits(commits, userApiKey, userModel = 'gpt-4o-mini') {
     await this.init(); // Ensure DB connection
-    console.log(`Analyzing ${commits.length} commits...`);
+    console.log(`Analyzing ${commits.length} commits with user's API key...`);
 
     try {
-      // step 1 cache lookup - check which commits have already been analyzed
-      const commitHashes = commits.map(c => c.sha); //extract unique commit identifiers
+      // Step 1: Cache lookup - check which commits have already been analyzed
+      const commitHashes = commits.map(c => c.sha);
       const existingAnalysis = await CommitAnalysis.find({ 
-        commitHash: { $in: commitHashes } //mongodb query find docs where commitHash is in array
-      }).lean(); //lean() returns plain JS objects (faster, less memory)
+        commitHash: { $in: commitHashes }
+      }).lean();
 
-      // step 2 create lookup map, conver array to hashmap for 0(1) lookups
+      // Step 2: Create lookup map
       const analyzed = new Map();
       existingAnalysis.forEach(result => {
-        analyzed.set(result.commitHash, result); // map commitHash -> analysis  result
+        analyzed.set(result.commitHash, result);
       });
 
-      // step 3 identify work needed - filter commits requiring ai analysis
+      // Step 3: Identify work needed
       const unanalyzedCommits = commits.filter(commit => !analyzed.has(commit.sha));
       console.log(`Found ${existingAnalysis.length} cached, analyzing ${unanalyzedCommits.length} new commits`);
 
-      // step 4 AI analysis - only process unanalyzed commits (cost optimization)
+      // Step 4: AI analysis - only process unanalyzed commits
       let newAnalysis = [];
       if (unanalyzedCommits.length > 0) {
-        newAnalysis = await this._analyzeWithOpenAI(unanalyzedCommits);
+        newAnalysis = await this._analyzeWithOpenAI(unanalyzedCommits, userApiKey, userModel);
         
-        // step 5 persistent caching store results for future use
+        // Step 5: Persistent caching
         await this.cacheManager.storeAnalysis(newAnalysis);
       }
 
-      // step 6 merge results - combine cached + fresh analysis
+      // Step 6: Merge results
       const allResults = commits.map(commit => {
-        const cached = analyzed.get(commit.sha); //try cache first
+        const cached = analyzed.get(commit.sha);
         if (cached) {
-          return { // return cached result wit original commit data
+          return {
             ...commit,
             category: cached.category,
             confidence: cached.confidence,
@@ -123,30 +90,22 @@ class AIService {
             analyzedAt: cached.analyzedAt
           };
         }
-        //return fresh analysis or fallback 
         const fresh = newAnalysis.find(a => a.sha === commit.sha);
         return fresh || { ...commit, category: 'other', confidence: 0.5 };
       });
 
       console.log(`Analysis complete: ${allResults.length} commits categorized`);
       return allResults;
-    } catch (error) { //fallabck if AI fails, use keyword-based categorization 
+    } catch (error) {
       console.error('AI analysis failed:', error.message);
       return this._fallbackCategorization(commits);
     }
   }
+
   // Generate daily summary with MongoDB caching by date
-  /**flow:
-   * generate cache key from date and repository
-   * check mongodb for existing summary
-   * if found return cached summary
-   * if not found generate with AI
-   * store in MongoDb with metadata
-   * return generated summary
-   */
-  async generateDailySummary(commits, repositoryId, date = new Date(), forceRefresh = false) {
+  async generateDailySummary(commits, repositoryId, userApiKey, userModel = 'gpt-4o-mini', date = new Date(), forceRefresh = false) {
     await this.init(); // Ensure DB connection
-    const dateStr = date.toISOString().split('T')[0]; // convert to yyyy-mm-dd
+    const dateStr = date.toISOString().split('T')[0];
 
     try {
       // Check for cached summary for this day (unless force refresh requested)
@@ -170,10 +129,10 @@ class AIService {
       // Generate new summary
       console.log(`🤖 AIService: Generating FRESH daily summary for ${dateStr} with ${commits.length} commits (repositoryId: ${repositoryId})`);
       const prompt = this.promptBuilder.createSummaryPrompt(commits);
-      const summary = await this._callOpenAI(prompt);
+      const summary = await this._callOpenAI(prompt, userApiKey, userModel);
       console.log(`🤖 AIService: Fresh summary generated - Preview: "${summary.substring(0, 100)}..."`);
 
-      // Store in MongoDB (replace existing if force refresh was used)
+      // Store in MongoDB
       await DailySummary.findOneAndUpdate(
         { date: dateStr, repositoryId: repositoryId },
         {
@@ -190,11 +149,12 @@ class AIService {
       return summary;
     } catch (error) {
       console.error('Summary generation failed:', error.message);
-      return this._fallbackSummary(commits); //simple fallback summary
+      return this._fallbackSummary(commits);
     }
   }
+
   // Generate task suggestions with caching
-  async generateTaskSuggestions(recentCommits, repositoryId, forceRefresh = false) {
+  async generateTaskSuggestions(recentCommits, repositoryId, userApiKey, userModel = 'gpt-4o-mini', forceRefresh = false) {
     await this.init(); // Ensure DB connection
 
     try {
@@ -210,7 +170,6 @@ class AIService {
         }).lean();
 
         if (recentSuggestion) {
-          // Validate cached tasks have required fields (basedOn and repositories)
           const tasksHaveRequiredFields = recentSuggestion.tasks.every(task => 
             task.basedOn && task.repositories && Array.isArray(task.repositories)
           );
@@ -220,7 +179,6 @@ class AIService {
             return recentSuggestion.tasks;
           } else {
             console.log('Cached tasks missing required fields (basedOn/repositories) - generating fresh suggestions');
-            // Continue to generate new suggestions with proper schema
           }
         }
       } else {
@@ -230,50 +188,38 @@ class AIService {
       // Generate new suggestions
       console.log(`📋 AI Tasks: Generating task suggestions based on ${recentCommits.length} recent commits`);
       const prompt = this.promptBuilder.createTaskPrompt(recentCommits);
-      const aiResponse = await this._callOpenAI(prompt);
+      const aiResponse = await this._callOpenAI(prompt, userApiKey, userModel);
       const tasks = this.promptBuilder.parseTaskResponse(aiResponse);
 
-      // Persistent storage, cache with metadata
+      // Persistent storage
       await TaskSuggestion.create({
         repositoryId: repositoryId,
         workSignature: workSignature,
         tasks: tasks,
-        baseCommits: recentCommits.map(c => c.sha) //track which commits influenced suggestions
+        baseCommits: recentCommits.map(c => c.sha)
       });
 
       console.log(`Generated ${tasks.length} new task suggestions`);
       return tasks;
     } catch (error) {
       console.error('Task generation failed:', error.message);
-      return this._fallbackTasks(recentCommits); //simple fallback tasks
+      return this._fallbackTasks(recentCommits);
     }
   }
-  /**Commit message improvement
-   * process: 
-   * take git diff content
-   * take current commit message (if any)
-   * send both to AI for analysis
-   * AI suggests improved message following conventions
-   * return comparison with improvement metrics
-   * Quality Assessment:
-   * conventional format (feat:, fix:, docs:, etc.)
-   * descriptiveness (longer, more specific)
-   * context awareness (based on actual code changes)
-   */
-  async suggestCommitMessage(diffContent, currentMessage = '', repositoryId = null) {
+
+  // Commit message improvement
+  async suggestCommitMessage(diffContent, userApiKey, userModel = 'gpt-4o-mini', currentMessage = '', repositoryId = null) {
     await this.init();
     console.log(`💬 AI Commit: Suggesting commit message (diff: ${diffContent.length} chars, original: "${currentMessage || 'none'}")`);
 
     try {
-      //AI analysis to create improved commit message
       const prompt = this.promptBuilder.createCommitMessagePrompt(diffContent, currentMessage);
-      const suggestion = await this._callOpenAI(prompt);
+      const suggestion = await this._callOpenAI(prompt, userApiKey, userModel);
       const cleanSuggestion = this.promptBuilder.cleanCommitSuggestion(suggestion);
       const isImproved = this._isMessageImproved(currentMessage, cleanSuggestion);
 
       console.log(`Suggestion generated: "${cleanSuggestion}"`);
 
-      //return analysis  include original, suggested, and improvement metrics
       return {
         original: currentMessage,
         suggested: cleanSuggestion,
@@ -291,63 +237,74 @@ class AIService {
   }
 
   // Get analysis history
-  //provide historical insights and trend analysis, passes to cacheManager for optimized querying
   async getAnalysisHistory(repositoryId, days = 30) {
-  await this.init(); // Ensure DB connection
-  return await this.cacheManager.getAnalysisHistory(repositoryId, days);
+    await this.init(); // Ensure DB connection
+    return await this.cacheManager.getAnalysisHistory(repositoryId, days);
   }
 
-  //code quality analysis
-  //provide deep analysis of code quality trends
-  //qualityanalyzer handles complex analysis
-  async analyzeCodeQuality(commits, repositoryId, timeframe = 'weekly', repositoryFullName = null) {
-  await this.init(); // Ensure DB connection
-  return await this.qualityAnalyzer.analyzeCodeQuality(commits, repositoryId, timeframe, repositoryFullName);
+  // Code quality analysis
+  async analyzeCodeQuality(commits, repositoryId, userApiKey, userModel = 'gpt-4o-mini', timeframe = 'weekly', repositoryFullName = null) {
+    await this.init(); // Ensure DB connection
+    
+    // Create quality analyzer with user-specific API key
+    const openai = this._createOpenAIClient(userApiKey, userModel);
+    const qualityAnalyzer = new QualityAnalyzer(
+      openai, 
+      (prompt) => this._callOpenAI(prompt, userApiKey, userModel), 
+      this.promptBuilder, 
+      this.githubService
+    );
+    
+    return await qualityAnalyzer.analyzeCodeQuality(commits, repositoryId, timeframe, repositoryFullName);
   }
 
-  //quality trend analysis
-  //track code quality improvements/degradation over time
-  //qualityanalyzer provides trend analysis
-  async getQualityTrends(repositoryId, days = 30) {
-  await this.init(); // Ensure DB connection
-  return await this.qualityAnalyzer.getQualityTrends(repositoryId, days);
+  // Quality trend analysis
+  async getQualityTrends(repositoryId, userApiKey, userModel = 'gpt-4o-mini', days = 30) {
+    await this.init(); // Ensure DB connection
+    
+    // Create quality analyzer with user-specific API key
+    const openai = this._createOpenAIClient(userApiKey, userModel);
+    const qualityAnalyzer = new QualityAnalyzer(
+      openai, 
+      (prompt) => this._callOpenAI(prompt, userApiKey, userModel), 
+      this.promptBuilder, 
+      this.githubService
+    );
+    
+    return await qualityAnalyzer.getQualityTrends(repositoryId, days);
   }
 
-  //? Could help with extra features we may want to add
-/**
- * ENHANCED CODE QUALITY ANALYSIS
- * 
- * Now combines commit message patterns + actual code analysis
- * 
- * FLOW:
- * 1. Analyze all commit messages for patterns (fast, cheap)
- * 2. Select most important commits for code analysis
- * 3. Get git diffs for selected commits
- * 4. Send diffs to AI for deep code quality analysis
- * 5. Combine message and code insights
- * 6. Generate comprehensive quality score and recommendations
- * 
- * @param {Array} commits - Recent commits (last 7-30 days)
- * @param {String} repositoryId - Repository identifier for caching
- * @param {String} timeframe - 'daily' or 'weekly' analysis
- * @param {String} repositoryFullName - GitHub repo name (owner/repo-name) for diff analysis
- */
+  // Analyze individual commit diff with AI
+  async analyzeCommitDiff(commit, diff, userApiKey, userModel = 'gpt-4o-mini') {
+    await this.init();
+    console.log(`🔍 AI Diff Analysis: Analyzing commit ${commit.sha?.substring(0, 7)} (diff: ${diff.length} chars)`);
 
-//? More potential features
+    try {
+      const prompt = this.promptBuilder.createCommitAnalysisPrompt(commit, diff);
+      const analysis = await this._callOpenAI(prompt, userApiKey, userModel);
+      const parsedAnalysis = this._parseCommitAnalysis(analysis);
 
+      console.log(`Analysis complete for ${commit.sha?.substring(0, 7)}: ${parsedAnalysis.suggestedMessage}`);
+      
+      return {
+        diffSize: diff.length,
+        suggestedMessage: parsedAnalysis.suggestedMessage,
+        suggestedDescription: parsedAnalysis.description,
+        commitAnalysis: parsedAnalysis.analysis,
+        confidence: parsedAnalysis.confidence,
+        analysisDate: new Date().toISOString()
+      };
+    } catch (error) {
+      console.error(`Failed to analyze commit ${commit.sha?.substring(0, 7)}:`, error.message);
+      return this._fallbackCommitAnalysis(commit, diff);
+    }
+  }
 
-  
-  //private methods
-  /** build structured prompt for commit categorization
-   * send to openai API
-   * parse response into structured data
-   * handle parsing errors gracefully
-   * error handling falls back to keyword based analysis
-   */
-  async _analyzeWithOpenAI(commits) {
+  // Private methods
+  async _analyzeWithOpenAI(commits, userApiKey, userModel) {
     console.log(`🔍 AI Analysis: Categorizing ${commits.length} commits`);
     const prompt = this.promptBuilder.createCategorizationPrompt(commits);
-    const aiResponse = await this._callOpenAI(prompt);
+    const aiResponse = await this._callOpenAI(prompt, userApiKey, userModel);
 
     try {
       return this.promptBuilder.parseResponse(commits, aiResponse);
@@ -357,12 +314,6 @@ class AIService {
     }
   }
 
-
-  /**Commit grouping utility
-   * reduce pattern for grouping
-   * input: array of commits wiht category property
-   * output: object with category keys and commit arrays as values
-   */
   _groupByCategory(commits) {
     return commits.reduce((groups, commit) => {
       const category = commit.category || 'other';
@@ -372,24 +323,22 @@ class AIService {
     }, {});
   }
 
-  /** OpenAI communication/details
-   * model, temp(randomness), max tokens, and system message(ai context ie developer assistant)
-   * throws error for upstream handling
+  /**
+   * OpenAI communication with user-specific API key
    */
-  async _callOpenAI(prompt) {
-    if (!openai) {
-      throw new Error('OpenAI client not confugured');
+  async _callOpenAI(prompt, userApiKey, userModel = 'gpt-4o-mini') {
+    if (!userApiKey) {
+      throw new Error('User OpenAI API key is required');
     }
+
     try {
-      // Read model from database first, fall back to .env, then default
-      const model = await EnvironmentService.get('OPENAI_MODEL', 'gpt-4o-mini');
+      const openai = this._createOpenAIClient(userApiKey, userModel);
       
-      // Debug logging to show which model is being used
-      console.log(`🤖 OpenAI Request: Sending prompt to model "${model}"`);
+      console.log(`🤖 OpenAI Request: Sending prompt to model "${userModel}" with user's API key`);
       console.log(`🤖 Prompt preview: "${prompt.substring(0, 150)}..."`);
       
       const response = await openai.chat.completions.create({
-        model: model,
+        model: userModel,
         messages: [
           {
             role: 'system',
@@ -405,11 +354,11 @@ class AIService {
       });
       
       const responseText = response.choices[0].message.content.trim();
-      console.log(`✅ OpenAI Response: Received ${responseText.length} characters from "${model}"`);
+      console.log(`✅ OpenAI Response: Received ${responseText.length} characters from "${userModel}"`);
       console.log(`✅ Response preview: "${responseText.substring(0, 100)}..."`);
       return responseText;
     } catch (error) {
-      console.error(`❌ OpenAI API call failed with model "${await EnvironmentService.get('OPENAI_MODEL', 'gpt-4o-mini')}":`, error.message);
+      console.error(`❌ OpenAI API call failed with model "${userModel}":`, error.message);
       throw error;
     }
   }
@@ -524,46 +473,6 @@ class AIService {
       }
     ];
   }
-
-  // Analyze individual commit diff with AI
-  /**
-   * combine commit metadata (author, timestamp, message) with git diff - both sent to AI for analysis
-   * return structured analysis with improvement suggestions
-   * Input: commit object + diff string
-   * processing: AI ananlysis via specialized prompts
-   * output: structured analysis object with multiple insights
-   * flow: Input(commit object + gitdiff string) -> Validation(ensure database connection established) ->
-   * Logging(log analysis start with commit sha and diff size) -> Prompt(build AI prompt combining commit + diff) ->
-   * AI call(send to OpenAI for contextual analysis) -> Parsing(parse AI JSON response into strucutred data) ->
-   * Logging(log completion with usggested message preview) -> Output(return comprehensive analysis object) ->
-   * Fallback(if any step failsm use heuristic analysis)
-   */
-  async analyzeCommitDiff(commit, diff) {
-    await this.init(); // establish db connection if not already done
-    console.log(`🔍 AI Diff Analysis: Analyzing commit ${commit.sha?.substring(0, 7)} (diff: ${diff.length} chars)`);
-
-    try {
-      const prompt = this.promptBuilder.createCommitAnalysisPrompt(commit, diff); //Step1 prompt construction
-      const analysis = await this._callOpenAI(prompt); //Step 2 AI analysis request
-      const parsedAnalysis = this._parseCommitAnalysis(analysis); //Step 3 response parsing
-
-      console.log(`Analysis complete for ${commit.sha?.substring(0, 7)}: ${parsedAnalysis.suggestedMessage}`);
-      
-      return { //Step 4 strucuted response construction
-        diffSize: diff.length, //raw size of changes
-        suggestedMessage: parsedAnalysis.suggestedMessage, //AI improvements - better commit message
-        suggestedDescription: parsedAnalysis.description, //detailed change description
-        commitAnalysis: parsedAnalysis.analysis, //AI analysis of changes
-        confidence: parsedAnalysis.confidence, //AI's confidence level (0-1)
-        analysisDate: new Date().toISOString() //timestamp for tracking
-      };
-    } catch (error) {
-      console.error(`Failed to analyze commit ${commit.sha?.substring(0, 7)}:`, error.message);
-      return this._fallbackCommitAnalysis(commit, diff);
-    }
-  }
-
-
 
   // Parse commit analysis response
   _parseCommitAnalysis(response) {

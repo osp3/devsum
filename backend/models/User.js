@@ -32,6 +32,18 @@ const userSchema = new mongoose.Schema({
     required: true,
     select: false // Don't include in queries by default for security
   },
+  // User's personal OpenAI API key for AI features
+  openaiApiKey: {
+    type: String,
+    required: false,
+    select: false // Don't include in queries by default for security
+  },
+  // User's preferred OpenAI model
+  openaiModel: {
+    type: String,
+    required: false,
+    default: 'gpt-4o-mini'
+  },
   // User's GitHub repositories (we'll cache this)
   repositories: [{
     id: Number,

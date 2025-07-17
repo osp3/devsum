@@ -1,4 +1,5 @@
 import EnvironmentService from '../services/EnvironmentService.js';
+import User from '../models/User.js';
 import { AppError } from '../utils/errors.js';
 
 class SettingsController {
@@ -9,18 +10,32 @@ class SettingsController {
     this.testSetting = this.testSetting.bind(this);
     this.clearCache = this.clearCache.bind(this);
     this.testOpenAIKey = this.testOpenAIKey.bind(this);
-    this.testGitHubCredentials = this.testGitHubCredentials.bind(this);
+
   }
 
   /**
-   * Get all configurable settings
+   * Get user-specific settings
    * @param {Object} req - Express request object
    * @param {Object} res - Express response object
    * @param {Function} next - Express next function
    */
   async getSettings(req, res, next) {
     try {
-      const settings = await EnvironmentService.getConfigurableSettings();
+      // Get shared environment settings
+      const sharedSettings = await EnvironmentService.getConfigurableSettings();
+      
+      // Get user-specific settings (OpenAI API key and model)
+      const user = await User.findById(req.user._id).select('+openaiApiKey');
+      if (!user) {
+        return next(new AppError('User not found', 404));
+      }
+
+      // Combine shared and user-specific settings
+      const settings = {
+        ...sharedSettings,
+        OPENAI_API_KEY: user.openaiApiKey ? this.maskSensitiveValue(user.openaiApiKey) : '',
+        OPENAI_MODEL: user.openaiModel || 'gpt-4o-mini'
+      };
       
       res.json({
         success: true,
@@ -33,7 +48,7 @@ class SettingsController {
   }
 
   /**
-   * Update settings
+   * Update user-specific settings
    * @param {Object} req - Express request object
    * @param {Object} res - Express response object
    * @param {Function} next - Express next function
@@ -47,58 +62,68 @@ class SettingsController {
         return next(new AppError('Invalid settings data provided', 400));
       }
 
-      // Validate individual settings
-      const allowedKeys = ['GITHUB_CLIENT_ID', 'GITHUB_CLIENT_SECRET', 'OPENAI_API_KEY', 'OPENAI_MODEL', 'SESSION_SECRET'];
-      const validSettings = {};
+      // Separate user-specific settings from shared settings
+      const userSettings = {};
+      const sharedSettings = {};
+      const allowedSharedKeys = ['SESSION_SECRET'];
+      const allowedUserKeys = ['OPENAI_API_KEY', 'OPENAI_MODEL'];
       
       for (const [key, value] of Object.entries(settings)) {
-        if (!allowedKeys.includes(key)) {
+        if (allowedUserKeys.includes(key)) {
+          userSettings[key] = value;
+        } else if (allowedSharedKeys.includes(key)) {
+          sharedSettings[key] = value;
+        } else {
           return next(new AppError(`Setting '${key}' is not configurable`, 400));
         }
         
         if (typeof value !== 'string') {
           return next(new AppError(`Setting '${key}' must be a string`, 400));
         }
-        
-        validSettings[key] = value;
       }
 
-      // Update settings
-      const result = await EnvironmentService.updateSettings(validSettings);
+      const result = { success: [], errors: [] };
+
+      // Update user-specific settings
+      if (Object.keys(userSettings).length > 0) {
+        try {
+          const user = await User.findById(req.user._id);
+          if (!user) {
+            return next(new AppError('User not found', 404));
+          }
+
+          // Update user fields
+          if (userSettings.OPENAI_API_KEY && userSettings.OPENAI_API_KEY.trim()) {
+            user.openaiApiKey = userSettings.OPENAI_API_KEY.trim();
+            result.success.push('OPENAI_API_KEY');
+          }
+          if (userSettings.OPENAI_MODEL && userSettings.OPENAI_MODEL.trim()) {
+            user.openaiModel = userSettings.OPENAI_MODEL.trim();
+            result.success.push('OPENAI_MODEL');
+          }
+
+          await user.save();
+        } catch (error) {
+          console.error('Error updating user settings:', error);
+          result.errors.push('Failed to update user settings');
+        }
+      }
+
+      // Update shared environment settings
+      if (Object.keys(sharedSettings).length > 0) {
+        const sharedResult = await EnvironmentService.updateSettings(sharedSettings);
+        result.success.push(...sharedResult.success);
+        result.errors.push(...sharedResult.errors);
+
+        // Clear cache for updated shared settings
+        sharedResult.success.forEach(key => {
+          EnvironmentService.clearCache(key);
+        });
+      }
 
       // Check if any updates were successful
       if (result.success.length === 0 && result.errors.length > 0) {
         return next(new AppError('Failed to update any settings: ' + result.errors.join(', '), 400));
-      }
-
-      // Clear cache for updated settings
-      result.success.forEach(key => {
-        EnvironmentService.clearCache(key);
-      });
-
-      // Reinitialize services that depend on updated settings
-      if (result.success.includes('OPENAI_API_KEY') || result.success.includes('OPENAI_MODEL')) {
-        try {
-          // Dynamically import AIService to avoid circular dependency
-          const { default: aiService } = await import('../services/ai.js');
-          await aiService.reinitializeOpenAI();
-        } catch (error) {
-          console.error('Failed to reinitialize OpenAI service:', error);
-        }
-      }
-
-      // Reinitialize OAuth if GitHub credentials were updated
-      if (result.success.some(key => key.includes('GITHUB_CLIENT'))) {
-        try {
-          // Dynamically import OAuth functions to avoid circular dependency
-          const { reinitializeOAuth } = await import('../config/passport.js');
-          const oauthSuccess = await reinitializeOAuth();
-          if (oauthSuccess) {
-            console.log('OAuth reinitialized successfully');
-          }
-        } catch (error) {
-          console.error('Failed to reinitialize OAuth:', error);
-        }
       }
 
       res.json({
@@ -124,22 +149,24 @@ class SettingsController {
    */
   async testSetting(req, res, next) {
     try {
-      const { key, value } = req.body;
+      const { key } = req.body;
 
-      if (!key || !value) {
-        return next(new AppError('Key and value are required', 400));
+      if (!key) {
+        return next(new AppError('Key is required', 400));
       }
 
       let testResult = { valid: false, message: 'Test not implemented for this setting' };
 
-      // Test specific settings
+      // Test specific settings using stored values for security
       switch (key) {
         case 'OPENAI_API_KEY':
-          testResult = await this.testOpenAIKey(value);
-          break;
-        case 'GITHUB_CLIENT_ID':
-        case 'GITHUB_CLIENT_SECRET':
-          testResult = await this.testGitHubCredentials(key, value);
+          // Get the user's stored API key
+          const user = await User.findById(req.user._id).select('+openaiApiKey');
+          if (!user || !user.openaiApiKey) {
+            testResult = { valid: false, message: 'No OpenAI API key is configured for your account' };
+          } else {
+            testResult = await this.testOpenAIKey(user.openaiApiKey);
+          }
           break;
         default:
           testResult = { valid: true, message: 'Setting format appears valid' };
@@ -183,31 +210,6 @@ class SettingsController {
   }
 
   /**
-   * Test GitHub credentials
-   * @param {string} key - Setting key
-   * @param {string} value - Setting value
-   * @returns {Promise<Object>} Test result
-   */
-  async testGitHubCredentials(key, value) {
-    // Basic format validation
-    if (key === 'GITHUB_CLIENT_ID') {
-      if (!/^[A-Za-z0-9]+$/.test(value)) {
-        return { valid: false, message: 'Invalid GitHub Client ID format' };
-      }
-      return { valid: true, message: 'GitHub Client ID format is valid' };
-    }
-    
-    if (key === 'GITHUB_CLIENT_SECRET') {
-      if (!/^[A-Za-z0-9]+$/.test(value)) {
-        return { valid: false, message: 'Invalid GitHub Client Secret format' };
-      }
-      return { valid: true, message: 'GitHub Client Secret format is valid' };
-    }
-
-    return { valid: true, message: 'Setting format appears valid' };
-  }
-
-  /**
    * Clear settings cache
    * @param {Object} req - Express request object
    * @param {Object} res - Express response object
@@ -227,6 +229,18 @@ class SettingsController {
       console.error('Error clearing cache:', error);
       next(new AppError('Failed to clear cache', 500));
     }
+  }
+
+  /**
+   * Mask sensitive values for display
+   * @param {string} value - The value to mask
+   * @returns {string} Masked value
+   */
+  maskSensitiveValue(value) {
+    if (!value || value.length <= 8) {
+      return '••••••••';
+    }
+    return value.substring(0, 4) + '••••••••' + value.substring(value.length - 4);
   }
 }
 
