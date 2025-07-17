@@ -88,7 +88,7 @@ const UserHeader = ({ user }) => {
               onClick={() => navigate('/repositories')} // navigate from individual repo back to repo list
               className='px-3 py-1 bg-gray-600 hover:bg-gray-700 text-white rounded text-sm transition-colors'
             >
-              Back to List
+              Back to Repository
             </button>
           )}
 
