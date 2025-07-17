@@ -15,7 +15,7 @@ const RepoListing = ({
 
   // RENDER THE COMPONENT - What the user sees on the page
   return (
-    <div>
+    <div style={{ background: 'linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%)' }}>
       {/* Show user information at the top */}
       <UserHeader user={user} />
       <RepoGrid repositories={repositories} setSelectedRepo={setSelectedRepo} />

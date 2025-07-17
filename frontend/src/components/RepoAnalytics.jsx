@@ -178,7 +178,7 @@ const RepoAnalytics = ({ user, selectedRepo }) => {
   // Display prompt when no repository is selected
   if (!selectedRepo) {
     return (
-      <div className="min-h-screen bg-[#1a1928]">
+      <div className="min-h-screen" style={{ background: 'linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%)' }}>
         <UserHeader user={user} />
         <div className="flex justify-center items-center h-64">
           <div className="text-white text-xl">
@@ -191,7 +191,7 @@ const RepoAnalytics = ({ user, selectedRepo }) => {
 
   // Main analytics dashboard layout
   return (
-    <div className="min-h-screen bg-[#1a1928]">
+    <div className="min-h-screen" style={{ background: 'linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%)' }}>
       <UserHeader user={user} />
 
       {/* Repository header section */}
