@@ -14,7 +14,7 @@ const ShowReposButton = () => {
         className='bg-[#262728]  hover:bg-blue-700  transition-colors cursor-pointer boarder-2 boarder-black btn flex items-center m-5'
         onClick={handleClick}
       >
-        <h1>GitHub Repos</h1>
+        <h1>View Your GitHub Repositories</h1>
       </button>
     </div>
   );
