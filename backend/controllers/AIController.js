@@ -1,11 +1,33 @@
 import AIService from '../services/ai.js';
 import GithubService from '../services/github.js';
 import { YesterdaySummaryService } from '../services/YesterdaySummaryService.js';
+import User from '../models/User.js';
 
 /**
  * AI Controller - Plain Functions
  * Connects routes to AI service
  */
+
+/**
+ * Get user's OpenAI settings
+ * @param {Object} req - Express request object
+ * @returns {Promise<Object>} User's OpenAI API key and model
+ */
+async function getUserOpenAISettings(req) {
+  const user = await User.findById(req.user._id).select('+openaiApiKey');
+  if (!user) {
+    throw new Error('User not found');
+  }
+  
+  if (!user.openaiApiKey) {
+    throw new Error('No OpenAI API key configured for your account. Please add your API key in Settings.');
+  }
+  
+  return {
+    apiKey: user.openaiApiKey,
+    model: user.openaiModel || 'gpt-4o-mini'
+  };
+}
 
 /**
  * Analyze and categorize commits with AI
@@ -22,7 +44,10 @@ export async function analyzeCommits(req, res, next) {
       });
     }
 
-    const analysis = await AIService.categorizeCommits(commits);
+    // Get user's OpenAI settings
+    const { apiKey, model } = await getUserOpenAISettings(req);
+
+    const analysis = await AIService.categorizeCommits(commits, apiKey, model);
 
     // Calculate categories for meta
     const categories = analysis.reduce((acc, commit) => {
@@ -39,9 +64,10 @@ export async function analyzeCommits(req, res, next) {
       },
     });
   } catch (error) {
+    console.error('Error analyzing commits:', error);
     res.status(500).json({
       success: false,
-      error: 'Failed to analyze commits',
+      error: error.message || 'Failed to analyze commits',
     });
   }
 }
@@ -62,9 +88,14 @@ export async function generateDailySummary(req, res, next) {
       });
     }
 
+    // Get user's OpenAI settings
+    const { apiKey, model } = await getUserOpenAISettings(req);
+
     const summary = await AIService.generateDailySummary(
       commits,
       repositoryId,
+      apiKey,
+      model,
       date ? new Date(date) : new Date(),
       force === 'true'
     );
@@ -78,9 +109,10 @@ export async function generateDailySummary(req, res, next) {
       },
     });
   } catch (error) {
+    console.error('Error generating daily summary:', error);
     res.status(500).json({
       success: false,
-      error: 'Failed to generate daily summary',
+      error: error.message || 'Failed to generate daily summary',
     });
   }
 }
@@ -93,8 +125,11 @@ export async function generateYesterdaySummary(req, res, next) {
     
     console.log(`🎯 Controller: generateYesterdaySummary called with force=${forceRefresh}`);
     
+    // Get user's OpenAI settings
+    const { apiKey, model } = await getUserOpenAISettings(req);
+    
     const summaryService = new YesterdaySummaryService(req.user.accessToken);
-    const result = await summaryService.generateSummary(forceRefresh);
+    const result = await summaryService.generateSummary(forceRefresh, apiKey, model);
     
     // Set cache control headers to prevent browser caching
     res.set({
@@ -112,10 +147,11 @@ export async function generateYesterdaySummary(req, res, next) {
     console.error('❌ Controller: Failed to generate yesterday summary:', error);
     res.status(500).json({
       success: false,
-      error: 'Failed to generate yesterdays summary'
+      error: error.message || 'Failed to generate yesterdays summary'
     });
   }
 }
+
 /**
  * Generate task suggestions for tomorrow based on yesterday's AI analysis
  * POST /api/ai/task-suggestions
@@ -142,12 +178,17 @@ export async function generateTaskSuggestions(req, res, next) {
       });
     }
 
+    // Get user's OpenAI settings
+    const { apiKey, model } = await getUserOpenAISettings(req);
+
     // Use 'ALL_REPOS' as identifier for cross-repository task suggestions
     const repositoryId = 'ALL_REPOS';
 
     const tasks = await AIService.generateTaskSuggestions(
       commits,
       repositoryId,
+      apiKey,
+      model,
       forceRefresh
     );
 
@@ -175,7 +216,7 @@ export async function generateTaskSuggestions(req, res, next) {
     console.error('Task generation error:', error);
     res.status(500).json({
       success: false,
-      error: 'Failed to generate task suggestions',
+      error: error.message || 'Failed to generate task suggestions',
     });
   }
 }
@@ -195,8 +236,13 @@ export async function suggestCommitMessage(req, res, next) {
       });
     }
 
+    // Get user's OpenAI settings
+    const { apiKey, model } = await getUserOpenAISettings(req);
+
     const suggestion = await AIService.suggestCommitMessage(
       diffContent,
+      apiKey,
+      model,
       currentMessage,
       repositoryId
     );
@@ -211,9 +257,10 @@ export async function suggestCommitMessage(req, res, next) {
       },
     });
   } catch (error) {
+    console.error('Error suggesting commit message:', error);
     res.status(500).json({
       success: false,
-      error: 'Failed to suggest commit message',
+      error: error.message || 'Failed to suggest commit message',
     });
   }
 }
@@ -249,9 +296,10 @@ export async function getAnalysisHistory(req, res, next) {
       },
     });
   } catch (error) {
+    console.error('Error getting analysis history:', error);
     res.status(500).json({
       success: false,
-      error: 'Failed to retrieve analysis history',
+      error: error.message || 'Failed to retrieve analysis history',
     });
   }
 }
@@ -277,6 +325,9 @@ export async function analyzeCodeQuality(req, res, next) {
       });
     }
 
+    // Get user's OpenAI settings
+    const { apiKey, model } = await getUserOpenAISettings(req);
+
     // Clear cache if force refresh is requested
     if (forceRefresh) {
       console.log(`🔄 Force refresh requested for ${repositoryId} quality analysis`);
@@ -295,6 +346,8 @@ export async function analyzeCodeQuality(req, res, next) {
     const qualityAnalysis = await AIService.analyzeCodeQuality(
       commits,
       repositoryId,
+      apiKey,
+      model,
       timeframe,
       repositoryFullName
     );
@@ -310,9 +363,10 @@ export async function analyzeCodeQuality(req, res, next) {
       },
     });
   } catch (error) {
+    console.error('Error analyzing code quality:', error);
     res.status(500).json({
       success: false,
-      error: 'Failed to analyze code quality',
+      error: error.message || 'Failed to analyze code quality',
     });
   }
 }
@@ -333,8 +387,13 @@ export async function getQualityTrends(req, res, next) {
       });
     }
 
+    // Get user's OpenAI settings
+    const { apiKey, model } = await getUserOpenAISettings(req);
+
     const trends = await AIService.getQualityTrends(
       repositoryId,
+      apiKey,
+      model,
       parseInt(days)
     );
 
@@ -347,9 +406,10 @@ export async function getQualityTrends(req, res, next) {
       },
     });
   } catch (error) {
+    console.error('Error getting quality trends:', error);
     res.status(500).json({
       success: false,
-      error: 'Failed to get quality trends',
+      error: error.message || 'Failed to get quality trends',
     });
   }
 }

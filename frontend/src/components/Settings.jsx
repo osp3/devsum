@@ -7,8 +7,6 @@ const Settings = () => {
   
   // Current settings values displayed in form inputs
   const [settings, setSettings] = useState({
-    GITHUB_CLIENT_ID: '',
-    GITHUB_CLIENT_SECRET: '',
     OPENAI_API_KEY: '',
     OPENAI_MODEL: '',
     SESSION_SECRET: ''
@@ -163,10 +161,6 @@ const Settings = () => {
   // Convert setting keys to user-friendly display labels
   const getFieldLabel = (key) => {
     switch (key) {
-      case 'GITHUB_CLIENT_ID':
-        return 'GitHub Client ID';
-      case 'GITHUB_CLIENT_SECRET':
-        return 'GitHub Client Secret';
       case 'OPENAI_API_KEY':
         return 'OpenAI API Key';
       case 'OPENAI_MODEL':
@@ -181,14 +175,10 @@ const Settings = () => {
   // Provide helpful descriptions for each setting field
   const getFieldDescription = (key) => {
     switch (key) {
-      case 'GITHUB_CLIENT_ID':
-        return 'Your GitHub OAuth App Client ID';
-      case 'GITHUB_CLIENT_SECRET':
-        return 'Your GitHub OAuth App Client Secret';
       case 'OPENAI_API_KEY':
-        return 'Your OpenAI API Key for AI features';
+        return 'Your personal OpenAI API Key for AI features (stored securely in your account)';
       case 'OPENAI_MODEL':
-        return 'Select the OpenAI model to use for AI-powered features';
+        return 'Select your preferred OpenAI model for AI-powered features';
       case 'SESSION_SECRET':
         return 'Secret key for session encryption (generate a random string)';
       default:
