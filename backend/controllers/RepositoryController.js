@@ -1,6 +1,7 @@
 import GitHubService from '../services/github.js';
 import AIService from '../services/ai.js';
 import CacheManager from '../services/CacheManager.js';
+import User from '../models/User.js';
 import { createValidationError, createServerError, createGitHubError } from '../utils/errors.js';
 
 /**
@@ -9,6 +10,28 @@ import { createValidationError, createServerError, createGitHubError } from '../
  * Follows SOLID principles and DRY patterns
  */
 class RepositoryController {
+  /**
+   * Get user's OpenAI settings
+   * @param {Object} req - Express request object
+   * @returns {Promise<Object>} User's OpenAI API key and model, or null if not configured
+   */
+  static async getUserOpenAISettings(req) {
+    try {
+      const user = await User.findById(req.user._id).select('+openaiApiKey');
+      if (!user || !user.openaiApiKey) {
+        return null; // No API key configured - AI features will be disabled
+      }
+      
+      return {
+        apiKey: user.openaiApiKey,
+        model: user.openaiModel || 'gpt-4o-mini'
+      };
+    } catch (error) {
+      console.error('Error getting user OpenAI settings:', error);
+      return null;
+    }
+  }
+
   /**
    * Get user's repositories with caching
    */
@@ -113,69 +136,46 @@ class RepositoryController {
           });
         }
       }
+
+      // Get fresh commits from GitHub
+      console.log(`📥 Fetching ${targetCommitCount} fresh commits for ${owner}/${repo}`);
+      console.log(`🔧 Include stats: ${includeStats}, Force refresh: ${forceRefresh}`);
       
-      // Function to filter out merge commits
-      const filterMergeCommits = (commits) => {
-        return commits.filter(commit => {
-          // Check if it's a merge commit by parents count
-          const isMergeCommit = commit.parents && commit.parents.length > 1;
-          
-          // Also check for merge commit patterns in the message as fallback
-          const mergeMessagePatterns = [
-            /^Merge pull request #\d+/i,
-            /^Merge branch/i,
-            /^Merge remote-tracking branch/i,
-            /^Merge \w+/i
-          ];
-          const hasMergeMessage = mergeMessagePatterns.some(pattern => 
-            pattern.test(commit.message)
-          );
-          
-          return !(isMergeCommit || hasMergeMessage);
-        });
-      };
-      
-      // Keep fetching commits until we have enough non-merge commits
-      let allCommits = [];
-      let filteredCommits = [];
-      let page = 1;
-      const maxPages = 5; // Prevent infinite loops
-      
-      while (filteredCommits.length < targetCommitCount && page <= maxPages) {
-        const options = {
-          per_page: 20, // Fetch 20 at a time
-          includeStats: includeStats,
-          page: page
-        };
-        
-        const pageCommits = await githubService.getCommits(owner, repo, options);
-        
-        // If no more commits, break
-        if (pageCommits.length === 0) {
-          break;
-        }
-        
-        allCommits = allCommits.concat(pageCommits);
-        filteredCommits = filterMergeCommits(allCommits);
-        
-        console.log(`📊 Page ${page}: Got ${pageCommits.length} commits, ${filteredCommits.length} non-merge commits so far`);
-        page++;
+      let commits;
+      try {
+        commits = await githubService.getRepositoryCommits(owner, repo, targetCommitCount);
+        console.log(`✅ Successfully fetched ${commits.length} commits for ${owner}/${repo}`);
+      } catch (error) {
+        console.error(`❌ Error fetching commits for ${owner}/${repo}:`, error.message);
+        throw error;
       }
+
+      // Get user's OpenAI settings for AI enhancements
+      const openaiSettings = await RepositoryController.getUserOpenAISettings(req);
       
-      // Take only the number we need
-      const commits = filteredCommits.slice(0, targetCommitCount);
-      
-      console.log(`📊 Final result: ${commits.length} non-merge commits out of ${allCommits.length} total commits fetched`);
-      
-      // Add AI-suggested commit messages to each commit
+      // Add AI-suggested commit messages to each commit (if user has OpenAI configured)
       const enhancedCommits = await Promise.all(
         commits.map(async (commit) => {
           try {
+            if (!openaiSettings) {
+              // No OpenAI configured - return commit without AI suggestions
+              return {
+                ...commit,
+                suggestedMessage: null,
+                aiAnalysisError: 'OpenAI API key not configured. Add your API key in Settings to enable AI features.'
+              };
+            }
+
             // Get the commit diff for AI analysis
             const commitDiff = await githubService.getCommitDiff(owner, repo, commit.sha);
             
-            // Generate AI-suggested commit message
-            const aiAnalysis = await AIService.analyzeCommitDiff(commit, commitDiff.files.map(f => f.patch || '').join('\n'));
+            // Generate AI-suggested commit message using user's API key
+            const aiAnalysis = await AIService.analyzeCommitDiff(
+              commit, 
+              commitDiff.files.map(f => f.patch || '').join('\n'),
+              openaiSettings.apiKey,
+              openaiSettings.model
+            );
             
             // Add suggested message to the commit
             return {
@@ -188,13 +188,19 @@ class RepositoryController {
             // Return commit without AI suggestion if analysis fails
             return {
               ...commit,
-              suggestedMessage: null
+              suggestedMessage: null,
+              aiAnalysisError: error.message
             };
           }
         })
       );
       
-      console.log(`✅ Enhanced ${enhancedCommits.filter(c => c.suggestedMessage).length}/${enhancedCommits.length} commits with AI suggestions`);
+      const aiEnhancedCount = enhancedCommits.filter(c => c.suggestedMessage).length;
+      console.log(`✅ Enhanced ${aiEnhancedCount}/${enhancedCommits.length} commits with AI suggestions`);
+      
+      if (!openaiSettings) {
+        console.log(`ℹ️  AI features disabled for user ${req.user.username} - no OpenAI API key configured`);
+      }
       
       // Cache the enhanced commits for future requests
       await cacheManager.storeEnhancedCommits(owner, repo, enhancedCommits, targetCommitCount);
@@ -207,14 +213,15 @@ class RepositoryController {
           total: enhancedCommits.length,
           timestamp: new Date().toISOString(),
           includeStats: includeStats,
-          aiEnhanced: enhancedCommits.filter(c => c.suggestedMessage).length,
-          fromCache: false
+          aiEnhanced: aiEnhancedCount,
+          fromCache: false,
+          aiConfigured: !!openaiSettings
         }
       });
     } catch (error) {
       const err = error.status 
         ? createGitHubError(error, `fetching commits for ${req.params.owner}/${req.params.repo}`)
-        : createServerError('Failed to fetch commits', `repo: ${req.params.owner}/${req.params.repo}`);
+        : createServerError('Failed to fetch repository commits', `repo: ${req.params.owner}/${req.params.repo}`);
       return next(err);
     }
   }

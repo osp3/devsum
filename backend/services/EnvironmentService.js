@@ -75,8 +75,6 @@ class EnvironmentService {
    */
   async getConfigurableSettings() {
     const configurableKeys = [
-      'OPENAI_API_KEY',
-      'OPENAI_MODEL',
       'SESSION_SECRET'
     ];
 
@@ -87,9 +85,6 @@ class EnvironmentService {
       // For security, mask sensitive values in the response
       if (key.includes('SECRET') || key.includes('KEY')) {
         result[key] = value ? this.maskSensitiveValue(value) : '';
-      } else if (key === 'OPENAI_MODEL') {
-        // Set default OpenAI model if not specified
-        result[key] = value || 'gpt-4o-mini';
       } else {
         result[key] = value || '';
       }
@@ -110,8 +105,6 @@ class EnvironmentService {
     };
 
     const allowedKeys = [
-      'OPENAI_API_KEY',
-      'OPENAI_MODEL',
       'SESSION_SECRET'
     ];
 

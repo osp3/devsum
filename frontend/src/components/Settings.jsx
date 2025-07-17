@@ -176,9 +176,9 @@ const Settings = () => {
   const getFieldDescription = (key) => {
     switch (key) {
       case 'OPENAI_API_KEY':
-        return 'Your OpenAI API Key for AI features';
+        return 'Your personal OpenAI API Key for AI features (stored securely in your account)';
       case 'OPENAI_MODEL':
-        return 'Select the OpenAI model to use for AI-powered features';
+        return 'Select your preferred OpenAI model for AI-powered features';
       case 'SESSION_SECRET':
         return 'Secret key for session encryption (generate a random string)';
       default:

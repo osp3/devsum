@@ -37,9 +37,11 @@ export class YesterdaySummaryService {
   /**
    * Generate complete yesterday summary with MongoDB caching
    * @param {boolean} forceRefresh - Force bypass cache and generate fresh summary
+   * @param {string} userApiKey - User's OpenAI API key
+   * @param {string} userModel - User's preferred OpenAI model
    * @returns {Object} Complete summary data
    */
-  async generateSummary(forceRefresh = false) {
+  async generateSummary(forceRefresh = false, userApiKey = null, userModel = 'gpt-4o-mini') {
     await this.init(); // Ensure DB connection
     
     const { start, end } = getYesterdayRange();
@@ -103,10 +105,14 @@ export class YesterdaySummaryService {
       let summaryText;
       if (commits.length === 0) {
         summaryText = "No work found for yesterday";
+      } else if (!userApiKey) {
+        // No API key provided - use fallback summary
+        console.log(`⚠️  YesterdaySummaryService: No OpenAI API key provided - using fallback summary`);
+        summaryText = SummaryGenerator.generateFormattedSummary(commits, repositoryData.length);
       } else {
-        // Use AI-powered summary for actual commits - pass through forceRefresh
-        console.log(`🔄 YesterdaySummaryService: Generating fresh summary via AIService (forceRefresh=${forceRefresh})`);
-        summaryText = await this.aiService.generateDailySummary(commits, repositoryId, new Date(dateStr), forceRefresh);
+        // Use AI-powered summary for actual commits - pass through forceRefresh and user's API key
+        console.log(`🔄 YesterdaySummaryService: Generating fresh summary via AIService with user's API key (forceRefresh=${forceRefresh})`);
+        summaryText = await this.aiService.generateDailySummary(commits, repositoryId, userApiKey, userModel, new Date(dateStr), forceRefresh);
         console.log(`✅ YesterdaySummaryService: Received summary from AIService - Preview: "${summaryText.substring(0, 100)}..."`);
       }
 
