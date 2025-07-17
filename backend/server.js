@@ -32,26 +32,17 @@ console.log('🔧 Set process max listeners to 20 to prevent memory leak warning
 // Connect to MongoDB
 await connectDB();
 
-// Initialize OAuth after database connection
+// Initialize GitHub OAuth with shared app credentials
 console.log('🔐 Initializing GitHub OAuth...');
 await initializeOAuth();
 
-// ===== CRITICAL DEBUG: GitHub OAuth Configuration =====
-console.log('🚨🔍 ===== GITHUB OAUTH CONFIGURATION DEBUG =====');
-try {
-  const EnvironmentService = (await import('./services/EnvironmentService.js')).default;
-  const clientID = await EnvironmentService.get('GITHUB_CLIENT_ID');
-  const clientSecret = await EnvironmentService.get('GITHUB_CLIENT_SECRET');
-  const callbackURL = await EnvironmentService.get('GITHUB_CALLBACK_URL', process.env.GITHUB_CALLBACK_URL);
-  
-  console.log('🔑 CLIENT_ID:', clientID ? `${clientID.substring(0, 12)}...${clientID.slice(-4)}` : '❌ NOT SET');
-  console.log('🔒 CLIENT_SECRET:', clientSecret ? `✅ SET (${clientSecret.length} chars)` : '❌ NOT SET');
-  console.log('🔗 CALLBACK_URL:', callbackURL || '❌ NOT SET');
-  console.log('📋 Source: Database settings override env variables');
-  console.log('🚨🔍 ============================================');
-} catch (error) {
-  console.error('❌ ERROR READING GITHUB CONFIG:', error.message);
-}
+// Debug GitHub OAuth configuration
+console.log('🔍 ===== GITHUB OAUTH CONFIGURATION =====');
+console.log('🔑 CLIENT_ID:', process.env.GITHUB_CLIENT_ID ? `${process.env.GITHUB_CLIENT_ID.substring(0, 8)}...` : '❌ NOT SET');
+console.log('🔒 CLIENT_SECRET:', process.env.GITHUB_CLIENT_SECRET ? `✅ SET (${process.env.GITHUB_CLIENT_SECRET.length} chars)` : '❌ NOT SET');
+console.log('🔗 CALLBACK_URL:', process.env.GITHUB_CALLBACK_URL || 'http://localhost:3000/auth/github/callback (default)');
+console.log('📋 Source: .env file (shared OAuth app for all users)');
+console.log('🔍 ========================================');
 
 // Create Express app
 const app = express();
