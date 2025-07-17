@@ -143,7 +143,10 @@ class RepositoryController {
       
       let commits;
       try {
-        commits = await githubService.getRepositoryCommits(owner, repo, targetCommitCount);
+        commits = await githubService.getCommits(owner, repo, { 
+          per_page: targetCommitCount,
+          includeStats: includeStats 
+        });
         console.log(`✅ Successfully fetched ${commits.length} commits for ${owner}/${repo}`);
       } catch (error) {
         console.error(`❌ Error fetching commits for ${owner}/${repo}:`, error.message);
