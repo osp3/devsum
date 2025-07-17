@@ -24,7 +24,7 @@ const Dashboard = ({
   user, // Current authenticated user data
 }) => {
   return (
-    <div className="min-h-screen bg-[#1a1928]">
+    <div className="min-h-screen" style={{ background: 'linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%)' }}>
       {/* Navigation header with user info and controls */}
       <UserHeader user={user} />
      
