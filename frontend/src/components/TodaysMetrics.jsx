@@ -9,7 +9,7 @@ const TodaysMetrics = ({
     <div className='flex flex-row gap-2 '>
       <div className=' flex-1  flex-item-center rounded-lg   border border-slate-400  text-center  bg-[#272633]  m-4 '>
         <h4 className='justify-items-center text-2xl m-2'>{yesterdaySummary.commitCount}</h4>
-        <h1>Commits Today</h1>
+        <h1> Yesterday's Commits</h1>
       </div>
 
       <div className=' flex-1  flex-item-center rounded-lg  border border-slate-400   text-center  bg-[#272633]  m-4 '>
