@@ -25,12 +25,33 @@ console.log('Importing AI routes...');
 import aiRoutes from './routes/ai.js';
 console.log('✅ All route imports completed');
 
+// Fix memory leak warnings by increasing max listeners
+process.setMaxListeners(20);
+console.log('🔧 Set process max listeners to 20 to prevent memory leak warnings');
+
 // Connect to MongoDB
 await connectDB();
 
 // Initialize OAuth after database connection
 console.log('🔐 Initializing GitHub OAuth...');
 await initializeOAuth();
+
+// ===== CRITICAL DEBUG: GitHub OAuth Configuration =====
+console.log('🚨🔍 ===== GITHUB OAUTH CONFIGURATION DEBUG =====');
+try {
+  const EnvironmentService = (await import('./services/EnvironmentService.js')).default;
+  const clientID = await EnvironmentService.get('GITHUB_CLIENT_ID');
+  const clientSecret = await EnvironmentService.get('GITHUB_CLIENT_SECRET');
+  const callbackURL = await EnvironmentService.get('GITHUB_CALLBACK_URL', process.env.GITHUB_CALLBACK_URL);
+  
+  console.log('🔑 CLIENT_ID:', clientID ? `${clientID.substring(0, 12)}...${clientID.slice(-4)}` : '❌ NOT SET');
+  console.log('🔒 CLIENT_SECRET:', clientSecret ? `✅ SET (${clientSecret.length} chars)` : '❌ NOT SET');
+  console.log('🔗 CALLBACK_URL:', callbackURL || '❌ NOT SET');
+  console.log('📋 Source: Database settings override env variables');
+  console.log('🚨🔍 ============================================');
+} catch (error) {
+  console.error('❌ ERROR READING GITHUB CONFIG:', error.message);
+}
 
 // Create Express app
 const app = express();
@@ -46,7 +67,24 @@ app.use(helmet({
 
 // Middleware
 app.use(cors({
-  origin: process.env.FRONTEND_URL || 'http://localhost:5173',
+  origin: function (origin, callback) {
+    // Remove trailing slash from FRONTEND_URL if present
+    const allowedOrigin = (process.env.FRONTEND_URL || 'http://localhost:5173').replace(/\/$/, '');
+    
+    // Allow requests with no origin (mobile apps, Postman, etc.)
+    if (!origin) return callback(null, true);
+    
+    // Check if origin matches (with or without trailing slash)
+    const normalizedOrigin = origin.replace(/\/$/, '');
+    
+    if (normalizedOrigin === allowedOrigin) {
+      return callback(null, true);
+    }
+    
+    // Log for debugging
+    console.log(`🚫 CORS blocked: origin=${origin}, allowed=${allowedOrigin}`);
+    return callback(new Error('Not allowed by CORS'));
+  },
   credentials: true
 }));
 app.use(express.json());
@@ -67,21 +105,105 @@ app.use(session({
   secret: sessionSecret,
   resave: false,
   saveUninitialized: false,
+  name: 'devsum.session', // Explicit session name
   cookie: {
-    secure: process.env.NODE_ENV === 'production',
+    secure: process.env.NODE_ENV === 'production', // HTTPS required in production
     httpOnly: true,
-    maxAge: 24 * 60 * 60 * 1000 // 24 hours
-  }
+    sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax', // Allow cross-origin in production
+    maxAge: 24 * 60 * 60 * 1000, // 24 hours
+    domain: process.env.NODE_ENV === 'production' ? undefined : undefined // Let browser handle domain
+  },
+  // Force session to be saved even if not modified
+  rolling: true,
+  // Save session back to store on every request  
+  proxy: process.env.NODE_ENV === 'production' // Trust proxy in production
 }));
+
+// Session debugging middleware (will be moved after passport initialization)
+
+// Add response headers for cross-origin cookies
+app.use((req, res, next) => {
+  // Add headers to help with cross-origin cookies
+  if (process.env.NODE_ENV === 'production') {
+    res.header('Access-Control-Allow-Credentials', 'true');
+    res.header('Vary', 'Origin');
+  }
+  next();
+});
+
+// Special middleware for auth routes to ensure cookies are set properly
+app.use('/auth', (req, res, next) => {
+  // Override res.redirect for auth routes to ensure cookie headers
+  const originalRedirect = res.redirect;
+  res.redirect = function(url) {
+    console.log('🔄 Auth redirect to:', url);
+    console.log('🍪 Setting session cookie explicitly');
+    
+    // Ensure session is saved before redirect
+    req.session.save((err) => {
+      if (err) {
+        console.error('❌ Session save error:', err);
+      } else {
+        console.log('✅ Session saved before redirect');
+      }
+      
+      // Call original redirect
+      originalRedirect.call(this, url);
+    });
+  };
+  next();
+});
 
 // Passport middleware
 app.use(passport.initialize());
 app.use(passport.session());
 
+// Session debugging middleware (AFTER passport so req.user is populated)
+app.use((req, res, next) => {
+  if (req.path.startsWith('/auth')) {
+    console.log('🍪 Session Debug:', {
+      sessionID: req.sessionID,
+      hasUser: !!req.user,
+      userId: req.user?.id,
+      username: req.user?.username,
+      cookieConfig: {
+        secure: req.session?.cookie?.secure,
+        sameSite: req.session?.cookie?.sameSite,
+        domain: req.session?.cookie?.domain,
+        httpOnly: req.session?.cookie?.httpOnly,
+        maxAge: req.session?.cookie?.maxAge
+      },
+      headers: {
+        origin: req.headers.origin,
+        referer: req.headers.referer,
+        userAgent: req.headers['user-agent']?.substring(0, 50) + '...',
+        cookieHeader: req.headers.cookie ? req.headers.cookie.substring(0, 100) + '...' : 'MISSING'
+      }
+    });
+  }
+  next();
+});
+
 // Request logging middleware
 app.use((req, res, next) => {
   console.log(`${new Date().toISOString()} - ${req.method} ${req.path}`);
   next();
+});
+
+// Root endpoint for basic info
+app.get('/', (req, res) => {
+  res.json({
+    service: 'DevSum Backend API',
+    environment: process.env.NODE_ENV || 'development',
+    frontend_url: process.env.FRONTEND_URL || 'Not configured',
+    timestamp: new Date().toISOString(),
+    endpoints: [
+      'GET /health - Health check',
+      'GET /auth/github - GitHub OAuth login',
+      'GET /auth/me - Current user info',
+      'GET /api/test - API test'
+    ]
+  });
 });
 
 // Health check endpoint
@@ -94,6 +216,34 @@ app.get('/health', (req, res) => {
   });
 });
 
+// Cookie debug endpoint
+app.get('/debug/cookies', (req, res) => {
+  const cookieInfo = {
+    sessionID: req.sessionID,
+    hasUser: !!req.user,
+    username: req.user?.username,
+    cookieHeaders: req.headers.cookie || 'NO COOKIES',
+    sessionData: req.session,
+    cookieConfig: {
+      secure: req.session?.cookie?.secure,
+      sameSite: req.session?.cookie?.sameSite,
+      domain: req.session?.cookie?.domain,
+      httpOnly: req.session?.cookie?.httpOnly,
+      maxAge: req.session?.cookie?.maxAge
+    }
+  };
+  
+  // Try to manually set a test cookie
+  res.cookie('test-cookie', 'test-value', {
+    secure: process.env.NODE_ENV === 'production',
+    httpOnly: false, // Allow JS access for testing
+    sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax',
+    maxAge: 60000 // 1 minute for testing
+  });
+  
+  res.json(cookieInfo);
+});
+
 // Routes
 console.log('🔗 Mounting auth routes on /auth');
 app.use('/auth', authRoutes);
@@ -103,7 +253,10 @@ console.log('🔗 Mounting AI routes on /api/ai');
 app.use('/api/ai', aiRoutes);
 console.log('✅ All routes mounted successfully');
 
-// API test endpoint
+// Static file serving disabled - frontend deployed separately to Vercel
+// Frontend is served from https://devsum.vercel.app
+
+// API test endpoint  
 app.get('/api/test', (req, res) => {
   res.json({
     message: 'DevSum Backend API is working!',
@@ -134,20 +287,26 @@ app.use((err, req, res, next) => {
   return res.status(errorObj.status).json(errorObj.message);
 });
 
-// 404 handler
-app.use('*', (req, res) => {
-  res.status(404).json({
-    error: 'Route not found',
-    path: req.originalUrl
+// 404 handler for development (production uses React app catch-all)
+if (process.env.NODE_ENV !== 'production') {
+  app.use('*', (req, res) => {
+    res.status(404).json({
+      error: 'Route not found',
+      path: req.originalUrl
+    });
   });
-});
+}
 
 // Start server
 const server = app.listen(PORT, () => {
+  console.log('\n🎉 ===== DEVSUM BACKEND STARTUP COMPLETE =====');
   console.log(`🚀 Server running on http://localhost:${PORT}`);
   console.log(`📊 Health check: http://localhost:${PORT}/health`);
+  console.log(`🔍 Debug cookies: http://localhost:${PORT}/debug/cookies`);
   console.log(`🔐 GitHub OAuth: http://localhost:${PORT}/auth/github`);
   console.log(`🔧 Environment: ${process.env.NODE_ENV || 'development'}`);
+  console.log(`⚡ Ready to handle requests!`);
+  console.log('============================================\n');
 });
 
 // Graceful shutdown function
@@ -191,4 +350,4 @@ process.on('uncaughtException', (err) => {
 process.on('unhandledRejection', (reason, promise) => {
   console.error('💥 Unhandled Rejection at:', promise, 'reason:', reason);
   gracefulShutdown('UNHANDLED_REJECTION');
-}); 
+});

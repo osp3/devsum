@@ -32,7 +32,7 @@ const Settings = () => {
   const fetchSettings = async () => {
     try {
       setLoading(true);
-      const response = await fetch('/api/settings', {
+      const response = await fetch(`${import.meta.env.VITE_API_URL}/api/settings`, {
         credentials: 'include',
         cache: 'no-cache',
         headers: {
@@ -87,7 +87,7 @@ const Settings = () => {
         return;
       }
 
-      const response = await fetch('/api/settings', {
+      const response = await fetch(`${import.meta.env.VITE_API_URL}/api/settings`, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
@@ -125,7 +125,7 @@ const Settings = () => {
       setTesting(prev => ({ ...prev, [key]: true }));
       setMessage({ type: '', text: '' });
 
-      const response = await fetch('/api/settings/test', {
+      const response = await fetch(`${import.meta.env.VITE_API_URL}/api/settings/test`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
