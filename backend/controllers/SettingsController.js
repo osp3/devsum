@@ -9,7 +9,7 @@ class SettingsController {
     this.testSetting = this.testSetting.bind(this);
     this.clearCache = this.clearCache.bind(this);
     this.testOpenAIKey = this.testOpenAIKey.bind(this);
-    this.testGitHubCredentials = this.testGitHubCredentials.bind(this);
+
   }
 
   /**
@@ -48,7 +48,7 @@ class SettingsController {
       }
 
       // Validate individual settings
-      const allowedKeys = ['GITHUB_CLIENT_ID', 'GITHUB_CLIENT_SECRET', 'OPENAI_API_KEY', 'OPENAI_MODEL', 'SESSION_SECRET'];
+      const allowedKeys = ['OPENAI_API_KEY', 'OPENAI_MODEL', 'SESSION_SECRET'];
       const validSettings = {};
       
       for (const [key, value] of Object.entries(settings)) {
@@ -87,20 +87,6 @@ class SettingsController {
         }
       }
 
-      // Reinitialize OAuth if GitHub credentials were updated
-      if (result.success.some(key => key.includes('GITHUB_CLIENT'))) {
-        try {
-          // Dynamically import OAuth functions to avoid circular dependency
-          const { reinitializeOAuth } = await import('../config/passport.js');
-          const oauthSuccess = await reinitializeOAuth();
-          if (oauthSuccess) {
-            console.log('OAuth reinitialized successfully');
-          }
-        } catch (error) {
-          console.error('Failed to reinitialize OAuth:', error);
-        }
-      }
-
       res.json({
         success: true,
         data: {
@@ -124,22 +110,24 @@ class SettingsController {
    */
   async testSetting(req, res, next) {
     try {
-      const { key, value } = req.body;
+      const { key } = req.body;
 
-      if (!key || !value) {
-        return next(new AppError('Key and value are required', 400));
+      if (!key) {
+        return next(new AppError('Key is required', 400));
       }
 
       let testResult = { valid: false, message: 'Test not implemented for this setting' };
 
-      // Test specific settings
+      // Test specific settings using stored values for security
       switch (key) {
         case 'OPENAI_API_KEY':
-          testResult = await this.testOpenAIKey(value);
-          break;
-        case 'GITHUB_CLIENT_ID':
-        case 'GITHUB_CLIENT_SECRET':
-          testResult = await this.testGitHubCredentials(key, value);
+          // Get the actual stored value (not the masked one from frontend)
+          const storedApiKey = await EnvironmentService.get('OPENAI_API_KEY');
+          if (!storedApiKey) {
+            testResult = { valid: false, message: 'No OpenAI API key is configured' };
+          } else {
+            testResult = await this.testOpenAIKey(storedApiKey);
+          }
           break;
         default:
           testResult = { valid: true, message: 'Setting format appears valid' };
@@ -180,31 +168,6 @@ class SettingsController {
         message: error.message || 'OpenAI API key is invalid' 
       };
     }
-  }
-
-  /**
-   * Test GitHub credentials
-   * @param {string} key - Setting key
-   * @param {string} value - Setting value
-   * @returns {Promise<Object>} Test result
-   */
-  async testGitHubCredentials(key, value) {
-    // Basic format validation
-    if (key === 'GITHUB_CLIENT_ID') {
-      if (!/^[A-Za-z0-9]+$/.test(value)) {
-        return { valid: false, message: 'Invalid GitHub Client ID format' };
-      }
-      return { valid: true, message: 'GitHub Client ID format is valid' };
-    }
-    
-    if (key === 'GITHUB_CLIENT_SECRET') {
-      if (!/^[A-Za-z0-9]+$/.test(value)) {
-        return { valid: false, message: 'Invalid GitHub Client Secret format' };
-      }
-      return { valid: true, message: 'GitHub Client Secret format is valid' };
-    }
-
-    return { valid: true, message: 'Setting format appears valid' };
   }
 
   /**

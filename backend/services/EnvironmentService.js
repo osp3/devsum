@@ -75,8 +75,6 @@ class EnvironmentService {
    */
   async getConfigurableSettings() {
     const configurableKeys = [
-      'GITHUB_CLIENT_ID',
-      'GITHUB_CLIENT_SECRET',
       'OPENAI_API_KEY',
       'OPENAI_MODEL',
       'SESSION_SECRET'
@@ -112,8 +110,6 @@ class EnvironmentService {
     };
 
     const allowedKeys = [
-      'GITHUB_CLIENT_ID',
-      'GITHUB_CLIENT_SECRET', 
       'OPENAI_API_KEY',
       'OPENAI_MODEL',
       'SESSION_SECRET'
