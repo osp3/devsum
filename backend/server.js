@@ -82,7 +82,7 @@ app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
 // Import EnvironmentService for session secret
-import EnvironmentService from './services/EnvironmentService.js';
+import * as EnvironmentService from './services/external/EnvironmentService.js';
 
 // Session configuration for Passport
 const sessionSecret = await EnvironmentService.get('SESSION_SECRET', process.env.SESSION_SECRET);

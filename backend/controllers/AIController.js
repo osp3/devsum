@@ -1,6 +1,6 @@
-import AIService from '../services/ai.js';
-import GithubService from '../services/github.js';
-import { YesterdaySummaryService } from '../services/YesterdaySummaryService.js';
+import AIService from '../services/ai/AICoordinator.js';
+import GitHubService from '../services/external/GitHubAPIClient.js';
+import { YesterdaySummaryService } from '../services/tasks/YesterdaySummaryService.js';
 import User from '../models/User.js';
 
 /**
@@ -331,14 +331,14 @@ export async function analyzeCodeQuality(req, res, next) {
     // Clear cache if force refresh is requested
     if (forceRefresh) {
       console.log(`🔄 Force refresh requested for ${repositoryId} quality analysis`);
-      const { default: CacheManager } = await import('../services/CacheManager.js');
+      const { default: CacheManager } = await import('../services/external/CacheManager.js');
       const cacheManager = new CacheManager();
       await cacheManager.clearQualityAnalysisCache(...repositoryId.split('/'));
     }
 
     // Create GitHubService for authenticated API calls if repository analysis is needed
     if (repositoryFullName && req.user?.accessToken) {
-      const githubService = new GithubService(req.user.accessToken);
+      const githubService = GitHubService(req.user.accessToken); // GitHubService is now a factory function
       AIService.setGitHubService(githubService);
       console.log(`🔑 AIController: Set authenticated GitHubService for ${repositoryFullName}`);
     }

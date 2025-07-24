@@ -1,4 +1,4 @@
-import EnvironmentService from '../services/EnvironmentService.js';
+import * as EnvironmentService from '../services/external/EnvironmentService.js';
 import User from '../models/User.js';
 import { AppError } from '../utils/errors.js';
 
