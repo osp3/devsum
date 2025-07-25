@@ -16,15 +16,24 @@ const TomorrowsPriorities = ({
   console.log(tasks)
 // checks that  there is data 
  if (!tasks || !Array.isArray(tasks) || tasks.length === 0) 
-    return <div className='p-4 text-gray-400'>No tasks found in suggestions</div>;
+    return (
+  <div>
+     <div className='flex justify-items-start font-bold text-white'>
+       Todays Priorities
+      </div>
+    
+    <div className='p-4 text-gray-400'>No tasks found in suggestions</div>
+  </div>)
 //renders the first container
   return (
       <div className='p-2'>
+      
       <div className='flex justify-items-start font-bold text-white'>
        Todays Priorities
       </div>
       {/* add a vertical scrollable bar with a height of 130 */}
       <div className='max-h-130 overflow-y-auto pr-2'>
+
         {/* iterate on each task */}
         {tasks.map((task, index) => (
           <div key={index} className='mb-4'>
