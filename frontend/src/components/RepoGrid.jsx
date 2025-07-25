@@ -21,35 +21,37 @@ const RepoGrid = ({ repositories, setSelectedRepo }) => {
   );
 
   return (
-    <div>
-      <h2>Your GitHub Repositories</h2>
+    <div className="p-6">
+      <h2 className="text-2xl font-bold text-white mb-6">Your GitHub Repositories</h2>
 
       {/* Search input field */}
       <input
         type='text'
         placeholder='Search repositories...'
-        value={searchTerm} // value comes from state
-        onChange={(e) => setSearchTerm(e.target.value)} // update search state on input change
-        style={{ padding: '8px', marginBottom: '20px', width: '300px' }}
+        value={searchTerm}
+        onChange={(e) => setSearchTerm(e.target.value)}
+        className="w-full max-w-md px-4 py-2 mb-6 bg-white/10 border border-white/20 rounded-lg text-white placeholder-white/60 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
       />
 
       {/* Display count of filtered vs total repositories */}
-      <p>
+      <p className="text-white/80 mb-6">
         Showing {filteredRepos.length} of {repositories.length} repositories
       </p>
 
-      {/* Render a RepoCard for each filtered repository */}
-      {filteredRepos.map((repo) => (
-        <RepoCard
-          key={repo.id} // GitHub repo ID
-          repository={repo} // pass entire repository object to card
-          setSelectedRepo={setSelectedRepo} // pass down function to update selected repo
-        />
-      ))}
+      {/* Grid layout for repository cards */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        {filteredRepos.map((repo) => (
+          <RepoCard
+            key={repo.id}
+            repository={repo}
+            setSelectedRepo={setSelectedRepo}
+          />
+        ))}
+      </div>
 
       {/* Show "no results" message when search returns empty and user has typed something */}
       {filteredRepos.length === 0 && searchTerm && (
-        <p>No repositories found matching "{searchTerm}"</p>
+        <p className="text-white/60 text-center mt-8">No repositories found matching "{searchTerm}"</p>
       )}
     </div>
   );
