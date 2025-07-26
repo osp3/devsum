@@ -5,20 +5,20 @@
  * Now includes MongoDB caching for performance optimization
  */
 
-import GitHubService from './github.js';
-import aiService from './ai.js';
-import connectDB from '../config/database.js';
-import { DailySummary } from '../models/aiModels.js';
-import { getYesterdayRange, formatDateForAPI } from '../utils/DateUtils.js';
-import { formatCommitObject, generateFakeObjectId } from '../utils/CommitFormatter.js';
-import { SummaryGenerator } from './SummaryGenerator.js';
+import GitHubService from '../external/GitHubAPIClient.js';
+import aiService from '../ai/AICoordinator.js';
+import connectDB from '../../config/database.js';
+import { DailySummary } from '../../models/aiModels.js';
+import { getYesterdayRange, formatDateForAPI } from '../../utils/DateUtils.js';
+import { formatCommitObject, generateFakeObjectId } from '../../utils/CommitFormatter.js';
+import { structureFormattedCommits, generateFormattedSummary } from './SummaryGenerator.js';
 
 /**
  * Service for generating yesterday's development summary across all repositories
  */
 export class YesterdaySummaryService {
   constructor(accessToken) {
-    this.githubService = new GitHubService(accessToken);
+    this.githubService = GitHubService(accessToken); // GitHubService is now a factory function
     this.aiService = aiService; // Use the exported singleton instance
     this.initialized = false;
   }
@@ -29,7 +29,7 @@ export class YesterdaySummaryService {
   async init() {
     if (!this.initialized) {
       await connectDB();
-      await this.aiService.init();
+      // AICoordinator handles its own initialization automatically
       this.initialized = true;
     }
   }
@@ -99,7 +99,7 @@ export class YesterdaySummaryService {
       }
       console.log(`   Repository details:`, repositoryData.map(r => `${r.name} (${r.commitCount} commits)`));
       
-      const formattedCommits = SummaryGenerator.structureFormattedCommits(commits);
+      const formattedCommits = structureFormattedCommits(commits);
       
       // Check if there are any commits - if not, return simple message
       let summaryText;
@@ -108,7 +108,7 @@ export class YesterdaySummaryService {
       } else if (!userApiKey) {
         // No API key provided - use fallback summary
         console.log(`⚠️  YesterdaySummaryService: No OpenAI API key provided - using fallback summary`);
-        summaryText = SummaryGenerator.generateFormattedSummary(commits, repositoryData.length);
+        summaryText = generateFormattedSummary(commits, repositoryData.length);
       } else {
         // Use AI-powered summary for actual commits - pass through forceRefresh and user's API key
         console.log(`🔄 YesterdaySummaryService: Generating fresh summary via AIService with user's API key (forceRefresh=${forceRefresh})`);
@@ -153,10 +153,10 @@ export class YesterdaySummaryService {
       const repos = await this.githubService.getUserRepos();
       const { commits, repositoryData } = await this.fetchAllCommits(repos, start, end);
       
-      const formattedCommits = SummaryGenerator.structureFormattedCommits(commits);
+      const formattedCommits = structureFormattedCommits(commits);
       const summaryText = commits.length === 0 
         ? "No work found for yesterday" 
-        : SummaryGenerator.generateFormattedSummary(commits, repositoryData.length);
+        : generateFormattedSummary(commits, repositoryData.length);
 
       console.log(`⚠️  YesterdaySummaryService: FALLBACK summary generated - Preview: "${summaryText.substring(0, 100)}..."`);
       return {
