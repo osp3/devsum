@@ -11,7 +11,7 @@ const ShowReposButton = () => {
   return (
     <div className='flex justify-center '>
       <button
-        className='bg-[#262728]  hover:bg-blue-700  transition-colors cursor-pointer boarder-2 boarder-black btn flex items-center m-5'
+        className='px-5  py-3 text-base bg-[#262728]  hover:bg-blue-700  transition-colors cursor-pointer boarder-2 boarder-black btn flex items-center m-5'
         onClick={handleClick}
       >
         <h1>View Your GitHub Repositories</h1>
