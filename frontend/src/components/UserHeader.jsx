@@ -70,13 +70,23 @@ const UserHeader = ({ user }) => {
 
           {/* Welcome message with user's name - varies by page*/}
           {user && (
-            <span className='text-gray-300 text-sm'>
-              {location.pathname === '/dashboard'
-                ? // Full welcome message on dashboard
-                  `Welcome back, ${getDisplayName()}!`
-                : // Just name on repositories and repository pages
-                  getDisplayName()}
-            </span>
+            <div className='flex items-center gap-2'>
+              {/* User's GitHub avatar */}
+              {user.avatarUrl && (
+                <img
+                  src={user.avatarUrl}
+                  alt={`${getDisplayName()}'s avatar`}
+                  className='w-6 h-6 rounded-full'
+                />
+              )}
+              <span className='text-gray-300 text-sm'>
+                {location.pathname === '/dashboard'
+                  ? // Full welcome message on dashboard
+                    `Welcome back, ${getDisplayName()}!`
+                  : // Just name on repositories and repository pages
+                    getDisplayName()}
+              </span>
+            </div>
           )}
         </div>
 
