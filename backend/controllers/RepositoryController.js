@@ -1,6 +1,6 @@
-import GitHubService from '../services/github.js';
-import AIService from '../services/ai.js';
-import CacheManager from '../services/CacheManager.js';
+import GitHubService from '../services/external/GitHubAPIClient.js';
+import AIService from '../services/ai/AICoordinator.js';
+import CacheManager from '../services/external/CacheManager.js';
 import User from '../models/User.js';
 import { createValidationError, createServerError, createGitHubError } from '../utils/errors.js';
 
@@ -44,7 +44,7 @@ class RepositoryController {
       console.log(`🔄 Fetching repositories for user: ${req.user.username} (GitHub ID: ${req.user.githubId})`);
       console.log(`📊 Request details: refresh=${refresh}, force=${force}, forceRefresh=${forceRefresh}, user agent: ${req.get('user-agent')}`);
       
-      const githubService = new GitHubService(req.user.accessToken);
+      const githubService = GitHubService(req.user.accessToken); // GitHubService is now a factory function
       
       // Check rate limit before making API calls
       try {
@@ -111,7 +111,7 @@ class RepositoryController {
         return next(err);
       }
       
-      const githubService = new GitHubService(req.user.accessToken);
+      const githubService = GitHubService(req.user.accessToken); // GitHubService is now a factory function
       const cacheManager = new CacheManager();
       const targetCommitCount = Math.min(parseInt(per_page), 50); // Limit to 50 for security
       const includeStats = include_stats === 'true'; // Store this for later use
@@ -247,7 +247,7 @@ class RepositoryController {
         return next(err);
       }
       
-      const githubService = new GitHubService(req.user.accessToken);
+      const githubService = GitHubService(req.user.accessToken); // GitHubService is now a factory function
       const commitDiff = await githubService.getCommitDiff(owner, repo, sha);
       
       res.json({
@@ -267,7 +267,7 @@ class RepositoryController {
    */
   static async getRateLimit(req, res, next) {
     try {
-      const githubService = new GitHubService(req.user.accessToken);
+      const githubService = GitHubService(req.user.accessToken); // GitHubService is now a factory function
       const rateLimit = await githubService.getRateLimit();
       
       res.json({

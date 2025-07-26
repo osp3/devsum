@@ -48,8 +48,8 @@ devsum/
 ├── backend/                  # Express + Node.js API
 │   ├── controllers/         # Request handlers
 │   ├── services/           # Business logic
-│   │   ├── ai.js                     # OpenAI integration
-│   │   ├── github.js                 # GitHub API client
+│   │   ├── AICoordinator.js          # AI services coordinator (functional)
+│   │   ├── GitHubAPIClient.js        # GitHub API client (functional)
 │   │   ├── QualityAnalyzer.js        # Code quality analysis
 │   │   ├── YesterdaySummaryService.js # Daily summaries
 │   │   └── CacheManager.js           # MongoDB caching
