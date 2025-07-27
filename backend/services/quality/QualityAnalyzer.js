@@ -19,11 +19,12 @@ import {
  * - QualityAnalysisCoordinator.js
  */
 class QualityAnalyzer {
-  constructor(openaiClient, callOpenAI, promptBuilder, githubService = null) {
+  constructor(openaiClient, callOpenAI, promptBuilder, githubService = null, model = 'gpt-4o-mini') {
     this.openai = openaiClient;
     this.callOpenAI = callOpenAI;
     this.promptBuilder = promptBuilder;
     this.githubService = githubService; // Add GitHubService for authenticated API calls
+    this.model = model; // Store the model for dynamic sizing
   }
 
   /**
@@ -37,7 +38,8 @@ class QualityAnalyzer {
       callOpenAI: this.callOpenAI,
       promptBuilder: this.promptBuilder,
       githubService: this.githubService,
-      forceRefresh: false
+      forceRefresh: false,
+      model: this.model // Pass the model for dynamic diff sizing
     };
 
     return await functionalAnalyzeCodeQuality(

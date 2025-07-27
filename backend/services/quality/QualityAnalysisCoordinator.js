@@ -24,6 +24,36 @@ import {
  */
 
 /**
+ * Calculate maximum diff size based on model capabilities
+ * Different models have different context limits, so we adjust accordingly
+ * @param {string} model - The AI model being used
+ * @returns {number} Maximum diff size in characters
+ */
+const getMaxDiffSizeForModel = (model = 'gpt-4o-mini') => {
+  const modelLimits = {
+    // GPT-4o models - highest context limit
+    'gpt-4o': 20000,           // ~20KB for latest model
+    'gpt-4o-mini': 15000,      // ~15KB for mini variant
+    
+    // GPT-4 Turbo models - high context limit  
+    'gpt-4-turbo': 18000,      // ~18KB for turbo
+    'gpt-4-turbo-preview': 18000,
+    
+    // Standard GPT-4 - medium context limit
+    'gpt-4': 12000,            // ~12KB for standard GPT-4
+    'gpt-4-32k': 25000,        // ~25KB for 32k variant (if available)
+    
+    // GPT-3.5 models - lower context limit
+    'gpt-3.5-turbo': 8000,     // ~8KB for cost-effective option
+    'gpt-3.5-turbo-16k': 12000 // ~12KB for 16k variant
+  };
+
+  const maxSize = modelLimits[model] || 5000; // Default fallback
+  console.log(`📏 Using max diff size of ${maxSize} chars for model: ${model}`);
+  return maxSize;
+};
+
+/**
  * Analyze code quality for commits with comprehensive analysis
  * @param {Array} commits - Array of commit objects
  * @param {string} repositoryId - Repository identifier
@@ -38,10 +68,11 @@ export const analyzeCodeQuality = async (commits, repositoryId, timeframe = 'wee
     callOpenAI,
     promptBuilder,
     githubService,
-    forceRefresh = false
+    forceRefresh = false,
+    model = 'gpt-4o-mini' // Add model parameter to options
   } = options;
 
-  console.log(`🔍 Enhanced code quality analysis for ${commits.length} commits...`);
+  console.log(`🔍 Enhanced code quality analysis for ${commits.length} commits using model: ${model}...`);
 
   try {
     // STEP 1: Check cache first (save money on repeated analysis)
@@ -61,7 +92,7 @@ export const analyzeCodeQuality = async (commits, repositoryId, timeframe = 'wee
     let qualityData;
     if (repositoryFullName && githubService) {
       console.log('🔍 Running ENHANCED analysis with code diffs...');
-      qualityData = await analyzeCommitsWithDiffs(commits, repositoryFullName, githubService, callOpenAI, promptBuilder);
+      qualityData = await analyzeCommitsWithDiffs(commits, repositoryFullName, githubService, callOpenAI, promptBuilder, model);
     } else {
       console.log('📝 Running message-only analysis (no repository info)...');
       qualityData = await analyzeCommitMessages(commits, callOpenAI, promptBuilder);
@@ -143,7 +174,7 @@ export const getQualityTrends = async (repositoryId, days = 30) => {
  * @param {Object} promptBuilder - Prompt builder instance
  * @returns {Promise<Object>} Enhanced analysis results
  */
-const analyzeCommitsWithDiffs = async (commits, repositoryFullName, githubService, callOpenAI, promptBuilder) => {
+const analyzeCommitsWithDiffs = async (commits, repositoryFullName, githubService, callOpenAI, promptBuilder, model) => {
   console.log(`🔍 Enhanced analysis: ${commits.length} commits + code diffs`);
   
   try {
@@ -155,7 +186,7 @@ const analyzeCommitsWithDiffs = async (commits, repositoryFullName, githubServic
     console.log(`📋 Selected ${commitsForCodeAnalysis.length} commits for code analysis`);
     
     // STEP 3: Get diffs and analyze code changes
-    const codeAnalysis = await analyzeCodeChanges(commitsForCodeAnalysis, repositoryFullName, githubService, callOpenAI, promptBuilder);
+    const codeAnalysis = await analyzeCodeChanges(commitsForCodeAnalysis, repositoryFullName, githubService, callOpenAI, promptBuilder, model);
     
     // STEP 4: Combine message and code insights
     return combineMessageAndCodeAnalysis(messageAnalysis, codeAnalysis);
@@ -190,14 +221,14 @@ const selectCommitsForCodeAnalysis = (commits) => {
  * @param {Object} promptBuilder - Prompt builder instance
  * @returns {Promise<Object>} Code analysis results
  */
-const analyzeCodeChanges = async (commits, repositoryFullName, githubService, callOpenAI, promptBuilder) => {
+const analyzeCodeChanges = async (commits, repositoryFullName, githubService, callOpenAI, promptBuilder, model) => {
   const codeInsights = [];
   let totalLinesAnalyzed = 0;
   
   for (const commit of commits) {
     try {
       // Get the actual code diff
-      const diff = await getCommitDiff(commit.sha, repositoryFullName, githubService);
+      const diff = await getCommitDiff(commit.sha, repositoryFullName, githubService, model);
       
       if (!diff) {
         console.log(`⏭️ Skipping code analysis for ${commit.sha.slice(0, 8)} - no diff available`);
@@ -209,7 +240,7 @@ const analyzeCodeChanges = async (commits, repositoryFullName, githubService, ca
       totalLinesAnalyzed += lineCount;
       
       // Send this commit's code changes to AI
-      const codeAnalysis = await analyzeIndividualCommitCode(commit, diff, callOpenAI, promptBuilder);
+      const codeAnalysis = await analyzeIndividualCommitCode(commit, diff, callOpenAI, promptBuilder, model);
       
       // Validate and add to insights
       if (codeAnalysis && typeof codeAnalysis === 'object') {
@@ -245,9 +276,10 @@ const analyzeCodeChanges = async (commits, repositoryFullName, githubService, ca
  * @param {string} commitSha - Commit SHA
  * @param {string} repositoryFullName - Full repository name
  * @param {Object} githubService - GitHub service instance
+ * @param {string} model - AI model for dynamic sizing
  * @returns {Promise<string|null>} Diff content or null
  */
-const getCommitDiff = async (commitSha, repositoryFullName, githubService) => {
+const getCommitDiff = async (commitSha, repositoryFullName, githubService, model) => {
   try {
     console.log(`📥 Fetching diff for commit ${commitSha.slice(0, 8)}...`);
     
@@ -278,7 +310,7 @@ const getCommitDiff = async (commitSha, repositoryFullName, githubService) => {
     }
     
     // COST CONTROL: Limit diff size to prevent massive AI costs
-    const maxDiffSize = 5000; // ~5KB limit
+    const maxDiffSize = getMaxDiffSizeForModel(model); // Use the new function
     if (diff.length > maxDiffSize) {
       console.log(`✂️ Diff too large (${diff.length} chars), truncating to ${maxDiffSize}`);
       return diff.slice(0, maxDiffSize) + '\n\n... (diff truncated for analysis)';
@@ -300,7 +332,7 @@ const getCommitDiff = async (commitSha, repositoryFullName, githubService) => {
  * @param {Object} promptBuilder - Prompt builder instance
  * @returns {Promise<Object>} Code analysis result
  */
-const analyzeIndividualCommitCode = async (commit, diff, callOpenAI, promptBuilder) => {
+const analyzeIndividualCommitCode = async (commit, diff, callOpenAI, promptBuilder, model) => {
   try {
     console.log(`🤖 AI Code Quality: Analyzing code diff for commit ${commit.sha.slice(0, 8)} (${diff.split('\n').length} lines)`);
     const prompt = promptBuilder.createCodeAnalysisPrompt(commit, diff);
