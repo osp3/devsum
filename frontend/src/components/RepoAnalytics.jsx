@@ -3,9 +3,11 @@ import UserHeader from './UserHeader';
 import RepoHeader from './RepoHeader.jsx';
 import RepoMetricDisplay from './RepoMetricDisplay.jsx';
 import RecentCommits from './RecentCommits.jsx';
+import LoadingProgressIndicator from './LoadingProgressIndicator.jsx';
+import { useProgressTracking } from '../hooks/useProgressTracking.js';
 
 // Main repository analytics page component
-const RepoAnalytics = ({ user, selectedRepo }) => {
+const RepoAnalytics = ({ user, selectedRepo, qualityJobId = null }) => {
   // State management for commit data and UI feedback
   const [commits, setCommits] = useState([]);
   const [loading, setLoading] = useState(false);
@@ -17,9 +19,42 @@ const RepoAnalytics = ({ user, selectedRepo }) => {
   const [isRefreshing, setIsRefreshing] = useState(false); // For manual refresh button
   const [qualityError, setQualityError] = useState(null);
 
+  // Simulated progress state for fallback
+  const [simulatedProgress, setSimulatedProgress] = useState(0);
+
+  // Real progress tracking for quality analysis (when qualityJobId is provided)
+  const { 
+    progress: realProgress, 
+    message: realMessage, 
+    error: progressError,
+    isRunning 
+  } = useProgressTracking(qualityJobId, 1000, !!qualityJobId && (qualityLoading || isRefreshing));
+
   // Track the last fetched repository to prevent unnecessary re-fetches
   const lastFetchedRepo = useRef(null);
   const lastAnalyzedRepo = useRef(null); // Track which repo we've analyzed
+
+  // Simulate progress when quality analysis loading starts (fallback when no qualityJobId)
+  useEffect(() => {
+    if ((qualityLoading || isRefreshing) && !qualityJobId) {
+      setSimulatedProgress(0);
+      const interval = setInterval(() => {
+        setSimulatedProgress(prev => {
+          if (prev >= 95) {
+            clearInterval(interval);
+            return 95; // Stop at 95% until actual completion
+          }
+          // Simulate realistic progress curve for commit diff analysis
+          const increment = prev < 40 ? 6 : prev < 80 ? 3 : 1;
+          return Math.min(95, prev + increment);
+        });
+      }, 1200); // Slower updates for analysis operations
+
+      return () => clearInterval(interval);
+    } else {
+      setSimulatedProgress(100); // Complete when loading finishes
+    }
+  }, [qualityLoading, isRefreshing, qualityJobId]);
 
   // Fetch recent commits for the selected repository
   const fetchCommits = async (repo) => {
@@ -225,10 +260,43 @@ const RepoAnalytics = ({ user, selectedRepo }) => {
             </button>
           </div>
 
-          {/* Quality analysis status - show loading only during automatic load, not manual refresh */}
-          {qualityLoading && (
-            <div className="flex justify-center items-center h-32">
-              <div className="text-gray-300">Analyzing code quality...</div>
+          {/* Quality analysis status - show loading during automatic load and manual refresh */}
+          {(qualityLoading || isRefreshing) && (
+            <div>
+              <LoadingProgressIndicator 
+                message={
+                  qualityJobId && realMessage 
+                    ? realMessage 
+                    : isRefreshing 
+                      ? "Refreshing code quality analysis..." 
+                      : "Analyzing code quality and commit diffs..."
+                } 
+                size="medium"
+                showSpinner={true}
+                showProgressBar={true}
+                progress={qualityJobId ? realProgress : simulatedProgress}
+              />
+              {/* Show additional progress info for real tracking */}
+              {qualityJobId && realMessage && (
+                <div className="text-center text-xs text-gray-400 mt-2">
+                  Job ID: {qualityJobId}
+                </div>
+              )}
+              {progressError && (
+                <div className="text-center text-xs text-red-400 mt-2">
+                  Progress Error: {progressError}
+                </div>
+              )}
+              {qualityJobId && isRunning && (
+                <div className="text-center text-xs text-blue-400 mt-1">
+                  Real-time progress tracking active
+                </div>
+              )}
+              {isRefreshing && !qualityJobId && (
+                <div className="text-center text-xs text-yellow-400 mt-1">
+                  Manual refresh in progress
+                </div>
+              )}
             </div>
           )}
 

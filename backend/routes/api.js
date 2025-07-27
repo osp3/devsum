@@ -4,6 +4,7 @@ import settingsRouter from './settings.js';
 import repositoryRoutes from './repositories.js';
 import cacheRoutes from './cache.js';
 import githubRoutes from './github.js';
+import progressRoutes from './progress.js';
 
 const router = express.Router();
 
@@ -23,5 +24,8 @@ router.use('/cache', cacheRoutes);
 
 // GitHub API utility routes
 router.use('/github', githubRoutes);
+
+// Progress tracking routes
+router.use('/progress', progressRoutes);
 
 export default router; 

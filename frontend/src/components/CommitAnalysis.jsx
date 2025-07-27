@@ -93,9 +93,8 @@ const CommitAnalysis = ({ user }) => {
           >
             ← Back to Repository
           </button>
-          <div className="text-center text-gray-300">
-            <h2 className="text-xl mb-2">Loading Analysis...</h2>
-            <div className="animate-spin h-8 w-8 border-b-2 border-white mx-auto"></div>
+          <div className="text-center text-gray-400">
+            <p>Analyzing commits...</p>
           </div>
         </div>
       </div>
