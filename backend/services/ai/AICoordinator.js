@@ -131,7 +131,8 @@ const analyzeCodeQuality = async (commits, repositoryId, userApiKey, userModel =
     openai, 
     (prompt) => callOpenAI(prompt, userApiKey, userModel), 
     promptBuilder, 
-    githubService
+    githubService,
+    userModel // Pass the model for dynamic diff sizing
   );
   
   return await qualityAnalyzer.analyzeCodeQuality(commits, repositoryId, timeframe, repositoryFullName);
