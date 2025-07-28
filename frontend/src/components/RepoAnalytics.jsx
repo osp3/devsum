@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
+import { useLocation } from 'react-router-dom';
 import UserHeader from './UserHeader';
 import RepoHeader from './RepoHeader.jsx';
 import RepoMetricDisplay from './RepoMetricDisplay.jsx';
@@ -8,6 +9,8 @@ import { useProgressTracking } from '../hooks/useProgressTracking.js';
 
 // Main repository analytics page component
 const RepoAnalytics = ({ user, selectedRepo, qualityJobId = null }) => {
+  const location = useLocation();
+  
   // State management for commit data and UI feedback
   const [commits, setCommits] = useState([]);
   const [loading, setLoading] = useState(false);
@@ -33,6 +36,18 @@ const RepoAnalytics = ({ user, selectedRepo, qualityJobId = null }) => {
   // Track the last fetched repository to prevent unnecessary re-fetches
   const lastFetchedRepo = useRef(null);
   const lastAnalyzedRepo = useRef(null); // Track which repo we've analyzed
+
+  // Restore quality analysis data when navigating back from CommitAnalysis
+  useEffect(() => {
+    if (location.state?.preserveQualityAnalysis && location.state?.repositoryId === selectedRepo?.fullName) {
+      console.log(`🔄 Restoring cached quality analysis for ${selectedRepo.fullName}`);
+      setQualityAnalysis(location.state.preserveQualityAnalysis);
+      lastAnalyzedRepo.current = selectedRepo.fullName; // Mark as already analyzed
+      
+      // Clear the navigation state to prevent restoring on subsequent renders
+      window.history.replaceState({}, document.title);
+    }
+  }, [location.state, selectedRepo]);
 
   // Simulate progress when quality analysis loading starts (fallback when no qualityJobId)
   useEffect(() => {
