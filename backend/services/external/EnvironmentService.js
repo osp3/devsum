@@ -80,7 +80,7 @@ export const set = async (key, value) => {
  */
 export const getConfigurableSettings = async () => {
   const configurableKeys = [
-    'SESSION_SECRET'
+    // Session secret should be set as environment variable only, not configurable through UI
   ];
 
   const result = {};
