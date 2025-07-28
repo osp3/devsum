@@ -24,7 +24,7 @@ const TomorrowsPriorities = ({
     <div className="p-2">
       {/* Heading always renders regardless of task availability */}
       <div className="flex justify-items-start font-bold text-white">
-        Todays Priorities
+        Today's Priorities
       </div>
 
       {/* Conditional content based on tasks availability */}
