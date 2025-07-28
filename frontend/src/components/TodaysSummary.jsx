@@ -1,7 +1,72 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
+import LoadingProgressIndicator from './LoadingProgressIndicator.jsx';
+import { useProgressTracking } from '../hooks/useProgressTracking.js';
 
-const TodaysSummary = ({ yesterdaySummary, summaryLoading, summaryError }) => {
-  if (summaryLoading) return <div className='p-4 text-white'>Loading...</div>;
+const TodaysSummary = ({ yesterdaySummary, summaryLoading, summaryError, jobId = null }) => {
+  const [loadingProgress, setLoadingProgress] = useState(0);
+
+  // Real progress tracking (when jobId is provided)
+  const { 
+    progress: realProgress, 
+    message: realMessage, 
+    error: progressError,
+    isRunning 
+  } = useProgressTracking(jobId, 1000, !!jobId && summaryLoading);
+
+  // Simulate progress when loading starts (fallback when no jobId)
+  useEffect(() => {
+    if (summaryLoading && !jobId) {
+      setLoadingProgress(0);
+      const interval = setInterval(() => {
+        setLoadingProgress(prev => {
+          if (prev >= 95) {
+            clearInterval(interval);
+            return 95; // Stop at 95% until actual completion
+          }
+          // Simulate realistic progress curve (faster at start, slower near end)
+          const increment = prev < 30 ? 8 : prev < 70 ? 4 : 2;
+          return Math.min(95, prev + increment);
+        });
+      }, 800); // Update every 800ms
+
+      return () => clearInterval(interval);
+    } else {
+      setLoadingProgress(100); // Complete when loading finishes
+    }
+  }, [summaryLoading, jobId]);
+
+  if (summaryLoading) {
+    // Use real progress if available, otherwise fall back to simulated
+    const currentProgress = jobId ? realProgress : loadingProgress;
+    const currentMessage = jobId && realMessage ? realMessage : "Generating summary...";
+    
+    return (
+      <div className='p-2'>
+        <div className='flex justify-items-start font-bold text-white mb-4'>
+          Summary
+        </div>
+        <LoadingProgressIndicator 
+          message={currentMessage}
+          size="medium"
+          showSpinner={true}
+          showProgressBar={true}
+          progress={currentProgress}
+        />
+        {/* Show additional progress info for real tracking */}
+        {jobId && realMessage && (
+          <div className="text-center text-xs text-gray-400 mt-2">
+            {realMessage}
+          </div>
+        )}
+        {progressError && (
+          <div className="text-center text-xs text-red-400 mt-2">
+            Progress Error: {progressError}
+          </div>
+        )}
+      </div>
+    );
+  }
+  
   if (summaryError)
     return <div className='p-4 text-red-400'>Error: {summaryError}</div>;
   if (!yesterdaySummary)
