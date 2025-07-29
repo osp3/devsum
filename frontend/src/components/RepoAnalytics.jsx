@@ -35,14 +35,12 @@ const RepoAnalytics = ({ user, selectedRepo, qualityJobId = null }) => {
 
   // Track the last fetched repository to prevent unnecessary re-fetches
   const lastFetchedRepo = useRef(null);
-  const lastAnalyzedRepo = useRef(null); // Track which repo we've analyzed
 
   // Restore quality analysis data when navigating back from CommitAnalysis
   useEffect(() => {
     if (location.state?.preserveQualityAnalysis && location.state?.repositoryId === selectedRepo?.fullName) {
       console.log(`🔄 Restoring cached quality analysis for ${selectedRepo.fullName}`);
       setQualityAnalysis(location.state.preserveQualityAnalysis);
-      lastAnalyzedRepo.current = selectedRepo.fullName; // Mark as already analyzed
       
       // Clear the navigation state to prevent restoring on subsequent renders
       window.history.replaceState({}, document.title);
@@ -136,10 +134,10 @@ const RepoAnalytics = ({ user, selectedRepo, qualityJobId = null }) => {
     // Set appropriate loading state based on whether this is manual refresh or automatic
     if (forceRefresh) {
       setIsRefreshing(true);
-      console.log(`🔄 Manual refresh of quality analysis for ${repo.fullName}...`);
+      console.log(`🔄 Force refresh requested - bypassing cache and calling OpenAI for ${repo.fullName}...`);
     } else {
       setQualityLoading(true);
-      console.log(`📦 Loading quality analysis for ${repo.fullName} (cache enabled)...`);
+      console.log(`📦 Requesting quality analysis for ${repo.fullName} (backend will check cache first, call OpenAI only if cache miss)...`);
     }
     
     setQualityError(null);
@@ -171,16 +169,17 @@ const RepoAnalytics = ({ user, selectedRepo, qualityJobId = null }) => {
 
       if (data.success) {
         setQualityAnalysis(data.data);
-        const cacheStatus = forceRefresh ? 'refreshed' : 'loaded from cache';
-        console.log(`📊 Quality analysis ${cacheStatus} for ${repo.fullName}`);
+        if (forceRefresh) {
+          console.log(`✅ Quality analysis refreshed (fresh OpenAI call) for ${repo.fullName}`);
+        } else {
+          console.log(`✅ Quality analysis received for ${repo.fullName} (backend determined cache vs OpenAI)`);
+        }
       } else {
         throw new Error('Failed to analyze code quality');
       }
     } catch (error) {
       console.error('Quality analysis error:', error);
       setQualityError(error.message);
-      // Reset the ref on error so retry is possible
-      lastAnalyzedRepo.current = null;
     } finally {
       // Clear appropriate loading state
       if (forceRefresh) {
@@ -191,11 +190,11 @@ const RepoAnalytics = ({ user, selectedRepo, qualityJobId = null }) => {
     }
   };
 
-  // Refresh quality analysis with cache invalidation
+  // Refresh quality analysis with cache invalidation - ONLY way to bypass backend cache
   const refreshQualityAnalysis = async () => {
     if (!commits || commits.length === 0 || !selectedRepo) return;
 
-    // Use forceRefresh = true for manual refresh
+    // Use forceRefresh = true to bypass backend cache and call OpenAI directly
     await fetchQualityAnalysis(commits, selectedRepo, true);
   };
 
@@ -206,22 +205,13 @@ const RepoAnalytics = ({ user, selectedRepo, qualityJobId = null }) => {
     }
   }, [selectedRepo]);
 
-  // Auto-fetch quality analysis when commits are loaded (use cache)
+  // Auto-fetch quality analysis when commits are loaded - backend handles cache vs OpenAI decision
   useEffect(() => {
-    if (commits.length > 0 && selectedRepo && !qualityAnalysis) {
-      // Check if we've already analyzed this repo to prevent duplicate analysis on navigation
-      if (lastAnalyzedRepo.current === selectedRepo.fullName) {
-        console.log(`📦 Already analyzed ${selectedRepo.fullName}, skipping duplicate analysis`);
-        return;
-      }
-      
-      // Only fetch if we don't already have quality analysis data
-      console.log(`📦 No existing quality analysis found, fetching for ${selectedRepo.fullName}...`);
-      lastAnalyzedRepo.current = selectedRepo.fullName;
-      fetchQualityAnalysis(commits, selectedRepo, false);
-    } else if (commits.length > 0 && selectedRepo && qualityAnalysis) {
-      console.log(`📦 Quality analysis already exists for ${selectedRepo.fullName}, skipping fetch`);
-      lastAnalyzedRepo.current = selectedRepo.fullName; // Mark as analyzed
+    if (commits.length > 0 && selectedRepo) {
+      // Always call backend API - backend will check 4-hour cache first, only call OpenAI on cache miss
+      // This ensures we always get the latest cached data without unnecessary API calls
+      console.log(`📦 Fetching quality analysis for ${selectedRepo.fullName} (backend will check cache first)...`);
+      fetchQualityAnalysis(commits, selectedRepo, false); // false = allow backend to use cache
     }
   }, [commits, selectedRepo]);
 

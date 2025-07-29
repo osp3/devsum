@@ -15,14 +15,19 @@ import { QualityAnalysis } from '../../models/aiModels.js';
  */
 export const generateCacheKey = (commits, repositoryId, timeframe) => {
   // Use repository and timeframe as primary cache key
-  // This allows cache reuse even when new commits are added to similar time periods
-  const today = new Date().toISOString().split('T')[0];
+  // Remove daily date dependency - time expiration handled by MongoDB query
+  // This allows cache reuse across days within the 4-hour window
   
   // Use commit count buckets to allow cache reuse with minor commit changes
   // Round to nearest 10 (e.g., 5-14 commits all use bucket "10")
   const commitCountBucket = Math.floor((commits.length + 5) / 10) * 10;
   
-  return `quality-${repositoryId.replace('/', '-')}-${timeframe}-${today}-${commitCountBucket}`;
+  // Generate stable cache key based on repo, timeframe, and commit count bucket
+  const cacheKey = `quality-${repositoryId.replace('/', '-')}-${timeframe}-commits${commitCountBucket}`;
+  
+  console.log(`🔑 Generated cache key: ${cacheKey} (commitCount: ${commits.length} → bucket: ${commitCountBucket})`);
+  
+  return cacheKey;
 };
 
 /**
@@ -38,11 +43,10 @@ export const getCachedQualityAnalysis = async (repositoryId, cacheKey, maxAgeHou
     const maxAgeMs = maxAgeHours * 60 * 60 * 1000;
     const cutoffTime = new Date(Date.now() - maxAgeMs);
     
-    console.log(`🔍 Searching for cache with criteria:`, {
-      repositoryId: repositoryId,
-      cacheKey: cacheKey,
-      createdAt_gte: cutoffTime.toISOString()
-    });
+    console.log(`🔍 Cache lookup for ${repositoryId}:`);
+    console.log(`   Cache key: ${cacheKey}`);
+    console.log(`   Max age: ${maxAgeHours} hours`);
+    console.log(`   Cutoff time: ${cutoffTime.toISOString()}`);
     
     const existing = await QualityAnalysis.findOne({
       repositoryId: repositoryId,
@@ -52,11 +56,14 @@ export const getCachedQualityAnalysis = async (repositoryId, cacheKey, maxAgeHou
 
     if (existing) {
       const minutesOld = Math.round((Date.now() - existing.createdAt.getTime()) / (1000 * 60));
-      console.log(`✅ Using cached quality analysis for ${repositoryId} (${minutesOld} minutes old)`);
+      console.log(`✅ CACHE HIT! Using cached quality analysis for ${repositoryId} (${minutesOld} minutes old)`);
+      console.log(`   Created: ${existing.createdAt.toISOString()}`);
+      console.log(`   Cache key matched: ${existing.cacheKey}`);
       return existing;
     }
     
-    console.log(`❌ No recent cache found for ${repositoryId}, cache miss`);
+    console.log(`❌ CACHE MISS! No recent cache found for ${repositoryId}`);
+    console.log(`   Will call OpenAI to generate fresh analysis...`);
     return null;
     
   } catch (error) {
@@ -69,7 +76,7 @@ export const getCachedQualityAnalysis = async (repositoryId, cacheKey, maxAgeHou
  * Store quality analysis in database
  * @param {Object} qualityData - Quality analysis data
  * @param {string} repositoryId - Repository identifier
- * @param {string} date - Analysis date (YYYY-MM-DD format)
+ * @param {string} date - Analysis date (YYYY-MM-DD format) - for record keeping only
  * @param {string} cacheKey - Cache key
  * @returns {Promise<Object|null>} Stored analysis or null on error
  */
@@ -81,11 +88,17 @@ export const storeQualityAnalysis = async (qualityData, repositoryId, date, cach
       console.log(`📊 Sample insight structure:`, JSON.stringify(qualityData.codeAnalysis.insights[0], null, 2));
     }
     
+    console.log(`💾 Storing quality analysis with cache key: ${cacheKey}`);
+    console.log(`   Repository: ${repositoryId}`);
+    console.log(`   Analysis date: ${date}`);
+    
+    // Match by repositoryId and cacheKey only (date removed for consistency with cache key)
+    // This allows the 4-hour time window to work properly via createdAt timestamps
     const storedAnalysis = await QualityAnalysis.findOneAndUpdate(
-      { repositoryId: repositoryId, analysisDate: date, cacheKey: cacheKey },
+      { repositoryId: repositoryId, cacheKey: cacheKey },
       {
         repositoryId: repositoryId,
-        analysisDate: date,
+        analysisDate: date, // Keep for record keeping, but don't use in query
         cacheKey: cacheKey,
         qualityScore: qualityData.qualityScore,
         issues: qualityData.issues,
@@ -102,7 +115,9 @@ export const storeQualityAnalysis = async (qualityData, repositoryId, date, cach
       { upsert: true, new: true }
     );
     
-    console.log(`✅ Stored quality analysis cache for ${repositoryId}`);
+    console.log(`✅ Quality analysis cached successfully for ${repositoryId}`);
+    console.log(`   Cache key: ${cacheKey}`);
+    console.log(`   Created/Updated: ${storedAnalysis.createdAt || 'new'}`);
     return storedAnalysis;
     
   } catch (error) {

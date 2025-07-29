@@ -349,7 +349,8 @@ export async function analyzeCodeQuality(req, res, next) {
       apiKey,
       model,
       timeframe,
-      repositoryFullName
+      repositoryFullName,
+      forceRefresh // Pass forceRefresh to bypass cache when requested
     );
 
     res.json({
