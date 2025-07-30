@@ -35,6 +35,11 @@ function App() {
   const [taskSuggestions, setTaskSuggestions] = useState([]); // AI-generated task suggestions
   const [tasksLoading, setTasksLoading] = useState(false); // Loading state for tasks
   const [tasksError, setTasksError] = useState(null); // Error state for tasks
+
+  // Quality analysis state - cached by repository ID
+  const [qualityAnalysisCache, setQualityAnalysisCache] = useState({}); // Quality analysis cached by repo ID
+  const [qualityLoading, setQualityLoading] = useState(false); // Loading state for quality analysis
+  const [qualityError, setQualityError] = useState(null); // Error state for quality analysis
   const [isBrowserRefresh, setIsBrowserRefresh] = useState(false); // Track if current session started with browser refresh
 
   // Browser refresh detection using Performance API
@@ -205,6 +210,72 @@ function App() {
     }
   };
 
+  // Fetch quality analysis for commits - cached by repository ID
+  const fetchQualityAnalysis = async (commits, repositoryId, forceRefresh = false) => {
+    // Guard clause - exit early if no commits or repo
+    if (!commits || commits.length === 0 || !repositoryId) return;
+
+    // Check cache first unless force refresh
+    if (!forceRefresh && qualityAnalysisCache[repositoryId]) {
+      console.log(`📦 Using cached quality analysis for ${repositoryId}`);
+      return qualityAnalysisCache[repositoryId];
+    }
+
+    setQualityLoading(true);
+    setQualityError(null);
+
+    try {
+      const response = await fetch(
+        `${import.meta.env.VITE_API_URL}/api/ai/analyze-quality`,
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          credentials: 'include',
+          body: JSON.stringify({
+            commits: commits,
+            repositoryId: repositoryId,
+            timeframe: 'weekly',
+            repositoryFullName: repositoryId,
+            forceRefresh: forceRefresh,
+          }),
+        }
+      );
+
+      if (!response.ok) {
+        throw new Error(`Failed to fetch quality analysis: ${response.status}`);
+      }
+
+      const data = await response.json();
+
+      if (data.success) {
+        // Cache the quality analysis by repository ID
+        setQualityAnalysisCache(prev => ({
+          ...prev,
+          [repositoryId]: data.data
+        }));
+
+        // Log cache status for debugging
+        if (forceRefresh) {
+          console.log(`✅ Quality analysis refreshed (fresh OpenAI call) for ${repositoryId}`);
+        } else {
+          console.log(`✅ Quality analysis fetched for ${repositoryId} (backend determined cache vs OpenAI)`);
+        }
+
+        return data.data;
+      } else {
+        throw new Error('Failed to analyze code quality');
+      }
+    } catch (error) {
+      console.error('Quality analysis error:', error);
+      setQualityError(error.message);
+      throw error;
+    } finally {
+      setQualityLoading(false);
+    }
+  };
+
   // === LIFECYCLE HOOKS - App initialization and data fetching ===
 
   // Check authentication status and fetch user data on app startup
@@ -281,6 +352,12 @@ function App() {
     tasksLoading,           // Loading state for tasks
     tasksError,             // Error state for tasks
     refreshTasks: () => fetchTaskSuggestions(true),  // Manual refresh function for tasks
+    qualityAnalysisCache,   // Quality analysis cached by repository ID
+    qualityLoading,         // Loading state for quality analysis
+    qualityError,           // Error state for quality analysis
+    fetchQualityAnalysis,   // Function to fetch quality analysis
+    getQualityAnalysis: (repositoryId) => qualityAnalysisCache[repositoryId] || null,  // Get cached analysis for repo
+    refreshQualityAnalysis: (commits, repositoryId) => fetchQualityAnalysis(commits, repositoryId, true),  // Manual refresh
     user,                   // Current authenticated user data
   };
 

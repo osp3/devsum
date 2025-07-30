@@ -116,9 +116,10 @@ const getAnalysisHistory = async (repositoryId, days = 30) => {
  * @param {string} userModel - User's preferred model
  * @param {string} timeframe - Analysis timeframe
  * @param {string} repositoryFullName - Full repository name
+ * @param {boolean} forceRefresh - Whether to bypass cache and force fresh analysis
  * @returns {Promise<Object>} Quality analysis results
  */
-const analyzeCodeQuality = async (commits, repositoryId, userApiKey, userModel = 'gpt-4o-mini', timeframe = 'weekly', repositoryFullName = null) => {
+const analyzeCodeQuality = async (commits, repositoryId, userApiKey, userModel = 'gpt-4o-mini', timeframe = 'weekly', repositoryFullName = null, forceRefresh = false) => {
   await init();
   
   // Create quality analyzer with user-specific API key (existing class-based approach)
@@ -135,7 +136,7 @@ const analyzeCodeQuality = async (commits, repositoryId, userApiKey, userModel =
     userModel // Pass the model for dynamic diff sizing
   );
   
-  return await qualityAnalyzer.analyzeCodeQuality(commits, repositoryId, timeframe, repositoryFullName);
+  return await qualityAnalyzer.analyzeCodeQuality(commits, repositoryId, timeframe, repositoryFullName, forceRefresh);
 };
 
 /**

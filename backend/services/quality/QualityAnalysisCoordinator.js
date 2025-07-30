@@ -76,17 +76,22 @@ export const analyzeCodeQuality = async (commits, repositoryId, timeframe = 'wee
 
   try {
     // STEP 1: Check cache first (save money on repeated analysis)
+    console.log(`📦 Quality analysis request for ${repositoryId} (forceRefresh: ${forceRefresh})`);
+    
     if (!forceRefresh) {
       const cacheKey = generateCacheKey(commits, repositoryId, timeframe);
-      console.log(`🔑 Generated cache key: ${cacheKey}`);
+      console.log(`🔍 Checking cache before calling OpenAI...`);
       
       const cached = await getCachedQualityAnalysis(repositoryId, cacheKey);
       if (cached) {
+        console.log(`🎉 Cache hit! Returning cached analysis (no OpenAI call needed)`);
         return cached;
       }
+    } else {
+      console.log(`🔄 Force refresh requested - bypassing cache completely`);
     }
     
-    console.log(`❌ No recent cache found for ${repositoryId}, running fresh analysis...`);
+    console.log(`🤖 Cache miss! Calling OpenAI for fresh analysis of ${repositoryId}...`);
 
     // STEP 2: Choose analysis method based on available data
     let qualityData;
@@ -104,9 +109,9 @@ export const analyzeCodeQuality = async (commits, repositoryId, timeframe = 'wee
     // STEP 4: Store for future caching and historical trends
     const today = new Date().toISOString().split('T')[0];
     const cacheKey = generateCacheKey(commits, repositoryId, timeframe);
-    console.log(`💾 Storing quality analysis with cache key: ${cacheKey}`);
+    console.log(`💾 Caching fresh OpenAI analysis for future requests...`);
     const storedAnalysis = await storeQualityAnalysis(enhancedQuality, repositoryId, today, cacheKey);
-    console.log(`✅ Cache storage completed for ${repositoryId}`);
+    console.log(`✅ Fresh analysis cached! Next request will use cache (4-hour window)`);
     
     return storedAnalysis || enhancedQuality;
 
