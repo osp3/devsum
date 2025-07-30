@@ -207,13 +207,16 @@ const RepoAnalytics = ({ user, selectedRepo, qualityJobId = null }) => {
 
   // Auto-fetch quality analysis when commits are loaded - backend handles cache vs OpenAI decision
   useEffect(() => {
-    if (commits.length > 0 && selectedRepo) {
+    if (commits.length > 0 && selectedRepo && !qualityAnalysis) {
+      // Only fetch if we don't already have quality analysis data (e.g., from navigation state)
       // Always call backend API - backend will check 4-hour cache first, only call OpenAI on cache miss
       // This ensures we always get the latest cached data without unnecessary API calls
       console.log(`📦 Fetching quality analysis for ${selectedRepo.fullName} (backend will check cache first)...`);
       fetchQualityAnalysis(commits, selectedRepo, false); // false = allow backend to use cache
+    } else if (qualityAnalysis) {
+      console.log(`📦 Quality analysis already available for ${selectedRepo?.fullName}, skipping fetch`);
     }
-  }, [commits, selectedRepo]);
+  }, [commits, selectedRepo, qualityAnalysis]);
 
   // Display prompt when no repository is selected
   if (!selectedRepo) {
