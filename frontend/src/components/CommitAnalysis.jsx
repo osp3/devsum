@@ -101,7 +101,7 @@ const CommitAnalysis = ({ user }) => {
             onClick={handleBack}
             className="mb-4 px-4 py-2 bg-gray-600 hover:bg-gray-700 text-white rounded text-sm transition-colors"
           >
-            ← Back to Repository
+            Back to Repository
           </button>
           <div className="text-center text-gray-400">
             <p>Analyzing commits...</p>
@@ -122,7 +122,7 @@ const CommitAnalysis = ({ user }) => {
           onClick={handleBack}
           className="mb-6 px-4 py-2 bg-gray-600 hover:bg-gray-700 text-white rounded text-sm transition-colors"
         >
-          ← Back to Repository
+          Back to Repository
         </button>
 
         {/* Header */}

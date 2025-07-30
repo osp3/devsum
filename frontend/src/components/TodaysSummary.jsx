@@ -10,7 +10,8 @@ const TodaysSummary = ({ yesterdaySummary, summaryLoading, summaryError, jobId =
     progress: realProgress, 
     message: realMessage, 
     error: progressError,
-    isRunning 
+    
+ 
   } = useProgressTracking(jobId, 1000, !!jobId && summaryLoading);
 
   // Simulate progress when loading starts (fallback when no jobId)
@@ -79,7 +80,7 @@ const TodaysSummary = ({ yesterdaySummary, summaryLoading, summaryError, jobId =
       </div>
       {/* add a height of 90  to the scroll bar with a padding od 2*/}
       <div className='max-h-130  overflow-y-auto pr-2'>
-        <div className='flex flex-col justify-between items-center rounded-lg  text-sm text-[#5b56dd] bg-[#272633] shadow-[-4px_0_0_0px] m-3'>
+        <div className='flex flex-col justify-between items-center rounded-lg  text-sm text-[#5b56dd] bg-[#272633] shadow-[-2px_0_0_0px] m-3'>
           {/* <button className='btn bg-[#44905e] text-white px-3 py-1 rounded'>
             {yesterdaySummary.repositoryCount} repos
           </button> */}
