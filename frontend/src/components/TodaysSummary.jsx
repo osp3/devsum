@@ -11,7 +11,7 @@ const TodaysSummary = ({ yesterdaySummary, summaryLoading, summaryError, jobId =
     message: realMessage, 
     error: progressError,
     
-  _isRunning 
+ 
   } = useProgressTracking(jobId, 1000, !!jobId && summaryLoading);
 
   // Simulate progress when loading starts (fallback when no jobId)
