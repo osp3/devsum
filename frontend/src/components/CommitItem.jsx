@@ -112,7 +112,7 @@ const CommitItem = ({ commit, suggestedCommitMessage, hasQualityAnalysis, qualit
   // Render commit item UI
   return (
     <div>
-      <div className='relative flex flex-row items-center rounded-lg text-[#5b56dd] bg-[#272633] shadow-[-4px_0_0_0px] p-3 gap-3'>
+      <div className='relative flex flex-row items-center rounded-lg text-[#5b56dd] bg-[#272633] shadow-[-2px_0_0_0px] p-3 gap-3'>
         {/* calls function to find commit color and type of commit message */}
         <button
           className={`btn ${getCommitTypeColor(
