@@ -251,10 +251,11 @@ const Settings = () => {
         <div className="max-w-6xl mx-auto flex justify-between items-center">
           <div className="flex items-center gap-4">
             <button
-              onClick={() => navigate('/dashboard')}
+            // using the negative one takes you back to the previous page.
+              onClick={() => navigate(-1)}
               className="text-blue-400 hover:text-blue-300 transition-colors"
             >
-              Back to Dashboard
+              Exit
             </button>
             <h2 className="text-white text-xl font-semibold">Settings</h2>
           </div>
