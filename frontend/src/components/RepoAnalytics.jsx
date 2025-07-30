@@ -23,12 +23,16 @@ const RepoAnalytics = ({ user, selectedRepo, qualityJobId = null }) => {
   const [simulatedProgress, setSimulatedProgress] = useState(0);
 
   // Real progress tracking for quality analysis (when qualityJobId is provided)
-  const { 
-    progress: realProgress, 
-    message: realMessage, 
+  const {
+    progress: realProgress,
+    message: realMessage,
     error: progressError,
-    isRunning 
-  } = useProgressTracking(qualityJobId, 1000, !!qualityJobId && (qualityLoading || isRefreshing));
+    isRunning,
+  } = useProgressTracking(
+    qualityJobId,
+    1000,
+    !!qualityJobId && (qualityLoading || isRefreshing)
+  );
 
   // Track the last fetched repository to prevent unnecessary re-fetches
   const lastFetchedRepo = useRef(null);
@@ -39,7 +43,7 @@ const RepoAnalytics = ({ user, selectedRepo, qualityJobId = null }) => {
     if ((qualityLoading || isRefreshing) && !qualityJobId) {
       setSimulatedProgress(0);
       const interval = setInterval(() => {
-        setSimulatedProgress(prev => {
+        setSimulatedProgress((prev) => {
           if (prev >= 95) {
             clearInterval(interval);
             return 95; // Stop at 95% until actual completion
@@ -121,12 +125,16 @@ const RepoAnalytics = ({ user, selectedRepo, qualityJobId = null }) => {
     // Set appropriate loading state based on whether this is manual refresh or automatic
     if (forceRefresh) {
       setIsRefreshing(true);
-      console.log(`🔄 Manual refresh of quality analysis for ${repo.fullName}...`);
+      console.log(
+        `🔄 Manual refresh of quality analysis for ${repo.fullName}...`
+      );
     } else {
       setQualityLoading(true);
-      console.log(`📦 Loading quality analysis for ${repo.fullName} (cache enabled)...`);
+      console.log(
+        `📦 Loading quality analysis for ${repo.fullName} (cache enabled)...`
+      );
     }
-    
+
     setQualityError(null);
 
     try {
@@ -196,16 +204,22 @@ const RepoAnalytics = ({ user, selectedRepo, qualityJobId = null }) => {
     if (commits.length > 0 && selectedRepo && !qualityAnalysis) {
       // Check if we've already analyzed this repo to prevent duplicate analysis on navigation
       if (lastAnalyzedRepo.current === selectedRepo.fullName) {
-        console.log(`📦 Already analyzed ${selectedRepo.fullName}, skipping duplicate analysis`);
+        console.log(
+          `📦 Already analyzed ${selectedRepo.fullName}, skipping duplicate analysis`
+        );
         return;
       }
-      
+
       // Only fetch if we don't already have quality analysis data
-      console.log(`📦 No existing quality analysis found, fetching for ${selectedRepo.fullName}...`);
+      console.log(
+        `📦 No existing quality analysis found, fetching for ${selectedRepo.fullName}...`
+      );
       lastAnalyzedRepo.current = selectedRepo.fullName;
       fetchQualityAnalysis(commits, selectedRepo, false);
     } else if (commits.length > 0 && selectedRepo && qualityAnalysis) {
-      console.log(`📦 Quality analysis already exists for ${selectedRepo.fullName}, skipping fetch`);
+      console.log(
+        `📦 Quality analysis already exists for ${selectedRepo.fullName}, skipping fetch`
+      );
       lastAnalyzedRepo.current = selectedRepo.fullName; // Mark as analyzed
     }
   }, [commits, selectedRepo]);
@@ -213,10 +227,16 @@ const RepoAnalytics = ({ user, selectedRepo, qualityJobId = null }) => {
   // Display prompt when no repository is selected
   if (!selectedRepo) {
     return (
-      <div className="min-h-screen" style={{ background: 'linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%)' }}>
+      <div
+        className='min-h-screen'
+        style={{
+          background:
+            'linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%)',
+        }}
+      >
         <UserHeader user={user} />
-        <div className="flex justify-center items-center h-64">
-          <div className="text-white text-xl">
+        <div className='flex justify-center items-center h-64'>
+          <div className='text-white text-xl'>
             Please select a repository to view analytics
           </div>
         </div>
@@ -226,16 +246,22 @@ const RepoAnalytics = ({ user, selectedRepo, qualityJobId = null }) => {
 
   // Main analytics dashboard layout
   return (
-    <div className="min-h-screen" style={{ background: 'linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%)' }}>
+    <div
+      className='min-h-screen'
+      style={{
+        background:
+          'linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%)',
+      }}
+    >
       <UserHeader user={user} />
 
       {/* Repository header section */}
-      <div className="flex justify-center">
+      <div className='flex justify-center'>
         <RepoHeader selectedRepo={selectedRepo} />
       </div>
 
       {/* Analytics content container */}
-      <div className="flex flex-col  items-center  border border-slate-400   rounded-2xl  p-4 gap-6 max-w-6xl mx-auto ">
+      <div className='flex flex-col  items-center  border border-slate-400   rounded-2xl  p-4 gap-6 max-w-6xl mx-auto '>
         {/* Repository metrics display */}
         <RepoMetricDisplay
           selectedRepo={selectedRepo}
@@ -244,56 +270,56 @@ const RepoAnalytics = ({ user, selectedRepo, qualityJobId = null }) => {
         />
 
         {/* Quality analysis section */}
-        <div className="w-full max-w-4xl">
-          <div className="flex items-center justify-between mb-4">
-            <h2 className="text-white text-xl">Code Quality Analysis</h2>
+        <div className='w-full max-w-4xl'>
+          <div className='flex items-center justify-between mb-4'>
+            <h2 className='text-white text-xl'>Code Quality Analysis</h2>
             <button
               onClick={refreshQualityAnalysis}
               disabled={isRefreshing}
-              className={`px-4 py-2 rounded-lg text-white font-medium transition-colors ${
+              className={`px-4 py-2 rounded text-white font-medium text-sm shadow-md border transition-all duration-200 ${
                 isRefreshing
-                  ? 'bg-gray-600 cursor-not-allowed'
-                  : 'bg-blue-600 hover:bg-blue-700 cursor-pointer'
+                  ? 'bg-slate-600 cursor-not-allowed border-slate-600'
+                  : 'bg-blue-700 hover:bg-blue-600 cursor-pointer border-blue-600'
               }`}
             >
-              {isRefreshing ? 'Refreshing...' : ' Refresh Analysis'}
+              {isRefreshing ? 'Refreshing...' : 'Refresh Analysis'}
             </button>
           </div>
 
           {/* Quality analysis status - show loading during automatic load and manual refresh */}
           {(qualityLoading || isRefreshing) && (
             <div>
-              <LoadingProgressIndicator 
+              <LoadingProgressIndicator
                 message={
-                  qualityJobId && realMessage 
-                    ? realMessage 
-                    : isRefreshing 
-                      ? "Refreshing code quality analysis..." 
-                      : "Analyzing code quality and commit diffs..."
-                } 
-                size="medium"
+                  qualityJobId && realMessage
+                    ? realMessage
+                    : isRefreshing
+                    ? 'Refreshing code quality analysis...'
+                    : 'Analyzing code quality and commit diffs...'
+                }
+                size='medium'
                 showSpinner={true}
                 showProgressBar={true}
                 progress={qualityJobId ? realProgress : simulatedProgress}
               />
               {/* Show additional progress info for real tracking */}
               {qualityJobId && realMessage && (
-                <div className="text-center text-xs text-gray-400 mt-2">
+                <div className='text-center text-xs text-gray-400 mt-2'>
                   Job ID: {qualityJobId}
                 </div>
               )}
               {progressError && (
-                <div className="text-center text-xs text-red-400 mt-2">
+                <div className='text-center text-xs text-red-400 mt-2'>
                   Progress Error: {progressError}
                 </div>
               )}
               {qualityJobId && isRunning && (
-                <div className="text-center text-xs text-blue-400 mt-1">
+                <div className='text-center text-xs text-blue-400 mt-1'>
                   Real-time progress tracking active
                 </div>
               )}
               {isRefreshing && !qualityJobId && (
-                <div className="text-center text-xs text-yellow-400 mt-1">
+                <div className='text-center text-xs text-yellow-400 mt-1'>
                   Manual refresh in progress
                 </div>
               )}
@@ -301,17 +327,17 @@ const RepoAnalytics = ({ user, selectedRepo, qualityJobId = null }) => {
           )}
 
           {qualityError && (
-            <div className="flex justify-center items-center h-32">
-              <div className="text-red-400">Error: {qualityError}</div>
+            <div className='flex justify-center items-center h-32'>
+              <div className='text-red-400'>Error: {qualityError}</div>
             </div>
           )}
         </div>
 
         {/* Recent commits list */}
-        <RecentCommits 
-          commits={commits} 
-          loading={loading} 
-          error={error} 
+        <RecentCommits
+          commits={commits}
+          loading={loading}
+          error={error}
           qualityAnalysis={qualityAnalysis}
           repositoryId={selectedRepo?.fullName}
         />
