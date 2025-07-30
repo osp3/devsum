@@ -254,7 +254,7 @@ const Settings = () => {
               onClick={() => navigate('/')}
               className="text-blue-400 hover:text-blue-300 transition-colors"
             >
-              ← Back to Dashboard
+              Back to Dashboard
             </button>
             <h2 className="text-white text-xl font-semibold">Settings</h2>
           </div>

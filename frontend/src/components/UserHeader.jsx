@@ -51,13 +51,13 @@ const UserHeader = ({ user }) => {
   };
 
   return (
-    <div className='bg-[#2d2b3e] border-b border-slate-600 p-4'>
+    <div className='bg-gradient-to-r from-[#2d2b3e] to-[#353346] border-b border-slate-600 p-4'>
       <div className='max-w-6xl mx-auto flex justify-between items-center'>
         {/* Left side - Logo and user greeting */}
-        <div className='flex items-center gap-4'>
+        <div className='flex items-center gap-6'>
           {/* DevSum logo with conditional clickability */}
           <h2
-            className={`text-white text-xl font-semibold ${
+            className={`text-white text-2xl font-bold hover:scale-105 transition-transform ${
               isLogoClickable
                 ? 'cursor-pointer hover:opacity-80 transition-opacity'
                 : 'cursor-default'
@@ -70,16 +70,16 @@ const UserHeader = ({ user }) => {
 
           {/* Welcome message with user's name - varies by page*/}
           {user && (
-            <div className='flex items-center gap-2'>
+            <div className='flex items-center gap-3'>
               {/* User's GitHub avatar */}
               {user.avatarUrl && (
                 <img
                   src={user.avatarUrl}
                   alt={`${getDisplayName()}'s avatar`}
-                  className='w-6 h-6 rounded-full'
+                  className='w-8 h-8 rounded-full'
                 />
               )}
-              <span className='text-gray-300 text-sm'>
+              <span className='text-white text-base font-medium'>
                 {location.pathname === '/dashboard'
                   ? // Full welcome message on dashboard
                     `Welcome back, ${getDisplayName()}!`
@@ -96,7 +96,7 @@ const UserHeader = ({ user }) => {
           {location.pathname === '/repository' && (
             <button
               onClick={() => navigate('/repositories')} // navigate from individual repo back to repo list
-              className='px-3 py-1 bg-gray-600 hover:bg-gray-700 text-white rounded text-sm transition-colors'
+              className='px-3 py-2 bg-slate-700 hover:bg-slate-400 font-normal text-white rounded text-sm transition-all duration-200 shadow-sm'
             >
               Back to List
             </button>
@@ -105,7 +105,7 @@ const UserHeader = ({ user }) => {
           {/* Settings navigation button */}
           <button
             onClick={() => navigate('/settings')}
-            className='px-4 py-2 rounded-lg text-white font-medium transition-colors bg-blue-600 hover:bg-blue-700 cursor-pointer'
+            className='px-4 py-2 rounded text-white font-normal transition-all duration-200 bg-slate-700 text-sm hover:bg-slate-400 cursor-pointer shadow-sm'
           >
             Settings
           </button>
@@ -115,11 +115,11 @@ const UserHeader = ({ user }) => {
             onClick={handleLogout}
             disabled={isLoggingOut}
             className={`
-              px-4 py-2 rounded-lg text-white font-medium transition-colors
+              px-4 py-2 rounded text-white text-sm font-normal transition-all duration-200 shadow-sm
               ${
                 isLoggingOut
-                  ? 'bg-gray-600 cursor-not-allowed'
-                  : 'bg-red-600 hover:bg-red-700 cursor-pointer'
+                  ? 'bg-slate-600 cursor-not-allowed'
+                  : 'bg-slate-700 hover:bg-red-900 cursor-pointer'
               }
             `}
           >
