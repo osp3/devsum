@@ -1,85 +1,135 @@
-# DevSum - AI-Powered Git Analytics Platform
+# DevSum - AI-Powered Development Analytics
 
-DevSum is a sophisticated development analytics platform that leverages AI to provide intelligent insights into your coding activities. Track your progress, analyze code quality, and get AI-generated recommendations for improved productivity.
+DevSum is an intelligent development dashboard that uses AI to analyze your GitHub repositories, providing insights into code quality, development patterns, and productivity trends.
 
-## 🚀 Features
+## ✨ Features
 
-### 📊 **Intelligent Dashboard**
+- **AI-Powered Analysis**: Automatic commit categorization and quality assessment using OpenAI
+- **Repository Analytics**: Deep-dive analysis of commits, code quality, and development trends  
+- **Daily Summaries**: AI-generated overviews of yesterday's development activities
+- **Task Suggestions**: Smart recommendations for tomorrow's priorities based on recent patterns
+- **GitHub Integration**: Secure OAuth authentication with access to public and private repositories
 
-- **Yesterday's Development Summary**: AI-generated overview of your coding activities
-- **Repository Metrics**: Real-time statistics across all your GitHub repositories  
-- **Tomorrow's Priorities**: AI-suggested tasks based on recent development patterns
-- **Quality Analytics**: Code quality trends and improvement recommendations
+## 🏗️ Tech Stack
 
-### 🤖 **AI-Powered Analysis**
+**Frontend**: React 19 + Vite + TailwindCSS + React Router  
+**Backend**: Node.js + Express + MongoDB + Passport.js  
+**AI**: OpenAI GPT-4 for analysis and insights  
+**Authentication**: GitHub OAuth 2.0  
 
-- **Commit Categorization**: Automatic categorization (feature, bugfix, refactor, docs)
-- **Code Quality Assessment**: Line-by-line analysis with improvement suggestions
-- **Pattern Recognition**: Identifies development trends and productivity patterns
-- **Smart Caching**: MongoDB-based caching system to optimize AI API costs
+## 📱 Application Usage & Pages
 
-### 🔐 **GitHub Integration**
+### **Authentication Flow**
 
-- **OAuth Authentication**: Secure GitHub login with proper scope management
-- **Repository Access**: Automatic discovery and analysis of public/private repos
-- **Commit Analysis**: Deep-dive into individual commits with diff analysis
-- **Rate Limit Handling**: Intelligent GitHub API usage with pagination support
+1. Visit the application at `http://localhost:5173`
+2. Click "Login with GitHub" to authenticate via OAuth
+3. Grant repository access permissions
+4. Automatically redirected to the main dashboard
 
-### ⚡ **Performance Optimized**
+### **Main Application Pages**
 
-- **Intelligent Caching**: 4-hour cache windows for AI analysis results
-- **Browser Refresh Detection**: Smart cache bypassing for fresh data when needed
-- **Graceful Error Handling**: Comprehensive error recovery and user feedback
-- **Session Management**: Secure user sessions with configurable timeouts
+#### **🏠 Dashboard** (`/dashboard`)
 
-## 🏗️ Architecture
+The main hub of your development analytics:
 
-```bash
-devsum/
-├── frontend/                 # React + Vite + TailwindCSS
-│   ├── src/
-│   │   ├── components/      # React components
-│   │   │   ├── Dashboard.jsx          # Main dashboard
-│   │   │   ├── RepoAnalytics.jsx      # Repository deep-dive
-│   │   │   ├── CommitAnalysis.jsx     # Commit-level insights
-│   │   │   ├── Settings.jsx           # User configuration
-│   │   │   └── ...
-│   │   └── styles/          # TailwindCSS configuration
-├── backend/                  # Express + Node.js API
-│   ├── controllers/         # Request handlers
-│   ├── services/           # Business logic
-│   │   ├── AICoordinator.js          # AI services coordinator (functional)
-│   │   ├── GitHubAPIClient.js        # GitHub API client (functional)
-│   │   ├── QualityAnalyzer.js        # Code quality analysis
-│   │   ├── YesterdaySummaryService.js # Daily summaries
-│   │   └── CacheManager.js           # MongoDB caching
-│   ├── models/             # MongoDB schemas
-│   ├── routes/             # API routes
-│   ├── config/             # Database & OAuth setup
-│   └── middleware/         # Authentication & security
-└── README.md               # This file
-```
+- **Today's Metrics**: Repository statistics and activity overview
+- **Yesterday's Summary**: AI-generated analysis of your previous day's commits
+- **Today's Priorities**: Smart AI recommendations for upcoming tasks
 
-## 🚀 Quick Start
+#### **📚 Repositories** (`/repositories`)
+
+Browse and manage your GitHub repositories:
+
+- Grid view of all accessible repositories (public and private)
+- Repository status indicators and recent activity
+- Quick navigation to detailed analytics
+- Repository selection for focused analysis
+
+#### **📊 Repository Analytics** (`/repository`)
+
+Deep-dive analysis of a specific repository:
+
+- **Commit History**: Chronological view with AI categorization
+- **Code Quality Analysis**: Real-time quality assessment with progress tracking
+- **Quality Trends**: Historical code quality metrics over time
+- **Refresh Controls**: Manual refresh with progress indicators
+- **Individual Commit Access**: Navigate to detailed commit analysis
+
+#### **🔍 Commit Analysis** (`/commit-analysis`)
+
+Detailed AI-powered analysis of specific commits:
+
+- **Commit Details**: SHA, message, author, and timestamp
+- **Code Quality Assessment**: Line-by-line analysis and suggestions
+- **AI Categorization**: Automatic commit type classification (feat, fix, refactor, etc.)
+- **Impact Analysis**: Understanding of changes and their implications
+- **Improvement Recommendations**: AI-generated best practices and suggestions
+
+#### **⚙️ Settings** (`/settings`)
+
+Configure your DevSum experience:
+
+- **OpenAI API Key**: Enter and manage your OpenAI API key
+- **Model Selection**: Choose your preferred AI model (GPT-4, GPT-3.5-turbo, etc.)
+
+**How to Configure Settings:**
+
+1. Navigate to Settings from the user header menu
+2. **OpenAI API Key**:
+   - Enter your OpenAI API key in the designated field
+   - Test the key to ensure it's working properly
+3. **Choose Model**:
+   - Select your preferred AI model from the dropdown
+   - Available options include GPT-4, GPT-3.5-turbo, and other OpenAI models
+
+### **Navigation Features**
+
+- **User Header**: Always visible with user profile and navigation controls
+- **Protected Routes**: All pages require GitHub authentication
+- **State Persistence**: Selected repository and preferences maintained across pages
+- **Responsive Design**: Optimized for desktop and mobile viewing
+
+### **Key User Workflows**
+
+**Daily Analysis Workflow:**
+
+1. Start at Dashboard → View yesterday's summary and today's priorities
+2. Navigate to Repositories → Select a repo for detailed analysis  
+3. Use Repository Analytics → Review quality trends and recent commits
+4. Drill into Commit Analysis → Get AI insights on specific changes
+
+**Quality Improvement Workflow:**
+
+1. Repository Analytics → Run quality analysis with progress tracking
+2. Review quality metrics and trends over time
+3. Commit Analysis → Examine individual commits flagged for improvement
+4. Apply AI recommendations to enhance code quality
+
+**Task Planning Workflow:**
+
+1. Dashboard → Review AI-generated priority suggestions
+2. Repositories → Identify repos needing attention
+3. Repository Analytics → Understand current state and technical debt
+4. Use insights to plan development tasks and priorities
+
+## 🚀 Quick Setup
 
 ### Prerequisites
 
-- **Node.js** >= 18.0.0
-- **MongoDB** (local or Atlas)
-- **GitHub OAuth App** (for authentication)
-- **OpenAI API Key** (for AI features)
+- Node.js >= 18.0.0
+- MongoDB (local or Atlas)
+- GitHub OAuth App
+- OpenAI API key
 
-### 1. Clone and Install
+### 1. Install Dependencies
 
 ```bash
 git clone <repository-url>
 cd devsum
-npm run install:all
+npm run install-all
 ```
 
 ### 2. Configure Environment
-
-Create `backend/.env` from the example:
 
 ```bash
 cp backend/env.example backend/.env
@@ -92,15 +142,15 @@ Edit `backend/.env` with your credentials:
 MONGODB_URI=mongodb://localhost:27017/devsum
 
 # GitHub OAuth (create at https://github.com/settings/applications/new)
-GITHUB_CLIENT_ID=your-github-client-id
-GITHUB_CLIENT_SECRET=your-github-client-secret
+GITHUB_CLIENT_ID=your_github_client_id
+GITHUB_CLIENT_SECRET=your_github_client_secret  
 GITHUB_CALLBACK_URL=http://localhost:3000/auth/github/callback
 
-# OpenAI API
-OPENAI_API_KEY=your-openai-api-key
+# OpenAI
+OPENAI_API_KEY=your_openai_api_key
 
-# Security
-SESSION_SECRET=your-random-session-secret
+# Session
+SESSION_SECRET=your_random_session_secret
 ```
 
 ### 3. Start Development
@@ -109,42 +159,31 @@ SESSION_SECRET=your-random-session-secret
 npm run dev
 ```
 
-This launches:
+Access the application:
 
 - **Frontend**: http://localhost:5173
 - **Backend**: http://localhost:3000
 
+### 4. Configure via Settings UI (Alternative)
+
+Instead of manually editing `.env`, you can configure credentials through the web interface:
+
+1. Start the application with minimal `.env` (just MongoDB and session secret)
+2. Login with GitHub OAuth
+3. Navigate to **Settings** page to add your OpenAI API key
+4. Test and validate all configurations through the UI
+
 ## 📋 Available Scripts
 
-### Root Level
-
-- `npm run dev` - Start both frontend and backend
-- `npm run dev:frontend` - Frontend only
-- `npm run dev:backend` - Backend only  
-- `npm run build` - Build frontend for production
-- `npm run install:all` - Install all dependencies
-
-### Backend Specific
-
 ```bash
-cd backend
-npm run dev          # Development with auto-restart
-npm run start        # Production server
-npm run test-caching # Test caching functionality
+npm run dev           # Start both frontend and backend
+npm run build         # Build frontend for production  
+npm run start         # Start production server
+npm run install-all   # Install all dependencies
+npm run cleanup-ports # Kill processes on ports 3000 and 5173
 ```
 
-### Frontend Specific  
-
-```bash
-cd frontend
-npm run dev          # Development server
-npm run build        # Production build
-npm run preview      # Preview production build
-```
-
-## 🔧 Configuration
-
-### GitHub OAuth Setup
+## 🔧 GitHub OAuth Setup
 
 1. Go to [GitHub Developer Settings](https://github.com/settings/applications/new)
 2. Create new OAuth App:
@@ -152,233 +191,96 @@ npm run preview      # Preview production build
    - **Homepage URL**: http://localhost:5173
    - **Authorization callback URL**: http://localhost:3000/auth/github/callback
 3. Copy Client ID and Secret to your `.env` file
-4. Ensure your GitHub token has `repo` scope for private repository access
 
-### MongoDB Setup
+## 📱 Application Flow
 
-**Option 1: Local MongoDB**
+1. **Login** - Authenticate with GitHub OAuth
+2. **Dashboard** - View yesterday's summary and today's metrics
+3. **Repository Analysis** - Deep-dive into specific repositories
+4. **Commit Analysis** - AI-powered code quality assessment
+5. **Settings** - Configure AI preferences and environment
 
-```bash
-# Install MongoDB locally
-brew install mongodb/brew/mongodb-community
-brew services start mongodb-community
+## 🛠️ Development
 
-# Use default connection
-MONGODB_URI=mongodb://localhost:27017/devsum
-```
-
-**Option 2: MongoDB Atlas**
+### Project Structure
 
 ```bash
-# Create free cluster at https://cloud.mongodb.com
-# Get connection string and update .env
-MONGODB_URI=mongodb+srv://username:password@cluster.mongodb.net/devsum
+devsum/
+├── frontend/          # React application
+│   ├── src/
+│   │   ├── components/   # React components
+│   │   └── hooks/        # Custom React hooks (useProgressTracking)
+├── backend/           # Express API server
+│   ├── controllers/      # Request handlers
+│   ├── services/         # Business logic (functional pattern)
+│   │   ├── ai/          # AI coordination and analysis
+│   │   ├── tasks/       # Summary generation and progress tracking
+│   │   ├── quality/     # Code quality analysis
+│   │   └── external/    # GitHub API and caching
+│   ├── routes/          # API endpoints
+│   ├── models/          # MongoDB schemas
+│   └── config/          # Database and authentication
 ```
 
-### OpenAI Configuration
+### Key Architecture Decisions
 
-1. Get API key from [OpenAI Platform](https://platform.openai.com/api-keys)
-2. Add to `.env` file:
-
-   ```bash
-   OPENAI_API_KEY=sk-your-api-key
-   AI_MODEL=gpt-3.5-turbo  # or gpt-4 for better analysis
-   ```
-
-## 📱 Application Pages
-
-### **Dashboard** (`/dashboard`)
-
-- Yesterday's AI-generated development summary
-- Repository metrics and statistics
-- Tomorrow's priority recommendations
-- Quick navigation to detailed views
-
-### **Repositories** (`/repositories`)
-
-- Grid view of all accessible GitHub repositories
-- Repository status and recent activity
-- Quick access to detailed analytics
-
-### **Repository Analytics** (`/repository`)
-
-- Deep-dive analysis of specific repository
-- Commit history with AI categorization
-- Code quality trends over time
-- Individual commit analysis access
-
-### **Commit Analysis** (`/commit-analysis`)
-
-- Detailed AI analysis of specific commits
-- Code quality assessment with line-by-line feedback
-- Improvement suggestions and best practices
-- Impact analysis and recommendations
-
-### **Settings** (`/settings`)
-
-- Environment variable management
-- GitHub OAuth configuration
-- AI model preferences
-- Cache management controls
-
-## 🛠️ Development Workflow
-
-### Making Changes
-
-1. **Frontend Changes**: Hot reload enabled, changes reflect immediately
-2. **Backend Changes**: Nodemon auto-restarts server on file changes
-3. **Database Changes**: Update models in `backend/models/`
-4. **API Changes**: Add routes in `backend/routes/`, implement in `backend/controllers/`
-
-### Adding New Features
-
-**Frontend Component:**
-
-```bash
-# Create new component
-touch frontend/src/components/NewFeature.jsx
-
-# Add to index.js exports
-echo "export { default as NewFeature } from './NewFeature.jsx';" >> frontend/src/components/index.js
-```
-
-**Backend Service:**
-
-```bash
-# Create new service
-touch backend/services/NewService.js
-
-# Add route in backend/routes/
-# Add controller in backend/controllers/
-```
-
-## 🔍 API Endpoints
-
-### Authentication
-
-- `GET /auth/github` - GitHub OAuth login
-- `GET /auth/github/callback` - OAuth callback
-- `GET /auth/me` - Get current user
-- `POST /auth/logout` - Logout
-
-### Data APIs
-
-- `GET /api/repos` - Get user repositories
-- `POST /api/ai/yesterday-summary` - Generate daily summary
-- `POST /api/ai/task-suggestions` - Get AI task recommendations
-- `POST /api/ai/analyze-quality` - Analyze code quality
-
-### Utility
-
-- `GET /health` - System health check
-- `GET /api/test` - API connectivity test
+- **Functional Services**: Modern functional programming pattern instead of classes
+- **Progress Tracking**: Real-time progress updates for AI operations with polling
+- **Intelligent Caching**: MongoDB-based caching to optimize AI API costs
+- **Component-Based UI**: Reusable React components with TailwindCSS
 
 ## 🧪 Testing
 
-### Backend Testing
-
 ```bash
 cd backend
-npm run test-caching     # Test caching functionality
-npm run test-refresh     # Test refresh mechanisms
-```
-
-### Manual Testing
-
-```bash
-# Test API endpoints
-curl http://localhost:3000/health
-curl http://localhost:3000/api/test
-
-# Test frontend
-open http://localhost:5173
+npm run test-caching     # Test MongoDB caching functionality
+npm run test-refresh     # Test cache refresh mechanisms
 ```
 
 ## 📦 Production Deployment
 
-### Frontend Deployment
+### Frontend
 
 ```bash
 npm run build
-# Deploy frontend/dist/ to static hosting (Vercel, Netlify, etc.)
+# Deploy frontend/dist/ to Vercel, Netlify, etc.
 ```
 
-### Backend Deployment
+### Backend
 
 ```bash
 cd backend
-npm run start
-# Deploy to Node.js hosting (Railway, Render, AWS, etc.)
-
-# Environment variables needed in production:
-# - MONGODB_URI (MongoDB Atlas recommended)
-# - GITHUB_CLIENT_ID & GITHUB_CLIENT_SECRET
-# - OPENAI_API_KEY
-# - SESSION_SECRET (use strong random string)
-# - FRONTEND_URL (your frontend domain)
+npm start
+# Deploy to Railway, Render, AWS, etc.
 ```
 
-## 🚨 Troubleshooting
+### Environment Variables (Production)
 
-### Common Issues
+- `MONGODB_URI` - MongoDB Atlas connection string
+- `GITHUB_CLIENT_ID` & `GITHUB_CLIENT_SECRET` - GitHub OAuth credentials
+- `OPENAI_API_KEY` - OpenAI API key
+- `SESSION_SECRET` - Strong random string for session security
+- `FRONTEND_URL` - Your frontend domain
 
-**"Cannot connect to MongoDB"**
+## 👥 Contributors
 
-- Ensure MongoDB is running locally OR Atlas connection string is correct
-- Check firewall settings for MongoDB port (27017)
-
-**"GitHub OAuth not working"**
-
-- Verify OAuth app callback URL matches your backend URL
-- Ensure `GITHUB_CLIENT_ID` and `GITHUB_CLIENT_SECRET` are correct
-- Check that OAuth app is not suspended
-
-**"OpenAI API errors"**
-
-- Verify API key is valid and has credits
-- Check if you've exceeded rate limits
-- Ensure `OPENAI_API_KEY` environment variable is set
-
-**"Cache not working"**
-
-- Check MongoDB connection for cache storage
-- Verify sufficient disk space for MongoDB
-- Check browser console for cache-related errors
-
-### Debug Mode
-
-```bash
-# Enable debug logging
-NODE_ENV=development npm run dev:backend
-
-# Check MongoDB collections
-mongosh devsum --eval "db.dailysummaries.find().limit(5)"
-```
+- **Aasim Syed** - <aasim.ss@gmail.com> | [GitHub](https://github.com/aasimsyed)
+- **Erik Kleiman** - <hekleiman@gmail.com> | [GitHub](https://github.com/Hekleiman)
+- **Mari Anuashvili** - <m.anuashvili@gmail.com> | [GitHub](https://github.com/mariiamii)
+- **Yuri Sabogal** - <yurisabogal@icloud.com> | [GitHub](https://github.com/ysabogal88)
 
 ## 🤝 Contributing
 
-For detailed contributing guidelines, see [GITHUB_WORKFLOW.md](GITHUB_WORKFLOW.md).
-
-### Quick Contribution Steps
-
 1. Fork the repository
-2. Create feature branch: `git checkout -b feature/amazing-feature`
-3. Commit changes: `git commit -m 'feat: add amazing feature'`
-4. Push to branch: `git push origin feature/amazing-feature`  
-5. Open Pull Request
+2. Create a feature branch: `git checkout -b feature/amazing-feature`
+3. Commit your changes: `git commit -m 'feat: add amazing feature'`
+4. Push to the branch: `git push origin feature/amazing-feature`
+5. Open a Pull Request
 
 ## 📄 License
 
 This project is licensed under the ISC License.
 
-## 🛡️ Security
-
-- All API endpoints require authentication
-- GitHub OAuth tokens are securely stored
-- MongoDB connections use SSL in production
-- Session secrets should be rotated regularly
-- OpenAI API keys should be restricted by usage limits
-
 ---
 
-**Built with ❤️ using React, Express, MongoDB, and OpenAI**
+**Built with ❤️ by the DevSum team**

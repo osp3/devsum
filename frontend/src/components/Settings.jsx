@@ -8,8 +8,7 @@ const Settings = () => {
   // Current settings values displayed in form inputs
   const [settings, setSettings] = useState({
     OPENAI_API_KEY: '',
-    OPENAI_MODEL: '',
-    SESSION_SECRET: ''
+    OPENAI_MODEL: ''
   });
   
   // Original settings from server for change detection
@@ -165,8 +164,6 @@ const Settings = () => {
         return 'OpenAI API Key';
       case 'OPENAI_MODEL':
         return 'OpenAI Model';
-      case 'SESSION_SECRET':
-        return 'Session Secret';
       default:
         return key;
     }
@@ -179,8 +176,6 @@ const Settings = () => {
         return 'Your personal OpenAI API Key for AI features (stored securely in your account)';
       case 'OPENAI_MODEL':
         return 'Select your preferred OpenAI model for AI-powered features';
-      case 'SESSION_SECRET':
-        return 'Secret key for session encryption (generate a random string)';
       default:
         return '';
     }
@@ -256,10 +251,10 @@ const Settings = () => {
         <div className="max-w-6xl mx-auto flex justify-between items-center">
           <div className="flex items-center gap-4">
             <button
-              onClick={() => navigate('/')}
+              onClick={() => navigate('/dashboard')}
               className="text-blue-400 hover:text-blue-300 transition-colors"
             >
-              ← Back to Dashboard
+              Back to Dashboard
             </button>
             <h2 className="text-white text-xl font-semibold">Settings</h2>
           </div>

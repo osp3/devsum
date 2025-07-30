@@ -65,7 +65,7 @@ class SettingsController {
       // Separate user-specific settings from shared settings
       const userSettings = {};
       const sharedSettings = {};
-      const allowedSharedKeys = ['SESSION_SECRET'];
+      const allowedSharedKeys = []; // Session secret should be environment variable only
       const allowedUserKeys = ['OPENAI_API_KEY', 'OPENAI_MODEL'];
       
       for (const [key, value] of Object.entries(settings)) {
