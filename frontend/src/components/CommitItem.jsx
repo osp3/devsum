@@ -122,7 +122,7 @@ const CommitItem = ({
         <button
           className={`btn ${getCommitTypeColor(
             displayMessage
-          )} text-white px-3 py-1 rounded flex items-center gap-2 min-w-fit text-xs font-medium`}
+          )} text-white px-3 py-1 rounded flex items-center gap-2 w-18 text-xs font-medium`}
         >
           <span>{getCommitType(displayMessage)}</span>
         </button>
