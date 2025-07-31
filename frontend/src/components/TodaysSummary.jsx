@@ -116,7 +116,14 @@ const TodaysSummary = ({
                         <div className=' flex justify-between  flex-row gap-2 text-xs text-gray-400'>
                           <h3>{commit.description}</h3>
                           <span className='text-xs text-gray-500 whitespace-nowrap'>
-                            {new Date(commit.date).toLocaleString()}
+                            {new Date(commit.date).toLocaleString('en-US', {
+                              month: '2-digit',
+                              day: '2-digit',
+                              year: 'numeric',
+                              hour: '2-digit',
+                              minute: '2-digit',
+                              hour12: true,
+                            })}
                           </span>
                         </div>
                       </div>
