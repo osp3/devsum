@@ -118,7 +118,13 @@ const CommitAnalysis = ({ user }) => {
 
   // Main analysis display
   return (
-    <div className='min-h-screen bg-[#1a1928]'>
+    <div
+      className='min-h-screen bg-[#1a1928]'
+      style={{
+        background:
+          'linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%)',
+      }}
+    >
       <UserHeader user={user} />
 
       <div className='max-w-4xl mx-auto p-6'>

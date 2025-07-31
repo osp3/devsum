@@ -257,7 +257,13 @@ const Settings = () => {
 
   // Main settings form with navigation header and field sections
   return (
-    <div className='min-h-screen bg-[#1a1928]'>
+    <div
+      className='min-h-screen bg-[#1a1928]'
+      style={{
+        background:
+          'linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%)',
+      }}
+    >
       {/* Navigation Header with back button and title */}
       <div className='bg-[#2d2b3e] border-b border-slate-600 p-4'>
         <div className='max-w-6xl mx-auto flex justify-between items-center'>
