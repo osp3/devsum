@@ -7,16 +7,15 @@ import LoadingProgressIndicator from './LoadingProgressIndicator.jsx';
 import { useProgressTracking } from '../hooks/useProgressTracking.js';
 
 // Main repository analytics page component
-const RepoAnalytics = ({ 
-  user, 
-  selectedRepo, 
+const RepoAnalytics = ({
+  user,
+  selectedRepo,
   qualityJobId = null,
   fetchQualityAnalysis,
   getQualityAnalysis,
   qualityLoading,
-  qualityError
+  qualityError,
 }) => {
-  
   // State management for commit data and UI feedback
   const [commits, setCommits] = useState([]);
   const [loading, setLoading] = useState(false);
@@ -127,26 +126,28 @@ const RepoAnalytics = ({
   };
 
   // Wrapper for app-level quality analysis fetch with local refresh state tracking
-  const handleQualityAnalysis = useCallback(async (commits, repo, forceRefresh = false) => {
-    if (!commits || commits.length === 0 || !repo) return;
+  const handleQualityAnalysis = useCallback(
+    async (commits, repo, forceRefresh = false) => {
+      if (!commits || commits.length === 0 || !repo) return;
 
-    try {
-      if (forceRefresh) {
-        setIsRefreshing(true);
-        console.log(`🔄 Force refresh requested for ${repo.fullName}...`);
-      }
+      try {
+        if (forceRefresh) {
+          setIsRefreshing(true);
+          console.log(`🔄 Force refresh requested for ${repo.fullName}...`);
+        }
 
-      // Use app-level fetch function
-      await fetchQualityAnalysis(commits, repo.fullName, forceRefresh);
-      
-    } catch (error) {
-      console.error('Quality analysis error:', error);
-    } finally {
-      if (forceRefresh) {
-        setIsRefreshing(false);
+        // Use app-level fetch function
+        await fetchQualityAnalysis(commits, repo.fullName, forceRefresh);
+      } catch (error) {
+        console.error('Quality analysis error:', error);
+      } finally {
+        if (forceRefresh) {
+          setIsRefreshing(false);
+        }
       }
-    }
-  }, [fetchQualityAnalysis]);
+    },
+    [fetchQualityAnalysis]
+  );
 
   // Refresh quality analysis with cache invalidation - uses app-level function
   const handleRefreshQualityAnalysis = async () => {
@@ -167,13 +168,17 @@ const RepoAnalytics = ({
   useEffect(() => {
     if (commits.length > 0 && selectedRepo) {
       const cachedQualityAnalysis = getQualityAnalysis(selectedRepo.fullName);
-      
+
       if (!cachedQualityAnalysis) {
         // No cached data - fetch from backend (backend will check 4-hour cache first)
-        console.log(`📦 Fetching quality analysis for ${selectedRepo.fullName} (no app cache, will check backend cache)...`);
+        console.log(
+          `📦 Fetching quality analysis for ${selectedRepo.fullName} (no app cache, will check backend cache)...`
+        );
         handleQualityAnalysis(commits, selectedRepo, false); // false = allow backend to use cache
       } else {
-        console.log(`📦 Using cached quality analysis for ${selectedRepo.fullName} (app-level cache hit)`);
+        console.log(
+          `📦 Using cached quality analysis for ${selectedRepo.fullName} (app-level cache hit)`
+        );
       }
     }
   }, [commits, selectedRepo, getQualityAnalysis, handleQualityAnalysis]);
@@ -288,10 +293,10 @@ const RepoAnalytics = ({
         </div>
 
         {/* Recent commits list */}
-        <RecentCommits 
-          commits={commits} 
-          loading={loading} 
-          error={error} 
+        <RecentCommits
+          commits={commits}
+          loading={loading}
+          error={error}
           qualityAnalysis={getQualityAnalysis(selectedRepo?.fullName)}
           repositoryId={selectedRepo?.fullName}
         />

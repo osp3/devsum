@@ -114,21 +114,20 @@ const RepoMetricDisplay = ({
       show: metrics.test > 0,
     },
   ];
-// Filters metric card to be showed in return
+  // Filters metric card to be showed in return
   const visibleCards = metricCard.filter((card) => card.show);
 
   // Render metrics cards in horizontal layout
   return (
-    //Maps over visible cards array to create component for each metric. it will show only metric cards that contain value > 
+    //Maps over visible cards array to create component for each metric. it will show only metric cards that contain value >
     <div className='flex flex-row gap-4 p-4 flex-wrap'>
       {visibleCards.map((card) => (
         <div
           key={card.key}
-
-          // flex-1 allows equal spacing with other cards, min width of card 128xp, shows in a row, with each card having round corners  with a padding and a background-color 
+          // flex-1 allows equal spacing with other cards, min width of card 128xp, shows in a row, with each card having round corners  with a padding and a background-color
           className='flex-1 min-w-32 flex flex-col items-center justify-center border border-slate-400 rounded-lg p-4 bg-[#272633]'
-        > 
-        {/* displays card value as large bold heading with dynamic color */}
+        >
+          {/* displays card value as large bold heading with dynamic color */}
           <h1 className={`text-1xl font-bold ${card.color} mb-2`}>
             {card.value}
           </h1>
@@ -141,5 +140,3 @@ const RepoMetricDisplay = ({
 };
 
 export default RepoMetricDisplay;
-
-
