@@ -31,14 +31,14 @@ class QualityAnalyzer {
    * Analyze code quality for commits with comprehensive analysis
    * Delegates to functional coordinator while maintaining same interface
    */
-  async analyzeCodeQuality(commits, repositoryId, timeframe = 'weekly', repositoryFullName = null) {
+  async analyzeCodeQuality(commits, repositoryId, timeframe = 'weekly', repositoryFullName = null, forceRefresh = false) {
     // Delegate to the functional coordinator with backwards compatibility
     const options = {
       openaiClient: this.openai,
       callOpenAI: this.callOpenAI,
       promptBuilder: this.promptBuilder,
       githubService: this.githubService,
-      forceRefresh: false,
+      forceRefresh: forceRefresh, // Pass through the forceRefresh parameter
       model: this.model // Pass the model for dynamic diff sizing
     };
 

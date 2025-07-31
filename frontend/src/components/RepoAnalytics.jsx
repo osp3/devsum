@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import UserHeader from './UserHeader';
 import RepoHeader from './RepoHeader.jsx';
 import RepoMetricDisplay from './RepoMetricDisplay.jsx';
@@ -7,17 +7,23 @@ import LoadingProgressIndicator from './LoadingProgressIndicator.jsx';
 import { useProgressTracking } from '../hooks/useProgressTracking.js';
 
 // Main repository analytics page component
-const RepoAnalytics = ({ user, selectedRepo, qualityJobId = null }) => {
+const RepoAnalytics = ({ 
+  user, 
+  selectedRepo, 
+  qualityJobId = null,
+  fetchQualityAnalysis,
+  getQualityAnalysis,
+  qualityLoading,
+  qualityError
+}) => {
+  
   // State management for commit data and UI feedback
   const [commits, setCommits] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
 
-  // State management for quality analysis
-  const [qualityAnalysis, setQualityAnalysis] = useState(null);
-  const [qualityLoading, setQualityLoading] = useState(false); // For automatic loading
-  const [isRefreshing, setIsRefreshing] = useState(false); // For manual refresh button
-  const [qualityError, setQualityError] = useState(null);
+  // Local state for manual refresh tracking only
+  const [isRefreshing, setIsRefreshing] = useState(false);
 
   // Simulated progress state for fallback
   const [simulatedProgress, setSimulatedProgress] = useState(0);
@@ -36,7 +42,9 @@ const RepoAnalytics = ({ user, selectedRepo, qualityJobId = null }) => {
 
   // Track the last fetched repository to prevent unnecessary re-fetches
   const lastFetchedRepo = useRef(null);
-  const lastAnalyzedRepo = useRef(null); // Track which repo we've analyzed
+
+  // Note: Navigation state restoration is no longer needed since quality analysis
+  // is now cached at the app level and persists across all navigation
 
   // Simulate progress when quality analysis loading starts (fallback when no qualityJobId)
   useEffect(() => {
@@ -118,78 +126,34 @@ const RepoAnalytics = ({ user, selectedRepo, qualityJobId = null }) => {
     }
   };
 
-  // Fetch quality analysis for the commits
-  const fetchQualityAnalysis = async (commits, repo, forceRefresh = false) => {
+  // Wrapper for app-level quality analysis fetch with local refresh state tracking
+  const handleQualityAnalysis = useCallback(async (commits, repo, forceRefresh = false) => {
     if (!commits || commits.length === 0 || !repo) return;
 
-    // Set appropriate loading state based on whether this is manual refresh or automatic
-    if (forceRefresh) {
-      setIsRefreshing(true);
-      console.log(
-        `🔄 Manual refresh of quality analysis for ${repo.fullName}...`
-      );
-    } else {
-      setQualityLoading(true);
-      console.log(
-        `📦 Loading quality analysis for ${repo.fullName} (cache enabled)...`
-      );
-    }
-
-    setQualityError(null);
-
     try {
-      const response = await fetch(
-        `${import.meta.env.VITE_API_URL}/api/ai/analyze-quality`,
-        {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          credentials: 'include',
-          body: JSON.stringify({
-            commits: commits,
-            repositoryId: repo.fullName,
-            timeframe: 'weekly',
-            repositoryFullName: repo.fullName,
-            forceRefresh: forceRefresh, // Explicitly pass the forceRefresh value
-          }),
-        }
-      );
-
-      if (!response.ok) {
-        throw new Error(`Failed to fetch quality analysis: ${response.status}`);
+      if (forceRefresh) {
+        setIsRefreshing(true);
+        console.log(`🔄 Force refresh requested for ${repo.fullName}...`);
       }
 
-      const data = await response.json();
-
-      if (data.success) {
-        setQualityAnalysis(data.data);
-        const cacheStatus = forceRefresh ? 'refreshed' : 'loaded from cache';
-        console.log(`📊 Quality analysis ${cacheStatus} for ${repo.fullName}`);
-      } else {
-        throw new Error('Failed to analyze code quality');
-      }
+      // Use app-level fetch function
+      await fetchQualityAnalysis(commits, repo.fullName, forceRefresh);
+      
     } catch (error) {
       console.error('Quality analysis error:', error);
-      setQualityError(error.message);
-      // Reset the ref on error so retry is possible
-      lastAnalyzedRepo.current = null;
     } finally {
-      // Clear appropriate loading state
       if (forceRefresh) {
         setIsRefreshing(false);
-      } else {
-        setQualityLoading(false);
       }
     }
-  };
+  }, [fetchQualityAnalysis]);
 
-  // Refresh quality analysis with cache invalidation
-  const refreshQualityAnalysis = async () => {
+  // Refresh quality analysis with cache invalidation - uses app-level function
+  const handleRefreshQualityAnalysis = async () => {
     if (!commits || commits.length === 0 || !selectedRepo) return;
 
-    // Use forceRefresh = true for manual refresh
-    await fetchQualityAnalysis(commits, selectedRepo, true);
+    // Use app-level refresh function with force refresh
+    await handleQualityAnalysis(commits, selectedRepo, true);
   };
 
   // Auto-fetch commits when repository selection changes
@@ -199,30 +163,20 @@ const RepoAnalytics = ({ user, selectedRepo, qualityJobId = null }) => {
     }
   }, [selectedRepo]);
 
-  // Auto-fetch quality analysis when commits are loaded (use cache)
+  // Auto-fetch quality analysis when commits are loaded - uses app-level cache
   useEffect(() => {
-    if (commits.length > 0 && selectedRepo && !qualityAnalysis) {
-      // Check if we've already analyzed this repo to prevent duplicate analysis on navigation
-      if (lastAnalyzedRepo.current === selectedRepo.fullName) {
-        console.log(
-          `📦 Already analyzed ${selectedRepo.fullName}, skipping duplicate analysis`
-        );
-        return;
+    if (commits.length > 0 && selectedRepo) {
+      const cachedQualityAnalysis = getQualityAnalysis(selectedRepo.fullName);
+      
+      if (!cachedQualityAnalysis) {
+        // No cached data - fetch from backend (backend will check 4-hour cache first)
+        console.log(`📦 Fetching quality analysis for ${selectedRepo.fullName} (no app cache, will check backend cache)...`);
+        handleQualityAnalysis(commits, selectedRepo, false); // false = allow backend to use cache
+      } else {
+        console.log(`📦 Using cached quality analysis for ${selectedRepo.fullName} (app-level cache hit)`);
       }
-
-      // Only fetch if we don't already have quality analysis data
-      console.log(
-        `📦 No existing quality analysis found, fetching for ${selectedRepo.fullName}...`
-      );
-      lastAnalyzedRepo.current = selectedRepo.fullName;
-      fetchQualityAnalysis(commits, selectedRepo, false);
-    } else if (commits.length > 0 && selectedRepo && qualityAnalysis) {
-      console.log(
-        `📦 Quality analysis already exists for ${selectedRepo.fullName}, skipping fetch`
-      );
-      lastAnalyzedRepo.current = selectedRepo.fullName; // Mark as analyzed
     }
-  }, [commits, selectedRepo]);
+  }, [commits, selectedRepo, getQualityAnalysis, handleQualityAnalysis]);
 
   // Display prompt when no repository is selected
   if (!selectedRepo) {
@@ -274,7 +228,7 @@ const RepoAnalytics = ({ user, selectedRepo, qualityJobId = null }) => {
           <div className='flex items-center justify-between mb-4'>
             <h2 className='text-white text-xl'>Code Quality Analysis</h2>
             <button
-              onClick={refreshQualityAnalysis}
+              onClick={handleRefreshQualityAnalysis}
               disabled={isRefreshing}
               className={`px-4 py-2 rounded text-white font-medium text-sm shadow-md border transition-all duration-200 ${
                 isRefreshing
@@ -334,11 +288,11 @@ const RepoAnalytics = ({ user, selectedRepo, qualityJobId = null }) => {
         </div>
 
         {/* Recent commits list */}
-        <RecentCommits
-          commits={commits}
-          loading={loading}
-          error={error}
-          qualityAnalysis={qualityAnalysis}
+        <RecentCommits 
+          commits={commits} 
+          loading={loading} 
+          error={error} 
+          qualityAnalysis={getQualityAnalysis(selectedRepo?.fullName)}
           repositoryId={selectedRepo?.fullName}
         />
       </div>

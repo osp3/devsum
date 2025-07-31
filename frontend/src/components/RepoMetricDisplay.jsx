@@ -127,10 +127,12 @@ const RepoMetricDisplay = ({
 
           // flex-1 allows equal spacing with other cards, min width of card 128xp, shows in a row, with each card having round corners  with a padding and a background-color 
           className='flex-1 min-w-32 flex flex-col items-center justify-center border border-slate-400 rounded-lg p-4 bg-[#272633]'
-        >
+        > 
+        {/* displays card value as large bold heading with dynamic color */}
           <h1 className={`text-1xl font-bold ${card.color} mb-2`}>
             {card.value}
           </h1>
+          {/* displays card label as small grey center text */}
           <h2 className='text-sm text-gray-400 text-center'>{card.label}</h2>
         </div>
       ))}
@@ -140,4 +142,4 @@ const RepoMetricDisplay = ({
 
 export default RepoMetricDisplay;
 
-// I need to bring from app js yesterday summary
+

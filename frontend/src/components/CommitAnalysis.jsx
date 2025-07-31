@@ -57,7 +57,17 @@ const CommitAnalysis = ({ user }) => {
 
   // Handle back navigation
   const handleBack = () => {
-    navigate('/repository');
+    // Pass back the quality analysis data to preserve cache and avoid re-fetching
+    if (location.state && location.state.qualityAnalysis) {
+      navigate('/repository', { 
+        state: { 
+          preserveQualityAnalysis: location.state.qualityAnalysis,
+          repositoryId: repositoryId 
+        } 
+      });
+    } else {
+      navigate('/repository');
+    }
   };
 
   // Show error state
