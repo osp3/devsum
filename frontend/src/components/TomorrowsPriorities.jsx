@@ -37,7 +37,7 @@ const TomorrowsPriorities = ({
           {tasks.map((task, index) => (
             <div key={index} className='mb-4'>
               {/* Task Details */}
-              <div className='flex flex-col bg-[#272633] rounded-lg p-3 border-l-4 border-[#5b56dd]'>
+              <div className='flex flex-col bg-[#272633] rounded-lg p-3 border-l-2 border-[#5b56dd]'>
                 {/* gives task title in white  */}
                 <h2 className='text-white font-semibold text-sm '>
                   {task.title}
