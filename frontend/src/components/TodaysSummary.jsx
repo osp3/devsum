@@ -111,7 +111,7 @@ const TodaysSummary = ({
                     {commits.map((commit, index) => (
                       <div
                         key={commit.sha || index}
-                        className='bg-[#272633] rounded-lg p-3 border-l-4 border-[#5b56dd]'
+                        className='bg-[#272633] rounded-lg p-3 border-l-2 border-[#5b56dd]'
                       >
                         <div className=' flex justify-between  flex-row gap-2 text-xs text-gray-400'>
                           <h3>{commit.description}</h3>
