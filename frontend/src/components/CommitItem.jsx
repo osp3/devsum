@@ -2,9 +2,15 @@ import React from 'react';
 import { useNavigate } from 'react-router-dom';
 
 // Individual commit display component with props for commit data and AI suggested message
-const CommitItem = ({ commit, suggestedCommitMessage, hasQualityAnalysis, qualityAnalysis, repositoryId }) => {
+const CommitItem = ({
+  commit,
+  suggestedCommitMessage,
+  hasQualityAnalysis,
+  qualityAnalysis,
+  repositoryId,
+}) => {
   const navigate = useNavigate();
-  
+
   // Format commit date to readable local format
   const formatDate = (dateString) => {
     const date = new Date(dateString);
@@ -22,27 +28,27 @@ const CommitItem = ({ commit, suggestedCommitMessage, hasQualityAnalysis, qualit
     console.log('🔍 repositoryId:', repositoryId);
     console.log('🔍 qualityAnalysis:', qualityAnalysis);
     console.log('🔍 commit.sha:', commit.sha);
-    
+
     if (hasQualityAnalysis && repositoryId && qualityAnalysis) {
       console.log('🔍 Navigating with state:', {
         qualityAnalysis: qualityAnalysis,
         repositoryId: repositoryId,
-        commitSha: commit.sha
+        commitSha: commit.sha,
       });
-      
+
       // Pass the quality analysis data through navigation state to avoid re-fetching
       navigate(`/commit-analysis?repo=${repositoryId}&commit=${commit.sha}`, {
         state: {
           qualityAnalysis: qualityAnalysis, // Pass the actual analysis data
           repositoryId: repositoryId,
-          commitSha: commit.sha
-        }
+          commitSha: commit.sha,
+        },
       });
     } else {
       console.error('🔍 Cannot navigate - missing data:', {
         hasQualityAnalysis,
         repositoryId,
-        hasQualityAnalysisData: !!qualityAnalysis
+        hasQualityAnalysisData: !!qualityAnalysis,
       });
     }
   };
@@ -83,7 +89,7 @@ const CommitItem = ({ commit, suggestedCommitMessage, hasQualityAnalysis, qualit
   // Get commit type label
   const getCommitType = (message) => {
     const lowerMessage = message.toLowerCase();
-    
+
     if (lowerMessage.includes('feat') || lowerMessage.includes('feature'))
       return 'feat';
     if (lowerMessage.includes('fix') || lowerMessage.includes('bug'))
@@ -92,12 +98,11 @@ const CommitItem = ({ commit, suggestedCommitMessage, hasQualityAnalysis, qualit
     if (lowerMessage.includes('style')) return 'style';
     if (lowerMessage.includes('refactor')) return 'refactor';
     if (lowerMessage.includes('test')) return 'test';
-   //if (lowerMessage.includes('merge')) return 'merge';
+    //if (lowerMessage.includes('merge')) return 'merge';
     if (lowerMessage.includes('cache') || lowerMessage.includes('caching'))
       return 'cache';
     if (lowerMessage.includes('summary')) return 'summary';
     return 'commit';
-   
   };
 
   // Shorten commit messages that exceed maximum length
@@ -121,13 +126,13 @@ const CommitItem = ({ commit, suggestedCommitMessage, hasQualityAnalysis, qualit
         >
           <span>{getCommitType(displayMessage)}</span>
         </button>
-        
+
         <div className='flex items-center gap-3 flex-1'>
           {/* leading-tight make the spacing between lines tighter*/}
           <div className='flex-1'>
             <h1 className='text-white text-md leading-tight'>
               {truncateMessage(displayMessage)}
-    </h1>
+            </h1>
             {/* Show indicator if AI suggested message is being displayed */}
             {suggestedCommitMessage && (
               <div className='flex items-center gap-2 mt-1'>
@@ -146,7 +151,10 @@ const CommitItem = ({ commit, suggestedCommitMessage, hasQualityAnalysis, qualit
           <button
             onClick={handleViewAnalysis}
             className='px-3 py-1 bg-blue-600 hover:bg-blue-700 text-white rounded text-xs font-medium transition-colors cursor-pointer'
-            title={`View detailed analysis for commit ${commit.sha.substring(0, 7)}`}
+            title={`View detailed analysis for commit ${commit.sha.substring(
+              0,
+              7
+            )}`}
           >
             View Analysis
           </button>
