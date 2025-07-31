@@ -70,7 +70,7 @@ const CommitAnalysis = ({ user }) => {
             onClick={handleBack}
             className="mb-4 px-4 py-2 bg-gray-600 hover:bg-gray-700 text-white rounded text-sm transition-colors"
           >
-            ← Back to Repository
+            Back to Repository
           </button>
           <div className="text-center text-red-400">
             <h2 className="text-xl mb-2">Error Loading Analysis</h2>
