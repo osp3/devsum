@@ -128,7 +128,7 @@ export async function generateYesterdaySummary(req, res, next) {
     // Get user's OpenAI settings
     const { apiKey, model } = await getUserOpenAISettings(req);
     
-    const summaryService = new YesterdaySummaryService(req.user.accessToken);
+    const summaryService = new YesterdaySummaryService(req.user.accessToken, req.user._id);
     const result = await summaryService.generateSummary(forceRefresh, apiKey, model);
     
     // Set cache control headers to prevent browser caching
@@ -181,8 +181,8 @@ export async function generateTaskSuggestions(req, res, next) {
     // Get user's OpenAI settings
     const { apiKey, model } = await getUserOpenAISettings(req);
 
-    // Use 'ALL_REPOS' as identifier for cross-repository task suggestions
-    const repositoryId = 'ALL_REPOS';
+    // Per-user identifier for cross-repository task suggestions
+    const repositoryId = `ALL_REPOS:${req.user._id}`;
 
     const tasks = await AIService.generateTaskSuggestions(
       commits,
@@ -336,12 +336,10 @@ export async function analyzeCodeQuality(req, res, next) {
       await cacheManager.clearQualityAnalysisCache(...repositoryId.split('/'));
     }
 
-    // Create GitHubService for authenticated API calls if repository analysis is needed
-    if (repositoryFullName && req.user?.accessToken) {
-      const githubService = GitHubService(req.user.accessToken); // GitHubService is now a factory function
-      AIService.setGitHubService(githubService);
-      console.log(`🔑 AIController: Set authenticated GitHubService for ${repositoryFullName}`);
-    }
+    // Per-request GitHubService so concurrent users never share a token
+    const githubService = repositoryFullName && req.user?.accessToken
+      ? GitHubService(req.user.accessToken)
+      : null;
 
     const qualityAnalysis = await AIService.analyzeCodeQuality(
       commits,
@@ -350,7 +348,8 @@ export async function analyzeCodeQuality(req, res, next) {
       model,
       timeframe,
       repositoryFullName,
-      forceRefresh // Pass forceRefresh to bypass cache when requested
+      forceRefresh, // Pass forceRefresh to bypass cache when requested
+      githubService
     );
 
     res.json({

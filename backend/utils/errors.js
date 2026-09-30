@@ -34,6 +34,15 @@ export const createValidationError = (message = 'Invalid input', details = '') =
 });
 
 /**
+ * Not found error helper
+ */
+export const createNotFoundError = (message = 'Not found', context = '') => ({
+  log: `Not found${context ? ` - ${context}` : ''}: ${message}`,
+  status: 404,
+  message: { err: message }
+});
+
+/**
  * GitHub API error helper
  */
 export const createGitHubError = (originalError, context = '') => ({

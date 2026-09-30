@@ -1,4 +1,9 @@
-import { createAuthError } from '../utils/errors.js';
+import { createAuthError, createValidationError, createNotFoundError } from '../utils/errors.js';
+import GitHubService from '../services/external/GitHubAPIClient.js';
+
+const REPO_ACCESS_TTL_MS = 5 * 60 * 1000;
+const REPO_NAME_PATTERN = /^[\w.-]+\/[\w.-]+$/;
+const repoAccessCache = new Map();
 
 /**
  * Authentication Middleware
@@ -29,6 +34,31 @@ export const ensureGitHubToken = async (req, res, next) => {
   }
   
   return next();
+};
+
+// Middleware to ensure the user can read the requested repository before serving shared cached data
+export const ensureRepoAccess = async (req, res, next) => {
+  const { owner, repo, repositoryId } = req.params;
+  const fullName = owner ? `${owner}/${repo}` : repositoryId || req.body?.repositoryId;
+
+  if (!REPO_NAME_PATTERN.test(fullName || '')) {
+    return next(createValidationError('Repository must be in owner/repo format', `user: ${req.user?.username}`));
+  }
+
+  const cacheKey = `${req.user._id}:${fullName.toLowerCase()}`;
+  if (repoAccessCache.get(cacheKey) > Date.now()) return next();
+  repoAccessCache.delete(cacheKey);
+
+  try {
+    const [repoOwner, repoName] = fullName.split('/');
+    if (!(await GitHubService(req.user.accessToken).hasRepoAccess(repoOwner, repoName))) {
+      return next(createNotFoundError('Repository not found', `user: ${req.user.username}, repo: ${fullName}`));
+    }
+    repoAccessCache.set(cacheKey, Date.now() + REPO_ACCESS_TTL_MS);
+    return next();
+  } catch (error) {
+    return next(error);
+  }
 };
 
 // Middleware to add user info to request (optional)

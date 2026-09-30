@@ -24,7 +24,8 @@ export const createGitHubClient = (accessToken) => {
     getUserRepos: () => getUserRepos(octokit),
     getCommits: (owner, repo, options = {}) => getCommits(octokit, owner, repo, options),
     getCommitDiff: (owner, repo, sha) => getCommitDiff(octokit, owner, repo, sha),
-    getRateLimit: () => getRateLimit(octokit)
+    getRateLimit: () => getRateLimit(octokit),
+    hasRepoAccess: (owner, repo) => hasRepoAccess(octokit, owner, repo)
   };
 };
 
@@ -295,6 +296,23 @@ export const getRateLimit = async (octokit) => {
   } catch (error) {
     console.error('❌ Error checking rate limit:', error.message);
     throw createGitHubError(error, 'checking rate limit');
+  }
+};
+
+/**
+ * Check whether the token's user can read a repository
+ * @param {Octokit} octokit - Authenticated Octokit instance
+ * @param {string} owner - Repository owner
+ * @param {string} repo - Repository name
+ * @returns {Promise<boolean>} True if accessible, false if not found or forbidden
+ */
+export const hasRepoAccess = async (octokit, owner, repo) => {
+  try {
+    await octokit.rest.repos.get({ owner, repo });
+    return true;
+  } catch (error) {
+    if (error.status === 404 || error.status === 403) return false;
+    throw createGitHubError(error, `checking access to ${owner}/${repo}`);
   }
 };
 

@@ -9,7 +9,7 @@ import {
   getQualityTrends,
   generateYesterdaySummary
 } from '../controllers/AIController.js';
-import { ensureAuthenticated } from '../middleware/auth.js';
+import { ensureAuthenticated, ensureRepoAccess } from '../middleware/auth.js';
 
 const router = express.Router();
 
@@ -25,7 +25,7 @@ router.use(ensureAuthenticated);
 router.post('/analyze-commits', analyzeCommits);
 
 // Generate daily development summary
-router.post('/daily-summary', generateDailySummary);
+router.post('/daily-summary', ensureRepoAccess, generateDailySummary);
 
 //generate previous day summary for all repositories
 router.post('/yesterday-summary', generateYesterdaySummary);
@@ -37,11 +37,11 @@ router.post('/task-suggestions', generateTaskSuggestions);
 router.post('/suggest-commit-message', suggestCommitMessage);
 
 // Get analysis history for repository  
-router.get('/history/:repositoryId', getAnalysisHistory);
+router.get('/history/:repositoryId', ensureRepoAccess, getAnalysisHistory);
 
 // Quality analysis routes
-router.post('/analyze-quality', analyzeCodeQuality);
-router.get('/quality-trends/:repositoryId', getQualityTrends);
+router.post('/analyze-quality', ensureRepoAccess, analyzeCodeQuality);
+router.get('/quality-trends/:repositoryId', ensureRepoAccess, getQualityTrends);
 
 console.log('✅ AI routes loaded successfully');
 

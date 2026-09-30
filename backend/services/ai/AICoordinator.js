@@ -15,7 +15,6 @@ import * as TaskSuggester from '../tasks/TaskSuggester.js';
 dotenv.config();
 
 let initialized = false;
-let githubService = null; // Will be set when needed for quality analysis
 
 /**
  * Lazy initialization - avoids connecting to database until actually needed
@@ -26,14 +25,6 @@ const init = async () => {
     initialized = true;
     console.log('AI Coordinator initialized with functional modules');
   }
-};
-
-/**
- * Set GitHubService instance for authenticated API calls
- * @param {Object} githubServiceInstance - GitHub service instance
- */
-const setGitHubService = (githubServiceInstance) => {
-  githubService = githubServiceInstance;
 };
 
 /**
@@ -117,9 +108,10 @@ const getAnalysisHistory = async (repositoryId, days = 30) => {
  * @param {string} timeframe - Analysis timeframe
  * @param {string} repositoryFullName - Full repository name
  * @param {boolean} forceRefresh - Whether to bypass cache and force fresh analysis
+ * @param {Object|null} githubService - Requesting user's GitHub client
  * @returns {Promise<Object>} Quality analysis results
  */
-const analyzeCodeQuality = async (commits, repositoryId, userApiKey, userModel = 'gpt-4o-mini', timeframe = 'weekly', repositoryFullName = null, forceRefresh = false) => {
+const analyzeCodeQuality = async (commits, repositoryId, userApiKey, userModel = 'gpt-4o-mini', timeframe = 'weekly', repositoryFullName = null, forceRefresh = false, githubService = null) => {
   await init();
   
   // Create quality analyzer with user-specific API key (existing class-based approach)
@@ -160,8 +152,7 @@ const getQualityTrends = async (repositoryId, userApiKey, userModel = 'gpt-4o-mi
   const qualityAnalyzer = new QualityAnalyzer(
     openai, 
     (prompt) => callOpenAI(prompt, userApiKey, userModel), 
-    promptBuilder, 
-    githubService
+    promptBuilder
   );
   
   return await qualityAnalyzer.getQualityTrends(repositoryId, days);
@@ -249,12 +240,10 @@ const AIService = {
   getTaskHistory,
   
   // Utility functions
-  setGitHubService,
   cleanupOldData,
   
   // Internal properties for backwards compatibility
-  initialized: () => initialized,
-  githubService: () => githubService
+  initialized: () => initialized
 };
 
 export default AIService; 

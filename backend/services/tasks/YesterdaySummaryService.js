@@ -17,8 +17,9 @@ import { structureFormattedCommits, generateFormattedSummary } from './SummaryGe
  * Service for generating yesterday's development summary across all repositories
  */
 export class YesterdaySummaryService {
-  constructor(accessToken) {
+  constructor(accessToken, userId) {
     this.githubService = GitHubService(accessToken); // GitHubService is now a factory function
+    this.repositoryId = `ALL_REPOS:${userId}`; // Per-user cache key so summaries never leak between users
     this.aiService = aiService; // Use the exported singleton instance
     this.initialized = false;
   }
@@ -46,7 +47,7 @@ export class YesterdaySummaryService {
     
     const { start, end } = getYesterdayRange();
     const dateStr = formatDateForAPI(start);
-    const repositoryId = 'ALL_REPOS'; // Special identifier for cross-repository summaries
+    const { repositoryId } = this;
 
     try {
       // Check for cached summary for yesterday (unless force refresh requested)
