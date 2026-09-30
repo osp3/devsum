@@ -2,6 +2,21 @@
 @import "tailwindcss";
 @reference "tailwindcss/theme.css";
 
+@theme {
+  --font-geist: "Geist", Inter, system-ui, sans-serif;
+  --font-geist-mono: "Geist Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
+  --color-canvas: #1c1c24;
+  --color-surface: #23232d;
+  --color-inset: #16161c;
+  --color-fg: #ededf2;
+  --color-line: #2f2f3b;
+  --color-steam: #4fa9bd;
+  --color-dough: #f3e6c4;
+  --color-node-blue: #2f7df6;
+  --color-node-red: #e8603c;
+  --color-node-yellow: #f5c02e;
+}
+
 /* Custom styles can be added here if needed */
 @layer base {
   :root {
