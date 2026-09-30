@@ -15,7 +15,10 @@ import express from 'express';
 import cors from 'cors';
 import helmet from 'helmet';
 import session from 'express-session';
+import MongoStore from 'connect-mongo';
+import mongoose from 'mongoose';
 import connectDB from './config/database.js';
+import User from './models/User.js';
 import passport, { initializeOAuth } from './config/passport.js';
 console.log('Importing auth routes...');
 import authRoutes from './routes/auth.js';
@@ -29,8 +32,16 @@ console.log('✅ All route imports completed');
 process.setMaxListeners(20);
 console.log('🔧 Set process max listeners to 20 to prevent memory leak warnings');
 
+if (!process.env.ENCRYPTION_KEY) {
+  console.error('❌ FATAL: ENCRYPTION_KEY environment variable is required');
+  process.exit(1);
+}
+
 // Connect to MongoDB
 await connectDB();
+
+const migratedUsers = await User.encryptLegacySecrets();
+if (migratedUsers) console.log(`🔐 Encrypted legacy secrets for ${migratedUsers} user(s)`);
 
 // Initialize GitHub OAuth with shared app credentials
 console.log('🔐 Initializing GitHub OAuth...');
@@ -92,17 +103,23 @@ if (!sessionSecret) {
   process.exit(1);
 }
 
+const SESSION_MAX_AGE_MS = 24 * 60 * 60 * 1000;
+
 app.use(session({
   secret: sessionSecret,
   resave: false,
   saveUninitialized: false,
   name: 'devsum.session', // Explicit session name
+  store: MongoStore.create({
+    client: mongoose.connection.getClient(),
+    ttl: SESSION_MAX_AGE_MS / 1000,
+    touchAfter: 60 * 60 // Limit session writes from rolling cookies to once per hour
+  }),
   cookie: {
     secure: process.env.NODE_ENV === 'production', // HTTPS required in production
     httpOnly: true,
-    sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax', // Allow cross-origin in production
-    maxAge: 24 * 60 * 60 * 1000, // 24 hours
-    domain: process.env.NODE_ENV === 'production' ? undefined : undefined // Let browser handle domain
+    sameSite: 'lax', // Frontend and API share the devsum.xyz site
+    maxAge: SESSION_MAX_AGE_MS
   },
   // Force session to be saved even if not modified
   rolling: true,
@@ -148,32 +165,6 @@ app.use('/auth', (req, res, next) => {
 // Passport middleware
 app.use(passport.initialize());
 app.use(passport.session());
-
-// Session debugging middleware (AFTER passport so req.user is populated)
-app.use((req, res, next) => {
-  if (req.path.startsWith('/auth')) {
-    console.log('🍪 Session Debug:', {
-      sessionID: req.sessionID,
-      hasUser: !!req.user,
-      userId: req.user?.id,
-      username: req.user?.username,
-      cookieConfig: {
-        secure: req.session?.cookie?.secure,
-        sameSite: req.session?.cookie?.sameSite,
-        domain: req.session?.cookie?.domain,
-        httpOnly: req.session?.cookie?.httpOnly,
-        maxAge: req.session?.cookie?.maxAge
-      },
-      headers: {
-        origin: req.headers.origin,
-        referer: req.headers.referer,
-        userAgent: req.headers['user-agent']?.substring(0, 50) + '...',
-        cookieHeader: req.headers.cookie ? req.headers.cookie.substring(0, 100) + '...' : 'MISSING'
-      }
-    });
-  }
-  next();
-});
 
 // Request logging middleware
 app.use((req, res, next) => {

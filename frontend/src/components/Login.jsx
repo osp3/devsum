@@ -1,7 +1,11 @@
 import React from 'react';
+import { useSearchParams } from 'react-router-dom';
 import logo from '../assets/devsum-logo.png';
 
 const Login = () => {
+  const [searchParams] = useSearchParams();
+  const authFailed = searchParams.get('error') === 'auth_failed';
+
   const handleGitHubLogin = () => {
     const backendUrl = import.meta.env.VITE_API_URL || 'http://localhost:3000';
     window.location.href = `${backendUrl}/auth/github`;
@@ -43,6 +47,12 @@ const Login = () => {
         </h1>
         <h3 className='tagline'>Your daily dev bites.</h3>
         <p className='subtitle'>Smart. Steamy. Structured.</p>
+
+        {authFailed && (
+          <p role='alert' className='auth-error'>
+            GitHub sign-in didn't complete. Please try again.
+          </p>
+        )}
 
         <button className='github-button' onClick={handleGitHubLogin}>
           <svg width='20' height='20' fill='currentColor' viewBox='0 0 24 24'>
@@ -150,6 +160,16 @@ const Login = () => {
           color: rgba(255, 255, 255, 0.6);
           margin: 0 0 40px 0;
           font-size: 1rem;
+        }
+
+        .auth-error {
+          margin: -24px 0 0 0;
+          padding: 10px 16px;
+          border: 1px solid rgba(248, 113, 113, 0.4);
+          border-radius: 8px;
+          background: rgba(248, 113, 113, 0.1);
+          color: #fca5a5;
+          font-size: 0.95rem;
         }
 
         .github-button {

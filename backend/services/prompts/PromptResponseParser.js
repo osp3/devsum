@@ -55,10 +55,10 @@ export const parseTaskResponse = (aiResponse) => {
       
       // Log if fields were missing for debugging
       if (!task.basedOn) {
-        console.warn(`Task "${task.title}" missing basedOn field - added default`);
+        console.warn('Task missing basedOn field - added default');
       }
       if (!task.repositories) {
-        console.warn(`Task "${task.title}" missing repositories field - added default`);
+        console.warn('Task missing repositories field - added default');
       }
       
       return validatedTask;

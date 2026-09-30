@@ -41,17 +41,6 @@ function App() {
   const [qualityAnalysisCache, setQualityAnalysisCache] = useState({}); // Quality analysis cached by repo ID
   const [qualityLoading, setQualityLoading] = useState(false); // Loading state for quality analysis
   const [qualityError, setQualityError] = useState(null); // Error state for quality analysis
-  const [isBrowserRefresh, setIsBrowserRefresh] = useState(false); // Track if current session started with browser refresh
-
-  // Browser refresh detection using Performance API
-  const detectBrowserRefresh = () => {
-    // Check if page was loaded via browser refresh
-    const navigationType = performance.getEntriesByType('navigation')[0]?.type;
-    const isReload = navigationType === 'reload';
-    
-    console.log('🔍 Navigation type detected:', navigationType, 'isReload:', isReload);
-    return isReload;
-  };
 
   // Fetch all user repositories - called once on login, cached for entire session
   const fetchRepositories = async (forceRefresh = false) => {
@@ -125,7 +114,7 @@ function App() {
           },
           credentials: 'include',
           cache: 'no-cache',
-          body: JSON.stringify({}) // Empty body - defaults to yesterday
+          body: JSON.stringify({ timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone })
         }
       );
       
@@ -235,10 +224,8 @@ function App() {
           },
           credentials: 'include',
           body: JSON.stringify({
-            commits: commits,
             repositoryId: repositoryId,
             timeframe: 'weekly',
-            repositoryFullName: repositoryId,
             forceRefresh: forceRefresh,
           }),
         }
@@ -315,27 +302,18 @@ function App() {
   // Fetch repositories and yesterday's summary when user becomes authenticated
   useEffect(() => {
     if (isAuthenticated) {
-      const browserRefreshDetected = detectBrowserRefresh();
-      setIsBrowserRefresh(browserRefreshDetected);
-      
-      if (browserRefreshDetected) {
-        console.log('🔄 Browser refresh detected - fetching fresh data (cache bypassed)');
-      } else {
-        console.log('📦 Loading data with cache enabled');
-      }
-      
-      // Use fresh data on browser refresh, cached data otherwise
-      fetchRepositories(browserRefreshDetected);
-      fetchYesterdaySummary(browserRefreshDetected);
+      // Reloads use caches; the refresh buttons force fresh data
+      fetchRepositories();
+      fetchYesterdaySummary();
     }
   }, [isAuthenticated]); // Run when auth status changes
 
   // Fetch task suggestions when yesterday's summary becomes available
   useEffect(() => {
     if (yesterdaySummary && yesterdaySummary.formattedCommits?.allCommits?.length > 0) {
-      fetchTaskSuggestions(isBrowserRefresh);
+      fetchTaskSuggestions();
     }
-  }, [yesterdaySummary, isBrowserRefresh]); // Run when summary changes or refresh status changes
+  }, [yesterdaySummary]); // Run when summary changes
 
   // === PROP DRILLING - Package shared state for all child components ===
   const appContext = {

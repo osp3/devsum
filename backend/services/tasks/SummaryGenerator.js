@@ -49,7 +49,6 @@ export const generateDailySummary = async (commits, repositoryId, userApiKey, us
 
       if (existing) {
         console.log(`📦 SummaryGenerator: Using CACHED summary for ${dateStr} (repositoryId: ${repositoryId})`);
-        console.log(`📦 Cache hit - Summary preview: "${existing.summary.substring(0, 100)}..."`);
         return existing.summary;
       } else {
         console.log(`📦 SummaryGenerator: No cached summary found for ${dateStr} - will generate fresh`);
@@ -64,7 +63,7 @@ export const generateDailySummary = async (commits, repositoryId, userApiKey, us
     const aiResponse = await callOpenAI(prompt, userApiKey, userModel, defaultOptions.summaryGeneration);
     const summary = parseSummaryResponse(aiResponse);
     
-    console.log(`🤖 SummaryGenerator: Fresh summary generated - Preview: "${summary.substring(0, 100)}..."`);
+    console.log(`🤖 SummaryGenerator: Fresh summary generated (${summary.length} chars)`);
 
     // Store in database for future requests
     await storeSummary(dateStr, repositoryId, summary, commits);

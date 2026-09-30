@@ -1,5 +1,6 @@
 import mongoose from 'mongoose';
 import { DEFAULT_OPENAI_MODEL } from '../config/openaiModels.js';
+import { decryptSecret, encryptSecret, isEncrypted } from '../utils/crypto.js';
 
 /**
  * User Schema - Stores essential GitHub user data
@@ -31,13 +32,17 @@ const userSchema = new mongoose.Schema({
   accessToken: {
     type: String,
     required: true,
-    select: false // Don't include in queries by default for security
+    select: false, // Don't include in queries by default for security
+    set: encryptSecret,
+    get: decryptSecret
   },
   // User's personal OpenAI API key for AI features
   openaiApiKey: {
     type: String,
     required: false,
-    select: false // Don't include in queries by default for security
+    select: false, // Don't include in queries by default for security
+    set: encryptSecret,
+    get: decryptSecret
   },
   // User's preferred OpenAI model
   openaiModel: {
@@ -70,6 +75,22 @@ userSchema.methods.getRepositories = function() {
 // Static method to find by GitHub ID
 userSchema.statics.findByGithubId = function(githubId) {
   return this.findOne({ githubId });
+};
+
+// Encrypt secrets stored before encryption at rest was added
+userSchema.statics.encryptLegacySecrets = async function() {
+  const legacy = { $exists: true, $not: /^enc:v1:/ };
+  const users = await this.find({ $or: [{ accessToken: legacy }, { openaiApiKey: legacy }] })
+    .select('+accessToken +openaiApiKey');
+
+  for (const user of users) {
+    for (const field of ['accessToken', 'openaiApiKey']) {
+      const raw = user.get(field, null, { getters: false });
+      if (raw && !isEncrypted(raw)) user.set(field, raw);
+    }
+    await user.save();
+  }
+  return users.length;
 };
 
 export default mongoose.model('User', userSchema); 

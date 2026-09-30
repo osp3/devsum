@@ -1,5 +1,5 @@
 import mongoose from 'mongoose';
-import crypto from 'crypto';
+import { decryptSecret, encryptSecret, isEncrypted } from '../utils/crypto.js';
 
 const settingsSchema = new mongoose.Schema({
   key: {
@@ -24,10 +24,6 @@ const settingsSchema = new mongoose.Schema({
   timestamps: true
 });
 
-// Encryption utilities
-const ENCRYPTION_KEY = process.env.ENCRYPTION_KEY || 'fallback-key-change-in-production';
-const ALGORITHM = 'aes-256-cbc';
-
 // Sensitive keys that should be encrypted
 const SENSITIVE_KEYS = [
   'GITHUB_CLIENT_SECRET',
@@ -35,45 +31,20 @@ const SENSITIVE_KEYS = [
   'SESSION_SECRET'
 ];
 
+const protect = (key, value) => (SENSITIVE_KEYS.includes(key) ? encryptSecret(value) : value);
+
 // Encrypt sensitive data before saving
 settingsSchema.pre('save', function(next) {
-  if (this.isModified('value') && SENSITIVE_KEYS.includes(this.key)) {
-    try {
-      const iv = crypto.randomBytes(16);
-      const cipher = crypto.createCipher(ALGORITHM, ENCRYPTION_KEY);
-      let encrypted = cipher.update(this.value, 'utf8', 'hex');
-      encrypted += cipher.final('hex');
-      
-      this.value = iv.toString('hex') + ':' + encrypted;
-      this.encrypted = true;
-    } catch (error) {
-      console.error('Encryption error:', error);
-      return next(error);
-    }
+  if (this.isModified('value')) {
+    this.value = protect(this.key, this.value);
+    this.encrypted = isEncrypted(this.value);
   }
   next();
 });
 
 // Method to decrypt sensitive data
 settingsSchema.methods.getDecryptedValue = function() {
-  if (!this.encrypted) {
-    return this.value;
-  }
-  
-  try {
-    const textParts = this.value.split(':');
-    const iv = Buffer.from(textParts.shift(), 'hex');
-    const encryptedText = textParts.join(':');
-    
-    const decipher = crypto.createDecipher(ALGORITHM, ENCRYPTION_KEY);
-    let decrypted = decipher.update(encryptedText, 'hex', 'utf8');
-    decrypted += decipher.final('utf8');
-    
-    return decrypted;
-  } catch (error) {
-    console.error('Decryption error:', error);
-    return null;
-  }
+  return decryptSecret(this.value);
 };
 
 // Static method to get all settings as key-value pairs
@@ -99,9 +70,10 @@ settingsSchema.statics.getValue = async function(key) {
 
 // Static method to set a setting value
 settingsSchema.statics.setValue = async function(key, value) {
+  const storedValue = protect(key, value);
   const setting = await this.findOneAndUpdate(
     { key },
-    { value, updatedAt: new Date() },
+    { value: storedValue, encrypted: isEncrypted(storedValue), updatedAt: new Date() },
     { upsert: true, new: true }
   );
   return setting;

@@ -54,8 +54,7 @@ export const callOpenAI = async (prompt, userApiKey, userModel = DEFAULT_OPENAI_
     const maxTokens = options.maxTokens || 1500;
     const isReasoning = reasoningEffort !== 'none';
     
-    console.log(`🤖 OpenAI Request: Sending prompt to model "${model}" with user's API key`);
-    console.log(`🤖 Prompt preview: "${prompt.substring(0, 150)}..."`);
+    console.log(`🤖 OpenAI Request: Sending ${prompt.length}-char prompt to model "${model}" with user's API key`);
     
     const response = await openai.chat.completions.create({
       model,
@@ -81,7 +80,6 @@ export const callOpenAI = async (prompt, userApiKey, userModel = DEFAULT_OPENAI_
       throw new Error(`Empty response from "${model}" (finish_reason: ${finish_reason})`);
     }
     console.log(`✅ OpenAI Response: Received ${responseText.length} characters from "${model}"`);
-    console.log(`✅ Response preview: "${responseText.substring(0, 100)}..."`);
     return responseText;
   } catch (error) {
     console.error(`❌ OpenAI API call failed with model "${model}":`, error.message);

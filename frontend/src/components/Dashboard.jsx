@@ -35,7 +35,7 @@ const Dashboard = ({
       <UserHeader user={user} />
 
       {/* Top metrics section - repository statistics */}
-      <div className=' border border-slate-400 rounded-2xl p-4 m-6 max-w-7xl mx-auto'>
+      <div className=' border border-slate-400 rounded-2xl p-4 m-4 sm:m-6 max-w-7xl xl:mx-auto'>
         <div className='flex-1 justify-center'>
           <TodaysMetrics
             selectedRepo={selectedRepo}
@@ -46,9 +46,9 @@ const Dashboard = ({
       </div>
 
       {/* Main content area - two column layout */}
-      <div className='flex justify-row gap-6 max-w-7xl mx-auto '>
+      <div className='flex flex-col lg:flex-row gap-6 max-w-7xl mx-4 sm:mx-6 xl:mx-auto'>
         {/* Left column - yesterday's development summary */}
-        <div className='flex-3  border border-slate-400 rounded-2xl w-150 h-150 p-4  '>
+        <div className='lg:flex-3 min-w-0 border border-slate-400 rounded-2xl lg:h-150 p-4'>
           <TodaysSummary
             yesterdaySummary={yesterdaySummary}
             summaryLoading={summaryLoading}
@@ -57,7 +57,7 @@ const Dashboard = ({
           />
         </div>
         {/* Right column - AI-generated task priorities */}
-        <div className='flex-1 border border-slate-400 rounded-2xl w-100 h-150 p-4'>
+        <div className='lg:flex-1 min-w-0 border border-slate-400 rounded-2xl lg:h-150 p-4'>
           <TomorrowsPriorities
             taskSuggestions={taskSuggestions}
             tasksLoading={tasksLoading}

@@ -106,7 +106,7 @@ export const analyzeCommitDiff = async (commit, diff, userApiKey, userModel = 'g
     const analysis = await callOpenAI(prompt, userApiKey, userModel, defaultOptions.commitAnalysis);
     const parsedAnalysis = parseCommitAnalysis(analysis);
 
-    console.log(`Analysis complete for ${commit.sha?.substring(0, 7)}: ${parsedAnalysis.suggestedMessage}`);
+    console.log(`Analysis complete for ${commit.sha?.substring(0, 7)}`);
     
     return {
       diffSize: diff.length,
@@ -133,7 +133,7 @@ export const analyzeCommitDiff = async (commit, diff, userApiKey, userModel = 'g
  */
 export const suggestCommitMessage = async (diffContent, userApiKey, userModel = 'gpt-4o-mini', currentMessage = '', repositoryId = null) => {
   await init();
-  console.log(`💬 AI Commit: Suggesting commit message (diff: ${diffContent.length} chars, original: "${currentMessage || 'none'}")`);
+  console.log(`💬 AI Commit: Suggesting commit message (diff: ${diffContent.length} chars)`);
 
   try {
     const prompt = promptBuilder.createCommitMessagePrompt(diffContent, currentMessage);

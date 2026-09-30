@@ -4,6 +4,9 @@ import CacheManager from '../services/external/CacheManager.js';
 import User from '../models/User.js';
 import { resolveModel } from '../config/openaiModels.js';
 import { createValidationError, createServerError, createGitHubError } from '../utils/errors.js';
+import { mapWithConcurrency } from '../utils/concurrency.js';
+
+const AI_CONCURRENCY = 5;
 
 /**
  * Repository Controller
@@ -158,8 +161,7 @@ class RepositoryController {
       const openaiSettings = await RepositoryController.getUserOpenAISettings(req);
       
       // Add AI-suggested commit messages to each commit (if user has OpenAI configured)
-      const enhancedCommits = await Promise.all(
-        commits.map(async (commit) => {
+      const enhancedCommits = await mapWithConcurrency(commits, AI_CONCURRENCY, async (commit) => {
           try {
             if (!openaiSettings) {
               // No OpenAI configured - return commit without AI suggestions
@@ -196,8 +198,7 @@ class RepositoryController {
               aiAnalysisError: error.message
             };
           }
-        })
-      );
+      });
       
       const aiEnhancedCount = enhancedCommits.filter(c => c.suggestedMessage).length;
       console.log(`✅ Enhanced ${aiEnhancedCount}/${enhancedCommits.length} commits with AI suggestions`);

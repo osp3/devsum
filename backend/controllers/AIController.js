@@ -4,6 +4,8 @@ import { YesterdaySummaryService } from '../services/tasks/YesterdaySummaryServi
 import User from '../models/User.js';
 import { resolveModel } from '../config/openaiModels.js';
 
+const QUALITY_COMMIT_COUNT = 10;
+
 /**
  * AI Controller - Plain Functions
  * Connects routes to AI service
@@ -12,20 +14,21 @@ import { resolveModel } from '../config/openaiModels.js';
 /**
  * Get user's OpenAI settings
  * @param {Object} req - Express request object
+ * @param {Object} options - { required: false } returns a null apiKey instead of throwing
  * @returns {Promise<Object>} User's OpenAI API key and model
  */
-async function getUserOpenAISettings(req) {
+async function getUserOpenAISettings(req, { required = true } = {}) {
   const user = await User.findById(req.user._id).select('+openaiApiKey');
   if (!user) {
     throw new Error('User not found');
   }
   
-  if (!user.openaiApiKey) {
+  if (!user.openaiApiKey && required) {
     throw new Error('No OpenAI API key configured for your account. Please add your API key in Settings.');
   }
   
   return {
-    apiKey: user.openaiApiKey,
+    apiKey: user.openaiApiKey || null,
     model: resolveModel(user.openaiModel)
   };
 }
@@ -126,11 +129,11 @@ export async function generateYesterdaySummary(req, res, next) {
     
     console.log(`🎯 Controller: generateYesterdaySummary called with force=${forceRefresh}`);
     
-    // Get user's OpenAI settings
-    const { apiKey, model } = await getUserOpenAISettings(req);
+    // Without a key the service falls back to a non-AI summary
+    const { apiKey, model } = await getUserOpenAISettings(req, { required: false });
     
     const summaryService = new YesterdaySummaryService(req.user.accessToken, req.user._id);
-    const result = await summaryService.generateSummary(forceRefresh, apiKey, model);
+    const result = await summaryService.generateSummary(forceRefresh, apiKey, model, req.body?.timeZone);
     
     // Set cache control headers to prevent browser caching
     res.set({
@@ -140,7 +143,6 @@ export async function generateYesterdaySummary(req, res, next) {
     });
     
     console.log(`📤 Controller: Returning summary response to client`);
-    console.log(`📤 Response summary preview: "${result.summary.substring(0, 100)}..."`);
     console.log(`📤 Response type: ${forceRefresh ? 'FORCE REFRESH' : 'NORMAL (cache enabled)'}`);
     
     res.json({ success: true, data: result });
@@ -311,23 +313,23 @@ export async function getAnalysisHistory(req, res, next) {
  */
 export async function analyzeCodeQuality(req, res, next) {
   try {
-    const {
-      commits,
-      repositoryId,
-      timeframe = 'weekly',
-      repositoryFullName,
-      forceRefresh = false
-    } = req.body;
-
-    if (!commits || !repositoryId) {
-      return res.status(400).json({
-        success: false,
-        error: 'Commits and repositoryId are required',
-      });
-    }
+    const { repositoryId, timeframe = 'weekly', forceRefresh = false } = req.body;
+    const repositoryFullName = repositoryId;
 
     // Get user's OpenAI settings
     const { apiKey, model } = await getUserOpenAISettings(req);
+
+    // Commits come from GitHub, never the request body, so shared cache entries can't be poisoned
+    const githubService = GitHubService(req.user.accessToken);
+    const [owner, repo] = repositoryId.split('/');
+    const commits = await githubService.getCommits(owner, repo, { per_page: QUALITY_COMMIT_COUNT });
+
+    if (commits.length === 0) {
+      return res.status(400).json({
+        success: false,
+        error: 'Repository has no commits to analyze',
+      });
+    }
 
     // Clear cache if force refresh is requested
     if (forceRefresh) {
@@ -336,11 +338,6 @@ export async function analyzeCodeQuality(req, res, next) {
       const cacheManager = new CacheManager();
       await cacheManager.clearQualityAnalysisCache(...repositoryId.split('/'));
     }
-
-    // Per-request GitHubService so concurrent users never share a token
-    const githubService = repositoryFullName && req.user?.accessToken
-      ? GitHubService(req.user.accessToken)
-      : null;
 
     const qualityAnalysis = await AIService.analyzeCodeQuality(
       commits,

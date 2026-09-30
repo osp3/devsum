@@ -85,7 +85,6 @@ export const storeQualityAnalysis = async (qualityData, repositoryId, date, cach
     // Debug the codeAnalysis structure before saving
     if (qualityData.codeAnalysis && qualityData.codeAnalysis.insights) {
       console.log(`📊 Saving ${qualityData.codeAnalysis.insights.length} code insights for ${repositoryId}`);
-      console.log(`📊 Sample insight structure:`, JSON.stringify(qualityData.codeAnalysis.insights[0], null, 2));
     }
     
     console.log(`💾 Storing quality analysis with cache key: ${cacheKey}`);

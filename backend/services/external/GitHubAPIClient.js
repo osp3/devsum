@@ -92,14 +92,7 @@ export const getUserRepos = async (octokit) => {
     console.log(`   Private repositories: ${privateRepos}`);
     console.log(`   Total repositories: ${allRepos.length}`);
     
-    // Debug: Show sample of private repos (if any)
-    const samplePrivateRepos = allRepos.filter(repo => repo.private).slice(0, 3);
-    if (samplePrivateRepos.length > 0) {
-      console.log(`🔒 DEBUG - Sample private repositories:`);
-      samplePrivateRepos.forEach(repo => {
-        console.log(`   - ${repo.full_name} (private: ${repo.private})`);
-      });
-    } else {
+    if (privateRepos === 0) {
       console.log(`⚠️  DEBUG - No private repositories found in API response`);
       console.log(`   This could be due to:`);
       console.log(`   1. User has no private repositories`);
@@ -115,6 +108,7 @@ export const getUserRepos = async (octokit) => {
       private: repo.private,
       defaultBranch: repo.default_branch,
       updatedAt: repo.updated_at,
+      pushedAt: repo.pushed_at,
       description: repo.description,
       language: repo.language
     }));

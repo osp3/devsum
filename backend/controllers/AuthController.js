@@ -78,10 +78,6 @@ class AuthController {
    */
   static async getCurrentUser(req, res, next) {
     try {
-      console.log('/auth/me route hit');
-      console.log('User authenticated:', !!req.user);
-      console.log('Session ID:', req.sessionID);
-
       if (!req.user) {
         const err = createAuthError('Not authenticated', 'accessing /auth/me');
         return next(err);
@@ -139,7 +135,7 @@ class AuthController {
     } catch (error) {
       const err = createServerError(
         'Failed to get user information',
-        `session: ${req.sessionID}`
+        'accessing /auth/me'
       );
       return next(err);
     }

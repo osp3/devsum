@@ -1,6 +1,7 @@
 import express from 'express';
 import { ensureAuthenticated, ensureGitHubToken, ensureRepoAccess } from '../middleware/auth.js';
 import RepositoryController from '../controllers/RepositoryController.js';
+import { aiRateLimit } from '../middleware/rateLimit.js';
 
 // Destructure methods for cleaner route definitions
 const { getUserRepositories, getRepositoryCommits, getCommitDiff } = RepositoryController;
@@ -20,7 +21,7 @@ router.use(ensureGitHubToken);
 router.get('/', getUserRepositories);
 
 // Get commits for a specific repository
-router.get('/:owner/:repo/commits', ensureRepoAccess, getRepositoryCommits);
+router.get('/:owner/:repo/commits', ensureRepoAccess, aiRateLimit, getRepositoryCommits);
 
 // Get specific commit with diff
 router.get('/:owner/:repo/commits/:sha', getCommitDiff);

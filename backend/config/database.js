@@ -5,6 +5,8 @@ import mongoose from 'mongoose';
  * Implements connection retry logic and proper error handling
  */
 const connectDB = async () => {
+  if (mongoose.connection.readyState === 1) return mongoose;
+
   try {
     const conn = await mongoose.connect(process.env.MONGODB_URI, {
       // Recommended options for production

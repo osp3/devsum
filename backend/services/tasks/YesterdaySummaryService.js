@@ -9,9 +9,15 @@ import GitHubService from '../external/GitHubAPIClient.js';
 import aiService from '../ai/AICoordinator.js';
 import connectDB from '../../config/database.js';
 import { DailySummary } from '../../models/aiModels.js';
-import { getYesterdayRange, formatDateForAPI } from '../../utils/DateUtils.js';
+import { getYesterdayRange } from '../../utils/DateUtils.js';
+import { DEFAULT_OPENAI_MODEL } from '../../config/openaiModels.js';
 import { formatCommitObject, generateFakeObjectId } from '../../utils/CommitFormatter.js';
 import { structureFormattedCommits, generateFormattedSummary } from './SummaryGenerator.js';
+import { mapWithConcurrency } from '../../utils/concurrency.js';
+
+const REPO_CONCURRENCY = 4;
+const COMMIT_CONCURRENCY = 3;
+const MAX_ANALYZED_COMMITS_PER_REPO = 10;
 
 /**
  * Service for generating yesterday's development summary across all repositories
@@ -42,11 +48,10 @@ export class YesterdaySummaryService {
    * @param {string} userModel - User's preferred OpenAI model
    * @returns {Object} Complete summary data
    */
-  async generateSummary(forceRefresh = false, userApiKey = null, userModel = 'gpt-4o-mini') {
+  async generateSummary(forceRefresh = false, userApiKey = null, userModel = DEFAULT_OPENAI_MODEL, timeZone = 'UTC') {
     await this.init(); // Ensure DB connection
     
-    const { start, end } = getYesterdayRange();
-    const dateStr = formatDateForAPI(start);
+    const { start, end, date: dateStr } = getYesterdayRange(timeZone);
     const { repositoryId } = this;
 
     try {
@@ -59,7 +64,6 @@ export class YesterdaySummaryService {
 
         if (existing) {
           console.log(`📦 YesterdaySummaryService: Using CACHED yesterday summary for ${dateStr}`);
-          console.log(`📦 Cache hit - Summary preview: "${existing.summary.substring(0, 100)}..."`);
           
           // Return cached data in the expected format
           return {
@@ -87,18 +91,15 @@ export class YesterdaySummaryService {
       console.log(`   End: ${end.toISOString()} (${end.toLocaleString()})`);
       console.log(`   Duration: ${Math.round((end - start) / (1000 * 60 * 60))} hours`);
       
-      const { commits, repositoryData } = await this.fetchAllCommits(repos, start, end);
+      const { commits, repositoryData } = await this.fetchAllCommits(repos, start, end, userApiKey, userModel);
       
       // Debug logging for returned data
       console.log(`📊 DEBUG - Fetch Results:`);
       console.log(`   Repositories found: ${repositoryData.length}`);
       console.log(`   Total commits found: ${commits.length}`);
       if (commits.length > 0) {
-        console.log(`   First commit: ${commits[0].sha?.substring(0, 7)} - "${commits[0].message?.substring(0, 50)}..."`);
-        console.log(`   Last commit: ${commits[commits.length - 1].sha?.substring(0, 7)} - "${commits[commits.length - 1].message?.substring(0, 50)}..."`);
         console.log(`   Commit date range: ${commits[commits.length - 1].date} to ${commits[0].date}`);
       }
-      console.log(`   Repository details:`, repositoryData.map(r => `${r.name} (${r.commitCount} commits)`));
       
       const formattedCommits = structureFormattedCommits(commits);
       
@@ -114,7 +115,7 @@ export class YesterdaySummaryService {
         // Use AI-powered summary for actual commits - pass through forceRefresh and user's API key
         console.log(`🔄 YesterdaySummaryService: Generating fresh summary via AIService with user's API key (forceRefresh=${forceRefresh})`);
         summaryText = await this.aiService.generateDailySummary(commits, repositoryId, userApiKey, userModel, new Date(dateStr), forceRefresh);
-        console.log(`✅ YesterdaySummaryService: Received summary from AIService - Preview: "${summaryText.substring(0, 100)}..."`);
+        console.log(`✅ YesterdaySummaryService: Received summary from AIService (${summaryText.length} chars)`);
       }
 
       const summaryData = {
@@ -143,7 +144,6 @@ export class YesterdaySummaryService {
       );
 
       console.log(`💾 YesterdaySummaryService: Fresh summary generated and cached for ${dateStr}`);
-      console.log(`💾 Final summary being returned - Preview: "${summaryText.substring(0, 100)}..."`);
       return summaryData;
 
     } catch (error) {
@@ -159,7 +159,7 @@ export class YesterdaySummaryService {
         ? "No work found for yesterday" 
         : generateFormattedSummary(commits, repositoryData.length);
 
-      console.log(`⚠️  YesterdaySummaryService: FALLBACK summary generated - Preview: "${summaryText.substring(0, 100)}..."`);
+      console.log(`⚠️  YesterdaySummaryService: FALLBACK summary generated`);
       return {
         summary: summaryText,
         date: dateStr,
@@ -191,48 +191,44 @@ export class YesterdaySummaryService {
    * @param {Date} end - End date
    * @returns {Object} { commits, repositoryData }
    */
-  async fetchAllCommits(repos, start, end) {
-    const allCommits = [];
-    const repositoryData = [];
+  async fetchAllCommits(repos, start, end, userApiKey = null, userModel) {
+    // Repos with no push since the window started cannot contain commits in it
+    const activeRepos = repos.filter(repo => !repo.pushedAt || new Date(repo.pushedAt) >= start);
+    console.log(`📥 Checking ${activeRepos.length} of ${repos.length} repositories pushed since ${start.toISOString()}`);
 
-    for (const repo of repos) {
+    const results = await mapWithConcurrency(activeRepos, REPO_CONCURRENCY, async (repo) => {
       try {
         const [owner, name] = repo.fullName.split('/');
         const commits = await this.githubService.getCommits(owner, name, {
-          per_page: 10, // Limit to 20 commits per repo for performance
+          per_page: 10,
           since: start.toISOString(),
           until: end.toISOString(),
         });
 
-        if (commits.length > 0) {
-          console.log(`📥 Processing ${commits.length} commits for ${repo.fullName}`);
-          
-          // Filter out merge commits from today-summary results
-          const filteredCommits = this._filterMergeCommits(commits);
-          console.log(`📊 Filtered out ${commits.length - filteredCommits.length} merge commits, ${filteredCommits.length} regular commits remaining`);
-          
-          if (filteredCommits.length > 0) {
-            // Format commits with AI analysis for this repository
-            const formattedCommits = await this._processCommitsWithAI(filteredCommits, repo);
-            allCommits.push(...formattedCommits);
-            
-            // Add repository data
-            repositoryData.push({
-              id: repo.id.toString(),
-              name: repo.name,
-              fullName: repo.fullName,
-              commitCount: filteredCommits.length,
-              _id: generateFakeObjectId()
-            });
+        const filteredCommits = this._filterMergeCommits(commits);
+        if (filteredCommits.length === 0) return null;
+
+        return {
+          commits: await this._processCommitsWithAI(filteredCommits, repo, userApiKey, userModel),
+          repository: {
+            id: repo.id.toString(),
+            name: repo.name,
+            fullName: repo.fullName,
+            commitCount: filteredCommits.length,
+            _id: generateFakeObjectId()
           }
-        }
+        };
       } catch (error) {
         console.error(`Error fetching commits for ${repo.fullName}:`, error.message);
-        continue; // Skip failed repositories
+        return null;
       }
-    }
+    });
 
-    return { commits: allCommits, repositoryData };
+    const found = results.filter(Boolean);
+    return {
+      commits: found.flatMap(result => result.commits),
+      repositoryData: found.map(result => result.repository)
+    };
   }
 
   /**
@@ -241,48 +237,27 @@ export class YesterdaySummaryService {
    * @param {Object} repo - Repository object
    * @returns {Array} Formatted commits with AI analysis
    */
-  async _processCommitsWithAI(commits, repo) {
-    const formattedCommits = [];
+  async _processCommitsWithAI(commits, repo, userApiKey = null, userModel) {
+    if (!userApiKey) {
+      return commits.map(commit => formatCommitObject(commit, repo));
+    }
+
     const [owner, name] = repo.fullName.split('/');
-    
-    // Limit the number of commits to analyze to prevent excessive API calls
-    const commitsToAnalyze = commits.slice(0, 10); // Max 10 commits per repo
-    
-    for (const commit of commitsToAnalyze) {
+    const commitsToAnalyze = commits.slice(0, MAX_ANALYZED_COMMITS_PER_REPO);
+
+    const analyzed = await mapWithConcurrency(commitsToAnalyze, COMMIT_CONCURRENCY, async (commit) => {
       try {
-        // Get the commit diff
         const diff = await this._getCommitDiff(owner, name, commit.sha);
-        
-        // Run AI analysis on the diff
-        const aiAnalysis = await this.aiService.analyzeCommitDiff(commit, diff);
-        
-        // Format the commit with AI analysis
-        const formattedCommit = formatCommitObject(commit, repo, aiAnalysis);
-        formattedCommits.push(formattedCommit);
-        
-        console.log(`✅ Analyzed commit ${commit.sha?.substring(0, 7)} in ${repo.name}`);
-        
+        const aiAnalysis = await this.aiService.analyzeCommitDiff(commit, diff, userApiKey, userModel);
+        return formatCommitObject(commit, repo, aiAnalysis);
       } catch (error) {
         console.error(`Failed to analyze commit ${commit.sha?.substring(0, 7)} in ${repo.name}:`, error.message);
-        
-        // Fallback: format commit without AI analysis
-        const formattedCommit = formatCommitObject(commit, repo);
-        formattedCommits.push(formattedCommit);
+        return formatCommitObject(commit, repo);
       }
-    }
-    
-    // Add remaining commits without AI analysis if there are more than 10
-    if (commits.length > 10) {
-      const remainingCommits = commits.slice(10);
-      console.log(`📊 Adding ${remainingCommits.length} commits without AI analysis for ${repo.name}`);
-      
-      for (const commit of remainingCommits) {
-        const formattedCommit = formatCommitObject(commit, repo);
-        formattedCommits.push(formattedCommit);
-      }
-    }
-    
-    return formattedCommits;
+    });
+
+    const remaining = commits.slice(MAX_ANALYZED_COMMITS_PER_REPO).map(commit => formatCommitObject(commit, repo));
+    return [...analyzed, ...remaining];
   }
 
   /**

@@ -46,7 +46,8 @@ async function initializeOAuth() {
       clientID,
       clientSecret,
       callbackURL,
-      scope: ['user:email', 'repo'] // Required scopes for DevSum functionality
+      scope: ['user:email', 'repo'], // Required scopes for DevSum functionality
+      state: true // CSRF protection: callback must match the state stored in the session
     }, async (accessToken, refreshToken, profile, done) => {
       try {
         console.log(`🔐 GitHub OAuth callback for user: ${profile.username}`);
