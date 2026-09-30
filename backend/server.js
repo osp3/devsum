@@ -207,34 +207,6 @@ app.get('/health', (req, res) => {
   });
 });
 
-// Cookie debug endpoint
-app.get('/debug/cookies', (req, res) => {
-  const cookieInfo = {
-    sessionID: req.sessionID,
-    hasUser: !!req.user,
-    username: req.user?.username,
-    cookieHeaders: req.headers.cookie || 'NO COOKIES',
-    sessionData: req.session,
-    cookieConfig: {
-      secure: req.session?.cookie?.secure,
-      sameSite: req.session?.cookie?.sameSite,
-      domain: req.session?.cookie?.domain,
-      httpOnly: req.session?.cookie?.httpOnly,
-      maxAge: req.session?.cookie?.maxAge
-    }
-  };
-  
-  // Try to manually set a test cookie
-  res.cookie('test-cookie', 'test-value', {
-    secure: process.env.NODE_ENV === 'production',
-    httpOnly: false, // Allow JS access for testing
-    sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax',
-    maxAge: 60000 // 1 minute for testing
-  });
-  
-  res.json(cookieInfo);
-});
-
 // Routes
 console.log('🔗 Mounting auth routes on /auth');
 app.use('/auth', authRoutes);
@@ -293,7 +265,6 @@ const server = app.listen(PORT, () => {
   console.log('\n🎉 ===== DEVSUM BACKEND STARTUP COMPLETE =====');
   console.log(`🚀 Server running on http://localhost:${PORT}`);
   console.log(`📊 Health check: http://localhost:${PORT}/health`);
-  console.log(`🔍 Debug cookies: http://localhost:${PORT}/debug/cookies`);
   console.log(`🔐 GitHub OAuth: http://localhost:${PORT}/auth/github`);
   console.log(`🔧 Environment: ${process.env.NODE_ENV || 'development'}`);
   console.log(`⚡ Ready to handle requests!`);
@@ -340,5 +311,4 @@ process.on('uncaughtException', (err) => {
 
 process.on('unhandledRejection', (reason, promise) => {
   console.error('💥 Unhandled Rejection at:', promise, 'reason:', reason);
-  gracefulShutdown('UNHANDLED_REJECTION');
 });

@@ -49,6 +49,8 @@ class AuthController {
         });
       });
 
+      const { path, secure, sameSite, httpOnly } = req.session.cookie;
+
       await new Promise((resolve, reject) => {
         req.session.destroy((err) => {
           if (err) return reject(err);
@@ -56,7 +58,7 @@ class AuthController {
         });
       });
 
-      res.clearCookie('connect.sid');
+      res.clearCookie('devsum.session', { path, secure, sameSite, httpOnly });
       res.json({
         success: true,
         message: 'Logged out successfully',
