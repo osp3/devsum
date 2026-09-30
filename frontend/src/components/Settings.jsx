@@ -14,6 +14,9 @@ const Settings = () => {
   // Original settings from server for change detection
   const [originalSettings, setOriginalSettings] = useState({});
 
+  // Supported OpenAI models provided by the backend
+  const [models, setModels] = useState([]);
+
   // UI state management for loading, saving, and user feedback
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -45,6 +48,7 @@ const Settings = () => {
         const data = await response.json();
         setSettings(data.data);
         setOriginalSettings(data.data); // Store for change comparison
+        setModels(data.models || []);
       } else {
         setMessage({ type: 'error', text: 'Failed to load settings' });
       }
@@ -198,17 +202,8 @@ const Settings = () => {
     return key.includes('SECRET') || key.includes('KEY');
   };
 
-  // Define available OpenAI model options with descriptions
-  const getOpenAIModelOptions = () => {
-    return [
-      { value: '', label: 'Select a model...' },
-      { value: 'gpt-4o', label: 'GPT-4o (Latest)' },
-      { value: 'gpt-4o-mini', label: 'GPT-4o Mini (Fast & Efficient)' },
-      { value: 'gpt-4-turbo', label: 'GPT-4 Turbo' },
-      { value: 'gpt-4', label: 'GPT-4' },
-      { value: 'gpt-3.5-turbo', label: 'GPT-3.5 Turbo (Cost Effective)' },
-    ];
-  };
+  // Available OpenAI model options with descriptions
+  const getOpenAIModelOptions = () => [{ value: '', label: 'Select a model...' }, ...models];
 
   // Render appropriate input type based on field (select for models, password for secrets)
   const renderField = (key) => {

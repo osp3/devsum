@@ -16,6 +16,7 @@ import {
   analyzeCommitMessages,
   createFallbackMessageAnalysis 
 } from './QualityMessageAnalyzer.js';
+import { DEFAULT_OPENAI_MODEL, getModelConfig } from '../../config/openaiModels.js';
 
 /**
  * Quality Analysis Coordinator - Functional Pattern
@@ -29,26 +30,8 @@ import {
  * @param {string} model - The AI model being used
  * @returns {number} Maximum diff size in characters
  */
-const getMaxDiffSizeForModel = (model = 'gpt-4o-mini') => {
-  const modelLimits = {
-    // GPT-4o models - highest context limit
-    'gpt-4o': 20000,           // ~20KB for latest model
-    'gpt-4o-mini': 15000,      // ~15KB for mini variant
-    
-    // GPT-4 Turbo models - high context limit  
-    'gpt-4-turbo': 18000,      // ~18KB for turbo
-    'gpt-4-turbo-preview': 18000,
-    
-    // Standard GPT-4 - medium context limit
-    'gpt-4': 12000,            // ~12KB for standard GPT-4
-    'gpt-4-32k': 25000,        // ~25KB for 32k variant (if available)
-    
-    // GPT-3.5 models - lower context limit
-    'gpt-3.5-turbo': 8000,     // ~8KB for cost-effective option
-    'gpt-3.5-turbo-16k': 12000 // ~12KB for 16k variant
-  };
-
-  const maxSize = modelLimits[model] || 5000; // Default fallback
+const getMaxDiffSizeForModel = (model = DEFAULT_OPENAI_MODEL) => {
+  const maxSize = getModelConfig(model).maxDiffSize;
   console.log(`📏 Using max diff size of ${maxSize} chars for model: ${model}`);
   return maxSize;
 };
@@ -69,7 +52,7 @@ export const analyzeCodeQuality = async (commits, repositoryId, timeframe = 'wee
     promptBuilder,
     githubService,
     forceRefresh = false,
-    model = 'gpt-4o-mini' // Add model parameter to options
+    model = DEFAULT_OPENAI_MODEL
   } = options;
 
   console.log(`🔍 Enhanced code quality analysis for ${commits.length} commits using model: ${model}...`);

@@ -1,4 +1,8 @@
 import OpenAI from 'openai';
+import { DEFAULT_OPENAI_MODEL, getModelConfig, resolveModel } from '../../config/openaiModels.js';
+
+// Reasoning tokens count toward max_completion_tokens, so reserve room for the visible answer
+const REASONING_TOKEN_HEADROOM = 4000;
 
 /**
  * OpenAI Client Manager - Functional Pattern
@@ -11,7 +15,7 @@ import OpenAI from 'openai';
  * @param {string} userModel - User's preferred OpenAI model
  * @returns {OpenAI} OpenAI client instance
  */
-export const createOpenAIClient = (userApiKey, userModel = 'gpt-4o-mini') => {
+export const createOpenAIClient = (userApiKey, userModel = DEFAULT_OPENAI_MODEL) => {
   if (!userApiKey) {
     throw new Error('User OpenAI API key is required');
   }
@@ -37,19 +41,24 @@ export const validateApiKey = (apiKey) => {
  * @param {Object} options - Additional options (temperature, max_tokens, etc.)
  * @returns {Promise<string>} AI response text
  */
-export const callOpenAI = async (prompt, userApiKey, userModel = 'gpt-4o-mini', options = {}) => {
+export const callOpenAI = async (prompt, userApiKey, userModel = DEFAULT_OPENAI_MODEL, options = {}) => {
   if (!userApiKey) {
     throw new Error('User OpenAI API key is required');
   }
 
+  const model = resolveModel(userModel);
+
   try {
-    const openai = createOpenAIClient(userApiKey, userModel);
+    const openai = createOpenAIClient(userApiKey, model);
+    const { reasoningEffort } = getModelConfig(model);
+    const maxTokens = options.maxTokens || 1500;
+    const isReasoning = reasoningEffort !== 'none';
     
-    console.log(`🤖 OpenAI Request: Sending prompt to model "${userModel}" with user's API key`);
+    console.log(`🤖 OpenAI Request: Sending prompt to model "${model}" with user's API key`);
     console.log(`🤖 Prompt preview: "${prompt.substring(0, 150)}..."`);
     
     const response = await openai.chat.completions.create({
-      model: userModel,
+      model,
       messages: [
         {
           role: 'system',
@@ -60,17 +69,22 @@ export const callOpenAI = async (prompt, userApiKey, userModel = 'gpt-4o-mini', 
           content: prompt
         }
       ],
-      temperature: options.temperature || 0.1,
-      max_tokens: options.maxTokens || 1500,
+      reasoning_effort: reasoningEffort,
+      max_completion_tokens: isReasoning ? maxTokens + REASONING_TOKEN_HEADROOM : maxTokens,
+      ...(!isReasoning && { temperature: options.temperature ?? 0.1 }),
       ...options.additionalParams
     });
     
-    const responseText = response.choices[0].message.content.trim();
-    console.log(`✅ OpenAI Response: Received ${responseText.length} characters from "${userModel}"`);
+    const { message, finish_reason } = response.choices[0];
+    const responseText = (message.content || '').trim();
+    if (!responseText) {
+      throw new Error(`Empty response from "${model}" (finish_reason: ${finish_reason})`);
+    }
+    console.log(`✅ OpenAI Response: Received ${responseText.length} characters from "${model}"`);
     console.log(`✅ Response preview: "${responseText.substring(0, 100)}..."`);
     return responseText;
   } catch (error) {
-    console.error(`❌ OpenAI API call failed with model "${userModel}":`, error.message);
+    console.error(`❌ OpenAI API call failed with model "${model}":`, error.message);
     throw error;
   }
 };

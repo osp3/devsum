@@ -2,6 +2,7 @@ import GitHubService from '../services/external/GitHubAPIClient.js';
 import AIService from '../services/ai/AICoordinator.js';
 import CacheManager from '../services/external/CacheManager.js';
 import User from '../models/User.js';
+import { resolveModel } from '../config/openaiModels.js';
 import { createValidationError, createServerError, createGitHubError } from '../utils/errors.js';
 
 /**
@@ -24,7 +25,7 @@ class RepositoryController {
       
       return {
         apiKey: user.openaiApiKey,
-        model: user.openaiModel || 'gpt-4o-mini'
+        model: resolveModel(user.openaiModel)
       };
     } catch (error) {
       console.error('Error getting user OpenAI settings:', error);

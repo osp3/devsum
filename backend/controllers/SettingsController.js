@@ -1,6 +1,7 @@
 import * as EnvironmentService from '../services/external/EnvironmentService.js';
 import User from '../models/User.js';
 import { AppError } from '../utils/errors.js';
+import { DEFAULT_OPENAI_MODEL, isSupportedModel, listModels, resolveModel } from '../config/openaiModels.js';
 
 class SettingsController {
   constructor() {
@@ -34,12 +35,13 @@ class SettingsController {
       const settings = {
         ...sharedSettings,
         OPENAI_API_KEY: user.openaiApiKey ? this.maskSensitiveValue(user.openaiApiKey) : '',
-        OPENAI_MODEL: user.openaiModel || 'gpt-4o-mini'
+        OPENAI_MODEL: resolveModel(user.openaiModel)
       };
       
       res.json({
         success: true,
-        data: settings
+        data: settings,
+        models: listModels()
       });
     } catch (error) {
       console.error('Error getting settings:', error);
@@ -97,9 +99,12 @@ class SettingsController {
             user.openaiApiKey = userSettings.OPENAI_API_KEY.trim();
             result.success.push('OPENAI_API_KEY');
           }
-          if (userSettings.OPENAI_MODEL && userSettings.OPENAI_MODEL.trim()) {
-            user.openaiModel = userSettings.OPENAI_MODEL.trim();
+          const model = userSettings.OPENAI_MODEL?.trim();
+          if (model && isSupportedModel(model)) {
+            user.openaiModel = model;
             result.success.push('OPENAI_MODEL');
+          } else if (model) {
+            result.errors.push(`Unsupported OpenAI model '${model}'`);
           }
 
           await user.save();
@@ -193,12 +198,8 @@ class SettingsController {
       const { default: OpenAI } = await import('openai');
       const openai = new OpenAI({ apiKey });
       
-      // Test with a simple completion
-      await openai.chat.completions.create({
-        model: 'gpt-3.5-turbo',
-        messages: [{ role: 'user', content: 'Hello' }],
-        max_tokens: 5
-      });
+      // Validates the key and model access without spending tokens
+      await openai.models.retrieve(DEFAULT_OPENAI_MODEL);
 
       return { valid: true, message: 'OpenAI API key is valid' };
     } catch (error) {

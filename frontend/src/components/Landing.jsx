@@ -41,7 +41,7 @@ const PRIORITIES = [
 
 const FACTS = [
   ['GitHub OAuth', 'Public and private repositories'],
-  ['Your OpenAI key', 'GPT-4o, GPT-4 Turbo, GPT-3.5 and more'],
+  ['Your OpenAI key', 'GPT-6 Astra, Sol and Luna'],
   ['5 categories', 'Every commit classified automatically'],
   ['4 review lenses', 'Security, performance, maintainability, quality'],
 ];
@@ -334,7 +334,7 @@ const Landing = ({ isAuthenticated = false }) => (
               body='Bring your own OpenAI API key and choose the model. Nothing runs on a shared account you do not control.'
             >
               <div className='flex flex-wrap gap-2 font-geist-mono text-xs'>
-                {['gpt-4o', 'gpt-4o-mini', 'gpt-4-turbo', 'gpt-3.5-turbo'].map((m, i) => (
+                {['gpt-6-luna', 'gpt-6.1-sol', 'gpt-6-astra'].map((m, i) => (
                   <span key={m} className={`rounded-full border px-2.5 py-1 ${i ? 'border-line text-fg/55' : 'border-fg bg-fg text-canvas'}`}>
                     {m}
                   </span>

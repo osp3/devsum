@@ -2,6 +2,7 @@ import AIService from '../services/ai/AICoordinator.js';
 import GitHubService from '../services/external/GitHubAPIClient.js';
 import { YesterdaySummaryService } from '../services/tasks/YesterdaySummaryService.js';
 import User from '../models/User.js';
+import { resolveModel } from '../config/openaiModels.js';
 
 /**
  * AI Controller - Plain Functions
@@ -25,7 +26,7 @@ async function getUserOpenAISettings(req) {
   
   return {
     apiKey: user.openaiApiKey,
-    model: user.openaiModel || 'gpt-4o-mini'
+    model: resolveModel(user.openaiModel)
   };
 }
 

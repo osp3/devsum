@@ -1,4 +1,5 @@
 import mongoose from 'mongoose';
+import { DEFAULT_OPENAI_MODEL } from '../config/openaiModels.js';
 
 /**
  * User Schema - Stores essential GitHub user data
@@ -42,7 +43,7 @@ const userSchema = new mongoose.Schema({
   openaiModel: {
     type: String,
     required: false,
-    default: 'gpt-4o-mini'
+    default: DEFAULT_OPENAI_MODEL
   },
   // User's GitHub repositories (we'll cache this)
   repositories: [{
