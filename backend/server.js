@@ -26,6 +26,7 @@ console.log('Importing API routes...');
 import apiRoutes from './routes/api.js';
 console.log('Importing AI routes...');
 import aiRoutes from './routes/ai.js';
+import internalRoutes from './routes/internal.js';
 console.log('✅ All route imports completed');
 
 // Fix memory leak warnings by increasing max listeners
@@ -205,6 +206,8 @@ console.log('🔗 Mounting API routes on /api');
 app.use('/api', apiRoutes);
 console.log('🔗 Mounting AI routes on /api/ai');
 app.use('/api/ai', aiRoutes);
+
+app.use('/internal', internalRoutes);
 console.log('✅ All routes mounted successfully');
 
 // Static file serving disabled - frontend deployed separately to Vercel

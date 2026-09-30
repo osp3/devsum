@@ -1,5 +1,6 @@
 import { Octokit } from '@octokit/rest';
 import { createGitHubError } from '../../utils/errors.js';
+import { mapWithConcurrency } from '../../utils/concurrency.js';
 
 /**
  * GitHub API Client - Functional Pattern
@@ -25,7 +26,8 @@ export const createGitHubClient = (accessToken) => {
     getCommits: (owner, repo, options = {}) => getCommits(octokit, owner, repo, options),
     getCommitDiff: (owner, repo, sha) => getCommitDiff(octokit, owner, repo, sha),
     getRateLimit: () => getRateLimit(octokit),
-    hasRepoAccess: (owner, repo) => hasRepoAccess(octokit, owner, repo)
+    hasRepoAccess: (owner, repo) => hasRepoAccess(octokit, owner, repo),
+    getRecentActivity: (repos, since, until) => getRecentActivity(octokit, repos, since, until)
   };
 };
 
@@ -308,6 +310,97 @@ export const hasRepoAccess = async (octokit, owner, repo) => {
     if (error.status === 404 || error.status === 403) return false;
     throw createGitHubError(error, `checking access to ${owner}/${repo}`);
   }
+};
+
+const ACTIVITY_BATCH_SIZE = 20;
+const ACTIVITY_BATCH_CONCURRENCY = 2;
+
+const REPO_ACTIVITY_FIELDS = `
+  defaultBranchRef {
+    target {
+      ... on Commit {
+        history(since: $since, until: $until, first: 30) {
+          nodes { oid message author { name date } parents { totalCount } }
+        }
+      }
+    }
+  }
+  pullRequests(first: 20, orderBy: { field: UPDATED_AT, direction: DESC }) {
+    nodes { number title url createdAt mergedAt closedAt author { login } }
+  }`;
+
+const toPullRequestActivity = (pr, repo, sinceMs, untilMs) => {
+  const within = (iso) => {
+    const time = iso ? Date.parse(iso) : NaN;
+    return time >= sinceMs && time <= untilMs;
+  };
+  const action = within(pr.mergedAt) ? 'merged' : within(pr.closedAt) ? 'closed' : within(pr.createdAt) ? 'opened' : null;
+  if (!action) return null;
+
+  return {
+    number: pr.number,
+    title: pr.title,
+    url: pr.url,
+    action,
+    author: pr.author?.login || 'ghost',
+    repository: repo.name
+  };
+};
+
+const fetchActivityBatch = async (octokit, batch, since, until) => {
+  const variables = { since: since.toISOString(), until: until.toISOString() };
+  const declarations = ['$since: GitTimestamp!', '$until: GitTimestamp!'];
+  const fields = batch.map((repo, i) => {
+    const [owner, name] = repo.fullName.split('/');
+    variables[`o${i}`] = owner;
+    variables[`n${i}`] = name;
+    declarations.push(`$o${i}: String!`, `$n${i}: String!`);
+    return `r${i}: repository(owner: $o${i}, name: $n${i}) {${REPO_ACTIVITY_FIELDS}}`;
+  });
+
+  let data;
+  try {
+    data = await octokit.graphql(`query(${declarations.join(', ')}) {${fields.join('\n')}}`, variables);
+  } catch (error) {
+    // Partial results are still usable when only some repositories fail
+    if (!error.data) throw createGitHubError(error, 'fetching recent activity');
+    data = error.data;
+  }
+
+  const sinceMs = since.getTime();
+  const untilMs = until.getTime();
+  return batch.map((repo, i) => {
+    const node = data[`r${i}`];
+    return {
+      repo,
+      commits: (node?.defaultBranchRef?.target?.history?.nodes || []).map(commit => ({
+        sha: commit.oid,
+        message: commit.message,
+        author: { name: commit.author?.name, date: commit.author?.date },
+        parents: Array.from({ length: commit.parents.totalCount }, () => ({}))
+      })),
+      pullRequests: (node?.pullRequests?.nodes || [])
+        .map(pr => toPullRequestActivity(pr, repo, sinceMs, untilMs))
+        .filter(Boolean)
+    };
+  });
+};
+
+/**
+ * Get default-branch commits and pull request activity for many repositories via batched GraphQL
+ * @param {Octokit} octokit - Authenticated Octokit instance
+ * @param {Array} repos - Repositories with fullName
+ * @param {Date} since - Range start
+ * @param {Date} until - Range end
+ * @returns {Promise<Array>} [{ repo, commits, pullRequests }] in input order
+ */
+export const getRecentActivity = async (octokit, repos, since, until) => {
+  const batches = [];
+  for (let i = 0; i < repos.length; i += ACTIVITY_BATCH_SIZE) {
+    batches.push(repos.slice(i, i + ACTIVITY_BATCH_SIZE));
+  }
+  const results = await mapWithConcurrency(batches, ACTIVITY_BATCH_CONCURRENCY, batch => fetchActivityBatch(octokit, batch, since, until));
+  return results.flat();
 };
 
 /**

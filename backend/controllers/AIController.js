@@ -3,6 +3,7 @@ import GitHubService from '../services/external/GitHubAPIClient.js';
 import { YesterdaySummaryService } from '../services/tasks/YesterdaySummaryService.js';
 import User from '../models/User.js';
 import { resolveModel } from '../config/openaiModels.js';
+import { isValidTimeZone } from '../utils/DateUtils.js';
 
 const QUALITY_COMMIT_COUNT = 10;
 
@@ -132,8 +133,12 @@ export async function generateYesterdaySummary(req, res, next) {
     // Without a key the service falls back to a non-AI summary
     const { apiKey, model } = await getUserOpenAISettings(req, { required: false });
     
+    const timeZone = isValidTimeZone(req.body?.timeZone) ? req.body.timeZone : undefined;
+    User.updateOne({ _id: req.user._id }, { $set: { lastActiveAt: new Date(), ...(timeZone && { timeZone }) } })
+      .catch(error => console.error('Failed to record user activity:', error.message));
+
     const summaryService = new YesterdaySummaryService(req.user.accessToken, req.user._id);
-    const result = await summaryService.generateSummary(forceRefresh, apiKey, model, req.body?.timeZone);
+    const result = await summaryService.generateSummary(forceRefresh, apiKey, model, timeZone);
     
     // Set cache control headers to prevent browser caching
     res.set({

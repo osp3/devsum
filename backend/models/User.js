@@ -50,6 +50,15 @@ const userSchema = new mongoose.Schema({
     required: false,
     default: DEFAULT_OPENAI_MODEL
   },
+  // IANA time zone and last dashboard visit, used to pre-generate the morning brief
+  timeZone: {
+    type: String,
+    required: false
+  },
+  lastActiveAt: {
+    type: Date,
+    required: false
+  },
   // User's GitHub repositories (we'll cache this)
   repositories: [{
     id: Number,
@@ -66,6 +75,7 @@ const userSchema = new mongoose.Schema({
 
 // Index for faster queries (githubId already has unique index)
 userSchema.index({ username: 1 });
+userSchema.index({ lastActiveAt: 1 });
 
 // Instance method to get user's repositories
 userSchema.methods.getRepositories = function() {

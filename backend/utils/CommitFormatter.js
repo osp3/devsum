@@ -44,6 +44,7 @@ export function formatCommitObject(commit, repo, aiAnalysis = null) {
     scope: parsed.scope,
     description: parsed.description,
     formatted: `${parsed.type}(${parsed.scope}): ${parsed.description}`,
+    message: (commit.message || '').split('\n')[0],
     repository: repo.name,
     sha: commit.sha.substring(0, 7),
     author: commit.author?.name || commit.author || 'Unknown',

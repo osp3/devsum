@@ -51,9 +51,9 @@ const categorizeCommits = async (commits, userApiKey, userModel = 'gpt-4o-mini')
  * @param {boolean} forceRefresh - Force regeneration
  * @returns {Promise<string>} Daily summary text
  */
-const generateDailySummary = async (commits, repositoryId, userApiKey, userModel = 'gpt-4o-mini', date = new Date(), forceRefresh = false) => {
+const generateDailySummary = async (commits, repositoryId, userApiKey, userModel = 'gpt-4o-mini', date = new Date(), forceRefresh = false, pullRequests = []) => {
   await init();
-  return await SummaryGenerator.generateDailySummary(commits, repositoryId, userApiKey, userModel, date, forceRefresh);
+  return await SummaryGenerator.generateDailySummary(commits, repositoryId, userApiKey, userModel, date, forceRefresh, pullRequests);
 };
 
 /**

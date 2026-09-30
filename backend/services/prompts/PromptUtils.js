@@ -4,6 +4,8 @@
  * Pure functions for reliable prompt generation support
  */
 
+import { createHash } from 'crypto';
+
 /**
  * Create signature of recent work patterns for smart caching
  * @param {Array} commits - Array of commit objects
@@ -19,7 +21,8 @@ export const createWorkSignature = (commits) => {
     .map(cat => `${cat}:${categories[cat].length}`)
     .join('|');
 
-  return signature;
+  const shaHash = createHash('sha1').update(commits.map(c => c.sha).sort().join(',')).digest('hex').slice(0, 12);
+  return `${signature}|${shaHash}`;
 };
 
 /**
@@ -29,7 +32,7 @@ export const createWorkSignature = (commits) => {
  */
 export const groupByCategory = (commits) => {
   return commits.reduce((groups, commit) => {
-    const category = commit.category || 'other'; // Default for unclassified commits
+    const category = commit.category || commit.type || 'other'; // Default for unclassified commits
     if (!groups[category]) groups[category] = []; // Initialize category array if needed
     groups[category].push(commit); // Add commit to appropriate category
     return groups; // Return accumulator for next iteration

@@ -65,8 +65,8 @@ class PromptBuilder {
    * Create summary prompt - chooses between enhanced and basic
    * Delegates to SummaryPromptBuilder
    */
-  createSummaryPrompt(commits) {
-    return createSummaryPrompt(commits);
+  createSummaryPrompt(commits, pullRequests = []) {
+    return createSummaryPrompt(commits, pullRequests);
   }
 
   /**

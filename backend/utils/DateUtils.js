@@ -21,6 +21,10 @@ function getZonedParts(date, timeZone) {
   return Object.fromEntries(parts.filter(p => p.type !== 'literal').map(p => [p.type, Number(p.value)]));
 }
 
+export function getLocalHour(timeZone, now = new Date()) {
+  return getZonedParts(now, isValidTimeZone(timeZone) ? timeZone : 'UTC').hour;
+}
+
 function getOffsetMs(date, timeZone) {
   const p = getZonedParts(date, timeZone);
   return Date.UTC(p.year, p.month - 1, p.day, p.hour, p.minute, p.second) - Math.floor(date.getTime() / 1000) * 1000;

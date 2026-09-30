@@ -35,7 +35,7 @@ const init = async () => {
  * @param {boolean} forceRefresh - Force regeneration
  * @returns {Promise<string>} Daily summary text
  */
-export const generateDailySummary = async (commits, repositoryId, userApiKey, userModel = 'gpt-4o-mini', date = new Date(), forceRefresh = false) => {
+export const generateDailySummary = async (commits, repositoryId, userApiKey, userModel = 'gpt-4o-mini', date = new Date(), forceRefresh = false, pullRequests = []) => {
   await init();
   const dateStr = date.toISOString().split('T')[0];
 
@@ -59,7 +59,7 @@ export const generateDailySummary = async (commits, repositoryId, userApiKey, us
 
     // Generate new summary with AI
     console.log(`🤖 SummaryGenerator: Generating FRESH daily summary for ${dateStr} with ${commits.length} commits (repositoryId: ${repositoryId})`);
-    const prompt = promptBuilder.createSummaryPrompt(commits);
+    const prompt = promptBuilder.createSummaryPrompt(commits, pullRequests);
     const aiResponse = await callOpenAI(prompt, userApiKey, userModel, defaultOptions.summaryGeneration);
     const summary = parseSummaryResponse(aiResponse);
     

@@ -1,4 +1,4 @@
-import { after, before, describe, test } from 'node:test';
+import { after, before, describe, mock, test } from 'node:test';
 import assert from 'node:assert/strict';
 import mongoose from 'mongoose';
 
@@ -52,7 +52,11 @@ describe('database', { skip: !uri && 'MONGODB_TEST_URI not set' }, () => {
     const now = new Date();
     service.githubService = {
       getUserRepos: async () => [{ id: 1, name: 'r1', fullName: 'me/r1', pushedAt: now.toISOString() }],
-      getCommits: async () => [{ sha: 'abc1234', message: 'fix: bug', parents: [{}], author: { name: 'Dev', date: now.toISOString() } }]
+      getRecentActivity: async (repos) => repos.map(repo => ({
+        repo,
+        commits: [{ sha: 'abc1234', message: 'fix: bug', parents: [{}], author: { name: 'Dev', date: now.toISOString() } }],
+        pullRequests: [{ number: 3, title: 'Fix bug', url: 'https://github.com/me/r1/pull/3', action: 'merged', author: 'dev', repository: 'r1' }]
+      }))
     };
     service.aiService = {
       analyzeCommitDiff: async () => assert.fail('AI must not be called without a key'),
@@ -62,5 +66,60 @@ describe('database', { skip: !uri && 'MONGODB_TEST_URI not set' }, () => {
     const result = await service.generateSummary(false, null, undefined, 'UTC');
     assert.equal(result.commitCount, 1);
     assert.ok(result.summary.length > 0);
+    assert.equal(result.pullRequests[0].number, 3);
+
+    const cached = await service.generateSummary(false, null, undefined, 'UTC');
+    assert.equal(cached.pullRequests[0].title, 'Fix bug', 'pull requests are persisted with the cached summary');
+  });
+
+  describe('morning brief job', () => {
+    const now = new Date('2026-09-30T12:00:00Z');
+    let summaryCalls;
+    let taskCalls;
+
+    before(async () => {
+      await User.deleteMany({});
+      const hour = 60 * 60 * 1000;
+      await User.create([
+        { githubId: '10', username: 'tokyo', accessToken: 't', openaiApiKey: 'sk-1', timeZone: 'Asia/Tokyo', lastActiveAt: now },
+        { githubId: '11', username: 'hawaii', accessToken: 't', timeZone: 'Pacific/Honolulu', lastActiveAt: now },
+        { githubId: '12', username: 'stale', accessToken: 't', timeZone: 'Asia/Tokyo', lastActiveAt: new Date(now - 8 * 24 * hour) },
+        { githubId: '13', username: 'no-zone', accessToken: 't', lastActiveAt: now }
+      ]);
+
+      const { default: AIService } = await import('../services/ai/AICoordinator.js');
+      summaryCalls = mock.method(YesterdaySummaryService.prototype, 'generateSummary', async function (force, apiKey, model, timeZone) {
+        return { formattedCommits: { allCommits: [{ sha: 'x' }] }, apiKey, timeZone };
+      });
+      taskCalls = mock.method(AIService, 'generateTaskSuggestions', async () => []);
+    });
+
+    after(() => mock.restoreAll());
+
+    test('builds briefs only for active users past their local brief hour', async () => {
+      const { runMorningBriefs } = await import('../services/tasks/MorningBriefJob.js');
+      // 12:00 UTC is 21:00 in Tokyo (due) and 02:00 in Honolulu (not yet)
+      const stats = await runMorningBriefs(now);
+
+      assert.deepEqual(stats, { eligible: 1, built: 1, failed: 0 });
+      assert.equal(summaryCalls.mock.callCount(), 1);
+      const [force, apiKey, , timeZone] = summaryCalls.mock.calls[0].arguments;
+      assert.equal(force, false);
+      assert.equal(apiKey, 'sk-1');
+      assert.equal(timeZone, 'Asia/Tokyo');
+      assert.equal(taskCalls.mock.callCount(), 1);
+    });
+
+    test('skips task suggestions for users without an OpenAI key', async () => {
+      const { runMorningBriefs } = await import('../services/tasks/MorningBriefJob.js');
+      summaryCalls.mock.resetCalls();
+      taskCalls.mock.resetCalls();
+      // 22:00 UTC is 07:00 in Tokyo and 12:00 in Honolulu, so both users are due
+      const stats = await runMorningBriefs(new Date('2026-09-30T22:00:00Z'));
+
+      assert.equal(stats.eligible, 2);
+      assert.equal(summaryCalls.mock.callCount(), 2);
+      assert.equal(taskCalls.mock.callCount(), 1);
+    });
   });
 });

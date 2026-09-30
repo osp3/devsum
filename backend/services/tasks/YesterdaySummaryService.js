@@ -19,6 +19,10 @@ const REPO_CONCURRENCY = 4;
 const COMMIT_CONCURRENCY = 3;
 const MAX_ANALYZED_COMMITS_PER_REPO = 10;
 
+const describePullRequests = (pullRequests) =>
+  `${pullRequests.length} pull request update${pullRequests.length === 1 ? '' : 's'} yesterday: ` +
+  pullRequests.map(pr => `${pr.action} #${pr.number} ${pr.title} (${pr.repository})`).join('; ');
+
 /**
  * Service for generating yesterday's development summary across all repositories
  */
@@ -72,7 +76,8 @@ export class YesterdaySummaryService {
             commitCount: existing.commitCount,
             repositoryCount: existing.repositoryCount,
             repositories: existing.repositories || [],
-            formattedCommits: existing.formattedCommits || { total: existing.commitCount, byRepository: {}, allCommits: [] }
+            formattedCommits: existing.formattedCommits || { total: existing.commitCount, byRepository: {}, allCommits: [] },
+            pullRequests: existing.pullRequests || []
           };
         } else {
           console.log(`📦 YesterdaySummaryService: No cached summary found for ${dateStr} - will generate fresh`);
@@ -91,12 +96,13 @@ export class YesterdaySummaryService {
       console.log(`   End: ${end.toISOString()} (${end.toLocaleString()})`);
       console.log(`   Duration: ${Math.round((end - start) / (1000 * 60 * 60))} hours`);
       
-      const { commits, repositoryData } = await this.fetchAllCommits(repos, start, end, userApiKey, userModel);
+      const { commits, repositoryData, pullRequests } = await this.fetchAllCommits(repos, start, end, userApiKey, userModel);
       
       // Debug logging for returned data
       console.log(`📊 DEBUG - Fetch Results:`);
       console.log(`   Repositories found: ${repositoryData.length}`);
       console.log(`   Total commits found: ${commits.length}`);
+      console.log(`   Pull request updates found: ${pullRequests.length}`);
       if (commits.length > 0) {
         console.log(`   Commit date range: ${commits[commits.length - 1].date} to ${commits[0].date}`);
       }
@@ -105,16 +111,18 @@ export class YesterdaySummaryService {
       
       // Check if there are any commits - if not, return simple message
       let summaryText;
-      if (commits.length === 0) {
+      if (commits.length === 0 && pullRequests.length === 0) {
         summaryText = "No work found for yesterday";
       } else if (!userApiKey) {
         // No API key provided - use fallback summary
         console.log(`⚠️  YesterdaySummaryService: No OpenAI API key provided - using fallback summary`);
-        summaryText = generateFormattedSummary(commits, repositoryData.length);
+        summaryText = commits.length > 0
+          ? generateFormattedSummary(commits, repositoryData.length)
+          : describePullRequests(pullRequests);
       } else {
         // Use AI-powered summary for actual commits - pass through forceRefresh and user's API key
         console.log(`🔄 YesterdaySummaryService: Generating fresh summary via AIService with user's API key (forceRefresh=${forceRefresh})`);
-        summaryText = await this.aiService.generateDailySummary(commits, repositoryId, userApiKey, userModel, new Date(dateStr), forceRefresh);
+        summaryText = await this.aiService.generateDailySummary(commits, repositoryId, userApiKey, userModel, new Date(dateStr), forceRefresh, pullRequests);
         console.log(`✅ YesterdaySummaryService: Received summary from AIService (${summaryText.length} chars)`);
       }
 
@@ -124,7 +132,8 @@ export class YesterdaySummaryService {
         commitCount: commits.length,
         repositoryCount: repositoryData.length,
         repositories: repositoryData,
-        formattedCommits
+        formattedCommits,
+        pullRequests
       };
 
       // Store in MongoDB for future caching (replace existing if force refresh)
@@ -138,6 +147,7 @@ export class YesterdaySummaryService {
           repositoryCount: repositoryData.length,
           repositories: repositoryData,
           formattedCommits: formattedCommits,
+          pullRequests,
           categories: this._groupByCategory(commits)
         },
         { upsert: true, new: true }
@@ -152,12 +162,12 @@ export class YesterdaySummaryService {
       // Fallback: generate without caching using SummaryGenerator
       console.log('⚠️  YesterdaySummaryService: Falling back to non-cached generation...');
       const repos = await this.githubService.getUserRepos();
-      const { commits, repositoryData } = await this.fetchAllCommits(repos, start, end);
+      const { commits, repositoryData, pullRequests } = await this.fetchAllCommits(repos, start, end);
       
       const formattedCommits = structureFormattedCommits(commits);
-      const summaryText = commits.length === 0 
-        ? "No work found for yesterday" 
-        : generateFormattedSummary(commits, repositoryData.length);
+      const summaryText = commits.length > 0
+        ? generateFormattedSummary(commits, repositoryData.length)
+        : pullRequests.length > 0 ? describePullRequests(pullRequests) : "No work found for yesterday";
 
       console.log(`⚠️  YesterdaySummaryService: FALLBACK summary generated`);
       return {
@@ -166,7 +176,8 @@ export class YesterdaySummaryService {
         commitCount: commits.length,
         repositoryCount: repositoryData.length,
         repositories: repositoryData,
-        formattedCommits
+        formattedCommits,
+        pullRequests
       };
     }
   }
@@ -196,38 +207,31 @@ export class YesterdaySummaryService {
     const activeRepos = repos.filter(repo => !repo.pushedAt || new Date(repo.pushedAt) >= start);
     console.log(`📥 Checking ${activeRepos.length} of ${repos.length} repositories pushed since ${start.toISOString()}`);
 
-    const results = await mapWithConcurrency(activeRepos, REPO_CONCURRENCY, async (repo) => {
-      try {
-        const [owner, name] = repo.fullName.split('/');
-        const commits = await this.githubService.getCommits(owner, name, {
-          per_page: 10,
-          since: start.toISOString(),
-          until: end.toISOString(),
-        });
+    const activity = activeRepos.length > 0
+      ? await this.githubService.getRecentActivity(activeRepos, start, end)
+      : [];
 
-        const filteredCommits = this._filterMergeCommits(commits);
-        if (filteredCommits.length === 0) return null;
+    const results = await mapWithConcurrency(activity, REPO_CONCURRENCY, async ({ repo, commits }) => {
+      const filteredCommits = this._filterMergeCommits(commits);
+      if (filteredCommits.length === 0) return null;
 
-        return {
-          commits: await this._processCommitsWithAI(filteredCommits, repo, userApiKey, userModel),
-          repository: {
-            id: repo.id.toString(),
-            name: repo.name,
-            fullName: repo.fullName,
-            commitCount: filteredCommits.length,
-            _id: generateFakeObjectId()
-          }
-        };
-      } catch (error) {
-        console.error(`Error fetching commits for ${repo.fullName}:`, error.message);
-        return null;
-      }
+      return {
+        commits: await this._processCommitsWithAI(filteredCommits, repo, userApiKey, userModel),
+        repository: {
+          id: repo.id.toString(),
+          name: repo.name,
+          fullName: repo.fullName,
+          commitCount: filteredCommits.length,
+          _id: generateFakeObjectId()
+        }
+      };
     });
 
     const found = results.filter(Boolean);
     return {
       commits: found.flatMap(result => result.commits),
-      repositoryData: found.map(result => result.repository)
+      repositoryData: found.map(result => result.repository),
+      pullRequests: activity.flatMap(result => result.pullRequests)
     };
   }
 

@@ -11,16 +11,23 @@ import { groupByCategory, getTotalRepositories, separateCommitsByAnalysis } from
  * @param {Array} commits - Array of commit objects
  * @returns {string} Summary generation prompt for AI
  */
-export const createSummaryPrompt = (commits) => {
+export const createSummaryPrompt = (commits, pullRequests = []) => {
   const categories = groupByCategory(commits);
   const { hasAIAnalysis } = separateCommitsByAnalysis(commits);
 
-  if (hasAIAnalysis) {
-    return createEnhancedSummaryPrompt(commits, categories);
-  } else {
-    return createBasicSummaryPrompt(commits, categories);
-  }
+  const prompt = hasAIAnalysis
+    ? createEnhancedSummaryPrompt(commits, categories)
+    : createBasicSummaryPrompt(commits, categories);
+
+  return pullRequests.length > 0 ? `${prompt}\n\n${createPullRequestSection(pullRequests)}` : prompt;
 };
+
+const createPullRequestSection = (pullRequests) => `
+PULL REQUEST ACTIVITY (${pullRequests.length}):
+${pullRequests.map(pr => `- ${pr.action.toUpperCase()}: #${pr.number} "${pr.title}" by ${pr.author} (${pr.repository})`).join('\n')}
+
+Also mention the most important pull requests that were merged or opened.
+`.trim();
 
 /**
  * Create enhanced summary prompt using AI analysis data

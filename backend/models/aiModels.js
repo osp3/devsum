@@ -84,7 +84,16 @@ const dailySummarySchema = new mongoose.Schema({
   formattedCommits: {
     type: mongoose.Schema.Types.Mixed,
     required: false // Optional for backward compatibility
-  }
+  },
+  pullRequests: [{
+    _id: false,
+    number: Number,
+    title: String,
+    url: String,
+    action: String,
+    author: String,
+    repository: String
+  }]
 }, {
   timestamps: true
 });

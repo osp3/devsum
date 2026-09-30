@@ -9,19 +9,15 @@ const repo = (i, pushedAt) => ({ id: i, name: `r${i}`, fullName: `me/r${i}`, pus
 const commit = (sha, parents = [{}]) => ({
   sha, message: `work ${sha}`, parents, author: { name: 'Dev', date: '2026-09-29T10:00:00Z' }
 });
+const pr = { number: 7, title: 'Add feature', url: 'https://github.com/me/r1/pull/7', action: 'merged', author: 'dev', repository: 'r1' };
 
-const createService = ({ commitsFor = (name) => [commit(`${name}-sha`)] } = {}) => {
+const createService = ({ commitsFor = (r) => [commit(`${r.name}-sha`)], pullRequestsFor = () => [] } = {}) => {
   const service = new YesterdaySummaryService('token', 'user-1');
-  const calls = { getCommits: [], analyze: [] };
-  let inflight = 0;
-  calls.peak = 0;
+  const calls = { activity: [], analyze: [] };
   service.githubService = {
-    getCommits: async (owner, name) => {
-      calls.getCommits.push(name);
-      calls.peak = Math.max(calls.peak, ++inflight);
-      await new Promise((resolve) => setTimeout(resolve, 10));
-      inflight--;
-      return commitsFor(name);
+    getRecentActivity: async (repos, since, until) => {
+      calls.activity.push({ repos: repos.map((r) => r.name), since, until });
+      return repos.map((r) => ({ repo: r, commits: commitsFor(r), pullRequests: pullRequestsFor(r) }));
     },
     getCommitDiff: async () => ({ files: [{ patch: '+line' }] })
   };
@@ -38,26 +34,28 @@ test('uses a per-user repository id', () => {
   assert.equal(new YesterdaySummaryService('token', 'user-1').repositoryId, 'ALL_REPOS:user-1');
 });
 
-test('skips repositories not pushed since the window started', async () => {
+test('fetches activity for pushed repositories in one call', async () => {
   const { service, calls } = createService();
   const repos = [repo(1, '2026-09-29T12:00:00Z'), repo(2, '2026-09-01T00:00:00Z'), repo(3, undefined)];
   const { repositoryData } = await service.fetchAllCommits(repos, start, end);
-  assert.deepEqual(calls.getCommits.sort(), ['r1', 'r3']);
+  assert.equal(calls.activity.length, 1);
+  assert.deepEqual(calls.activity[0].repos, ['r1', 'r3']);
+  assert.equal(calls.activity[0].since, start);
   assert.deepEqual(repositoryData.map((r) => r.name), ['r1', 'r3']);
 });
 
-test('limits concurrent repository fetches', async () => {
+test('skips the GitHub call when no repository was pushed', async () => {
   const { service, calls } = createService();
-  const repos = Array.from({ length: 12 }, (_, i) => repo(i, '2026-09-29T12:00:00Z'));
-  await service.fetchAllCommits(repos, start, end);
-  assert.equal(calls.getCommits.length, 12);
-  assert.ok(calls.peak <= 4, `peak concurrency ${calls.peak}`);
+  const result = await service.fetchAllCommits([repo(1, '2026-09-01T00:00:00Z')], start, end);
+  assert.equal(calls.activity.length, 0);
+  assert.deepEqual(result, { commits: [], repositoryData: [], pullRequests: [] });
 });
 
 test("passes the user's key and model to commit analysis", async () => {
   const { service, calls } = createService();
   const { commits } = await service.fetchAllCommits([repo(1, '2026-09-29T12:00:00Z')], start, end, 'sk-user', 'gpt-6-luna');
   assert.equal(commits.length, 1);
+  assert.equal(commits[0].message, 'work r1-sha');
   assert.deepEqual(calls.analyze, [{ apiKey: 'sk-user', model: 'gpt-6-luna' }]);
 });
 
@@ -68,12 +66,14 @@ test('skips AI analysis without a key', async () => {
   assert.equal(calls.analyze.length, 0);
 });
 
-test('drops merge commits and repositories without commits', async () => {
+test('drops merge commits and keeps pull requests from repositories without commits', async () => {
   const { service } = createService({
-    commitsFor: (name) => (name === 'r1' ? [commit('merge', [{}, {}]), commit('real')] : [])
+    commitsFor: (r) => (r.name === 'r1' ? [commit('merge', [{}, {}]), commit('real')] : []),
+    pullRequestsFor: (r) => (r.name === 'r2' ? [pr] : [])
   });
   const repos = [repo(1, '2026-09-29T12:00:00Z'), repo(2, '2026-09-29T12:00:00Z')];
-  const { commits, repositoryData } = await service.fetchAllCommits(repos, start, end);
+  const { commits, repositoryData, pullRequests } = await service.fetchAllCommits(repos, start, end);
   assert.equal(commits.length, 1);
   assert.deepEqual(repositoryData.map((r) => r.name), ['r1']);
+  assert.deepEqual(pullRequests, [pr]);
 });

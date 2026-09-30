@@ -93,6 +93,35 @@ const TodaysSummary = ({
         </div>
 
         <div className='max-h-160 overflow-y-auto pr-2'>
+          {yesterdaySummary.pullRequests?.length > 0 && (
+            <div className='mb-4'>
+              <div className='bg-[#1e1d2b] rounded-lg p-3 mb-2'>
+                <h2 className='text-white font-semibold text-lg'>
+                  Pull requests
+                </h2>
+              </div>
+              <ul className='flex flex-col ml-4 space-y-2'>
+                {yesterdaySummary.pullRequests.map((pr) => (
+                  <li
+                    key={pr.url}
+                    className='flex justify-between gap-2 bg-[#272633] rounded-lg p-3 border-l-2 border-[#5b56dd] text-xs text-gray-400'
+                  >
+                    <a
+                      href={pr.url}
+                      target='_blank'
+                      rel='noreferrer'
+                      className='min-w-0 hover:text-white'
+                    >
+                      {pr.repository}#{pr.number} {pr.title}
+                    </a>
+                    <span className='capitalize text-gray-500 whitespace-nowrap'>
+                      {pr.action}
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
           {yesterdaySummary.formattedCommits?.byRepository &&
             Object.entries(yesterdaySummary.formattedCommits.byRepository).map(
               ([repoName, commits]) => (
