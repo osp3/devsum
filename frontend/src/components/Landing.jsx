@@ -1,5 +1,5 @@
 import React from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useSearchParams } from 'react-router-dom';
 import logo from '../assets/devsum-logo.png';
 
 const GITHUB_AUTH_URL = `${import.meta.env.VITE_API_URL || 'http://localhost:3000'}/auth/github`;
@@ -86,16 +86,6 @@ const Eyebrow = ({ children }) => (
   <p className='font-geist-mono text-xs uppercase tracking-[0.14em] text-steam'>{children}</p>
 );
 
-const PrimaryCta = ({ children }) => (
-  <a
-    href={GITHUB_AUTH_URL}
-    className='inline-flex h-11 items-center gap-2 rounded-full bg-fg px-5 text-sm font-medium text-canvas transition-colors hover:bg-fg/85 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-steam'
-  >
-    <GitHubIcon />
-    {children}
-  </a>
-);
-
 const Tag = ({ level }) => (
   <span className={`shrink-0 rounded border px-1.5 py-px font-geist-mono text-[10px] uppercase ${PRIORITY_STYLES[level]}`}>
     {level}
@@ -168,11 +158,25 @@ const Feature = ({ eyebrow, title, body, className = '', children }) => (
   </article>
 );
 
+const AuthErrorBanner = () => {
+  const [searchParams] = useSearchParams();
+  if (searchParams.get('error') !== 'auth_failed') return null;
+
+  return (
+    <p role='alert' className='border-b border-node-red/30 bg-node-red/10 px-6 py-3 text-center text-sm text-node-red'>
+      GitHub sign-in didn&apos;t complete. Please try again.
+    </p>
+  );
+};
+
 const Landing = ({ isAuthenticated = false }) => (
   <div className='min-h-screen bg-canvas font-geist text-fg antialiased [color-scheme:dark] selection:bg-steam/40'>
     <header className='sticky top-0 z-20 border-b border-line bg-canvas/80 backdrop-blur'>
-      <nav className='mx-auto flex h-16 max-w-6xl items-center justify-between px-6' aria-label='Main'>
-        <Link to='/' className='flex items-center gap-2.5 font-semibold tracking-tight'>
+      <nav
+        className='mx-auto flex h-16 max-w-6xl items-center justify-between px-6 md:grid md:grid-cols-[1fr_auto_1fr]'
+        aria-label='Main'
+      >
+        <Link to='/' className='flex w-fit items-center gap-2.5 font-semibold tracking-tight'>
           <img src={logo} alt='' className='h-7 w-7 object-contain' />
           DevSum
         </Link>
@@ -180,24 +184,22 @@ const Landing = ({ isAuthenticated = false }) => (
           <a href='#product' className='hover:text-fg'>Product</a>
           <a href='#how' className='hover:text-fg'>How it works</a>
         </div>
-        <div className='flex items-center gap-2 text-sm'>
+        <div className='flex items-center text-sm md:justify-self-end'>
           {isAuthenticated ? (
             <Link to='/dashboard' className='inline-flex h-9 items-center rounded-full bg-fg px-4 font-medium text-canvas hover:bg-fg/85'>
               Open dashboard
             </Link>
           ) : (
-            <>
-              <Link to='/login' className='hidden h-9 items-center rounded-full px-4 text-fg/70 hover:text-fg sm:inline-flex'>
-                Sign in
-              </Link>
-              <a href={GITHUB_AUTH_URL} className='inline-flex h-9 items-center rounded-full bg-fg px-4 font-medium text-canvas hover:bg-fg/85'>
-                Get started
-              </a>
-            </>
+            <a href={GITHUB_AUTH_URL} className='inline-flex h-9 items-center gap-2 rounded-full bg-fg px-4 font-medium text-canvas hover:bg-fg/85'>
+              <GitHubIcon />
+              Continue with GitHub
+            </a>
           )}
         </div>
       </nav>
     </header>
+
+    <AuthErrorBanner />
 
     <main>
       {/* Hero */}
@@ -220,17 +222,7 @@ const Landing = ({ isAuthenticated = false }) => (
             DevSum reads what you pushed to GitHub, reviews every diff, and serves a short brief
             with a prioritized plan before your first coffee.
           </p>
-          <div className='mt-10 flex flex-wrap items-center justify-center gap-3'>
-            <PrimaryCta>Continue with GitHub</PrimaryCta>
-            <a
-              href='#how'
-              className='inline-flex h-11 items-center rounded-full border border-line bg-canvas px-5 text-sm font-medium hover:border-fg/30'
-            >
-              See how it works
-            </a>
-          </div>
-
-          <div className='mx-auto mt-20 max-w-5xl'>
+          <div className='mx-auto mt-16 max-w-5xl'>
             <HeroVisual />
           </div>
         </div>
@@ -362,22 +354,6 @@ const Landing = ({ isAuthenticated = false }) => (
         </div>
       </section>
 
-      {/* CTA */}
-      <section className='bg-surface'>
-        <div className='mx-auto flex max-w-6xl flex-col items-start justify-between gap-8 px-6 py-20 md:flex-row md:items-center'>
-          <div>
-            <h2 className='text-4xl font-semibold tracking-[-0.03em]'>Start tomorrow with a plan.</h2>
-            <p className='mt-3 text-fg/60'>Connect a repository tonight. Your first brief is ready in the morning.</p>
-          </div>
-          <a
-            href={GITHUB_AUTH_URL}
-            className='inline-flex h-11 shrink-0 items-center gap-2 rounded-full bg-fg px-5 text-sm font-medium text-canvas transition-colors hover:bg-dough focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-fg'
-          >
-            <GitHubIcon />
-            Continue with GitHub
-          </a>
-        </div>
-      </section>
     </main>
 
     <footer className='bg-canvas'>
@@ -389,7 +365,6 @@ const Landing = ({ isAuthenticated = false }) => (
         <div className='flex gap-6'>
           <a href='#product' className='hover:text-fg'>Product</a>
           <a href='#how' className='hover:text-fg'>How it works</a>
-          <Link to='/login' className='hover:text-fg'>Sign in</Link>
         </div>
       </div>
     </footer>

@@ -2,7 +2,6 @@ import { useState, useEffect } from 'react';
 import React from 'react';
 import { Routes, Route, Navigate } from 'react-router-dom';
 import UserHeader from './components/UserHeader.jsx';
-import Login from './components/Login.jsx';
 import Landing from './components/Landing.jsx';
 import Dashboard from './components/Dashboard.jsx';
 import RepoListing from './components/RepoListing.jsx';
@@ -345,7 +344,7 @@ function App() {
     <div>
       <Routes>
         <Route path='/' element={<Landing isAuthenticated={isAuthenticated} />} />
-        <Route path='/login' element={<Login />} />
+        <Route path='/login' element={<Navigate to='/' replace />} />
         {/* Public routes - no auth required */}
         {/* Protected routes - all receive shared app state via props */}
         <Route
