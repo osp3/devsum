@@ -1,4 +1,5 @@
 import React from 'react';
+import PriorityTag from './PriorityTag.jsx';
 
 // Component to display AI-generated task priorities for upcoming work
 const TomorrowsPriorities = ({
@@ -9,45 +10,37 @@ const TomorrowsPriorities = ({
 }) => {
   //handle loading states first
   if (tasksLoading)
-    return <div className='p-4 text-white'>Loading tasks...</div>;
+    return <div className='p-4 text-fg/60'>Loading tasks...</div>;
   if (tasksError)
-    return <div className='p-4 text-white'>Error:{tasksError}</div>;
+    return <div className='p-4 text-node-red'>Error: {tasksError}</div>;
   if (!taskSuggestions)
-    return <div className='p4 text-white'>no task available</div>;
+    return <div className='p-4 text-fg/60'>No tasks available</div>;
 
   //extract task from data structure in app.jsx
   const tasks = taskSuggestions;
-  console.log(tasks);
 
   //renders the container with heading always visible
   return (
     <div className='p-2'>
       {/* Heading always renders regardless of task availability */}
-      <div className='flex justify-items-start font-bold text-white'>
-        Today's Priorities
-      </div>
+      <p className='eyebrow'>Today&apos;s priorities</p>
 
       {/* Conditional content based on tasks availability */}
       {!tasks || !Array.isArray(tasks) || tasks.length === 0 ? (
-        <div className='p-4 text-gray-400'>No tasks found in suggestions</div>
+        <div className='p-4 text-fg/60'>No tasks found in suggestions</div>
       ) : (
         /* add a vertical scrollable bar with a height of 130 */
-        <div className='max-h-130 overflow-y-auto pr-2'>
-          {/* iterate on each task */}
+        <ul className='mt-3 max-h-130 overflow-y-auto divide-y divide-line border-y border-line pr-2'>
           {tasks.map((task, index) => (
-            <div key={index} className='mb-4'>
-              {/* Task Details */}
-              <div className='flex flex-col bg-[#272633] rounded-lg p-3 border-l-2 border-[#5b56dd]'>
-                {/* gives task title in white  */}
-                <h2 className='text-white font-semibold text-sm '>
-                  {task.title}
-                </h2>
-                {/* gives task description added a padding of 3 so that is shows indented from the title */}
-                <p className='text-white text-sm  p-3'>{task.description}</p>
+            <li key={index} className='py-3'>
+              <div className='flex items-start gap-3'>
+                <PriorityTag level={task.priority} />
+                <h2 className='text-sm font-semibold leading-5'>{task.title}</h2>
               </div>
-            </div>
+              <p className='mt-1.5 text-sm leading-6 text-fg/65'>{task.description}</p>
+            </li>
           ))}
-        </div>
+        </ul>
       )}
     </div>
   );

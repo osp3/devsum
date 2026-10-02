@@ -13,9 +13,9 @@ const RecentCommits = ({
   if (loading) {
     return (
       <div className='w-full max-w-4xl'>
-        <h2 className='text-white text-xl mb-4'>Recent Commits</h2>
+        <h2 className='text-lg font-semibold tracking-tight mb-4'>Recent commits</h2>
         <div className='flex justify-center items-center h-32'>
-          <div className='text-gray-300'>Loading commits...</div>
+          <div className='text-fg/60'>Loading commits...</div>
         </div>
       </div>
     );
@@ -25,9 +25,9 @@ const RecentCommits = ({
   if (error) {
     return (
       <div className='w-full max-w-4xl'>
-        <h2 className='text-white text-xl mb-4'>Recent Commits</h2>
+        <h2 className='text-lg font-semibold tracking-tight mb-4'>Recent commits</h2>
         <div className='flex justify-center items-center h-32'>
-          <div className='text-red-400'>Error: {error}</div>
+          <div className='text-node-red'>Error: {error}</div>
         </div>
       </div>
     );
@@ -37,9 +37,9 @@ const RecentCommits = ({
   if (!commits || commits.length === 0) {
     return (
       <div className='w-full max-w-4xl'>
-        <h2 className='text-white text-xl mb-4'>Recent Commits</h2>
+        <h2 className='text-lg font-semibold tracking-tight mb-4'>Recent commits</h2>
         <div className='flex justify-center items-center h-32'>
-          <div className='text-gray-300'>
+          <div className='text-fg/60'>
             No commits found for this repository
           </div>
         </div>
@@ -61,19 +61,13 @@ const RecentCommits = ({
     qualityAnalysis.codeAnalysis.insights &&
     qualityAnalysis.codeAnalysis.insights.length > 0;
 
-  console.log('📊 Quality analysis status:', {
-    hasQualityAnalysis,
-    hasIndividualCommitAnalysis,
-    totalInsights: qualityAnalysis?.codeAnalysis?.insights?.length || 0,
-  });
-
   // Render commits list
   return (
     <div className='w-full max-w-4xl'>
-      <h2 className='text-white text-xl mb-4'>
-        Recent Commits ({commits.length})
+      <h2 className='text-lg font-semibold tracking-tight mb-4'>
+        Recent commits <span className='font-geist-mono text-sm font-normal text-fg/50'>{commits.length}</span>
         {hasQualityAnalysis && (
-          <span className='text-sm text-green-400 ml-2'>
+          <span className='font-geist-mono text-xs font-normal text-steam ml-3'>
             Analysis Available
           </span>
         )}

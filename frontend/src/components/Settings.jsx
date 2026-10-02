@@ -1,8 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
+import AppShell from './AppShell.jsx';
 
 // Settings management component for API keys and configuration
-const Settings = () => {
+const Settings = ({ user }) => {
   const navigate = useNavigate();
 
   // Current settings values displayed in form inputs
@@ -212,13 +213,13 @@ const Settings = () => {
         <select
           value={settings[key]}
           onChange={(e) => handleInputChange(key, e.target.value)}
-          className='flex-1 px-3 py-2 bg-[#1a1928] border border-slate-600 rounded-md text-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500'
+          className='field flex-1 min-w-0'
         >
           {getOpenAIModelOptions().map((option) => (
             <option
               key={option.value}
               value={option.value}
-              className='bg-[#1a1928] text-white'
+              className='bg-inset text-fg'
             >
               {option.label}
             </option>
@@ -232,7 +233,7 @@ const Settings = () => {
         type={isFieldSensitive(key) ? 'password' : 'text'}
         value={settings[key]}
         onChange={(e) => handleInputChange(key, e.target.value)}
-        className='flex-1 px-3 py-2 bg-[#1a1928] border border-slate-600 rounded-md text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500'
+        className='field flex-1 min-w-0'
         placeholder={`Enter your ${getFieldLabel(key)}`}
       />
     );
@@ -241,56 +242,40 @@ const Settings = () => {
   // Show loading spinner while fetching initial settings
   if (loading) {
     return (
-      <div className='min-h-screen bg-[#1a1928] flex items-center justify-center'>
-        <div className='text-center'>
-          <div className='animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500 mx-auto mb-4'></div>
-          <p className='text-white'>Loading settings...</p>
+      <AppShell user={user}>
+        <div className='flex flex-col items-center justify-center py-24'>
+          <div className='animate-spin rounded-full h-10 w-10 border-2 border-line border-t-steam mb-4'></div>
+          <p className='text-fg/65'>Loading settings...</p>
         </div>
-      </div>
+      </AppShell>
     );
   }
 
-  // Main settings form with navigation header and field sections
+  // Main settings form with field sections
   return (
-    <div
-      className='min-h-screen bg-[#1a1928]'
-      style={{
-        background:
-          'linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%)',
-      }}
-    >
-      {/* Navigation Header with back button and title */}
-      <div className='bg-[#2d2b3e] border-b border-slate-600 p-4'>
-        <div className='max-w-6xl mx-auto flex justify-between items-center'>
-          <div className='flex items-center gap-4'>
-            <button
-              // using the negative one takes you back to the previous page.
-              onClick={() => navigate(-1)}
-              className='text-blue-400 hover:text-blue-300 transition-colors'
-            >
-              Exit
-            </button>
-            <h2 className='text-white text-xl font-semibold'>Settings</h2>
-          </div>
-        </div>
-      </div>
-
+    <AppShell user={user}>
       <div className='py-8 px-4'>
         <div className='max-w-2xl mx-auto'>
-          <div className='bg-[#2d2b3e] rounded-lg shadow-md p-6 border border-slate-600'>
-            <h1 className='text-2xl font-bold text-white mb-6'>
-              API Keys & Settings
+          {/* using the negative one takes you back to the previous page. */}
+          <button onClick={() => navigate(-1)} className='btn-ghost mb-6 text-sm cursor-pointer'>
+            Back
+          </button>
+          <div className='panel p-6'>
+            <p className='eyebrow'>Settings</p>
+            <h1 className='mt-2 mb-6 text-2xl font-semibold tracking-[-0.03em]'>
+              API keys and model
             </h1>
 
             {/* Status message display (success, error, info) */}
             {message.text && (
               <div
-                className={`mb-6 p-4 rounded-md border ${
+                role='status'
+                className={`mb-6 p-4 rounded-lg border text-sm ${
                   message.type === 'success'
-                    ? 'bg-green-900/20 border-green-500 text-green-300'
+                    ? 'bg-steam/10 border-steam/30 text-steam'
                     : message.type === 'error'
-                    ? 'bg-red-900/20 border-red-500 text-red-300'
-                    : 'bg-blue-900/20 border-blue-500 text-blue-300'
+                    ? 'bg-node-red/10 border-node-red/30 text-node-red'
+                    : 'bg-inset border-line text-fg/70'
                 }`}
               >
                 {message.text}
@@ -300,11 +285,11 @@ const Settings = () => {
             {/* Settings form fields with labels, descriptions, and test buttons */}
             <div className='space-y-6'>
               {Object.keys(settings).map((key) => (
-                <div key={key} className='border-b border-slate-600 pb-6'>
-                  <label className='block text-sm font-medium text-white mb-2'>
+                <div key={key} className='border-b border-line pb-6'>
+                  <label className='block text-sm font-medium mb-1'>
                     {getFieldLabel(key)}
                   </label>
-                  <p className='text-sm text-gray-300 mb-3'>
+                  <p className='text-sm text-fg/60 mb-3'>
                     {getFieldDescription(key)}
                   </p>
 
@@ -318,7 +303,7 @@ const Settings = () => {
                         <button
                           onClick={() => handleTest(key, settings[key])}
                           disabled={testing[key]}
-                          className='px-4 py-2 bg-slate-600 text-white rounded-md hover:bg-slate-500 disabled:opacity-50 disabled:cursor-not-allowed'
+                          className='btn-secondary border px-4 cursor-pointer'
                         >
                           {testing[key] ? 'Testing...' : 'Test'}
                         </button>
@@ -333,22 +318,22 @@ const Settings = () => {
               <button
                 onClick={() => navigate(-1)}
                 disabled={saving}
-                className='px-4 py-2 text-white bg-slate-600 rounded-md hover:bg-slate-500 disabled:opacity-50 disabled:cursor-not-allowed'
+                className='btn-secondary h-9 border px-4 text-sm cursor-pointer'
               >
                 Cancel
               </button>
               <button
                 onClick={handleSave}
                 disabled={saving || !hasChanges()}
-                className='px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed'
+                className='btn-primary h-9 px-4 text-sm font-medium cursor-pointer'
               >
-                {saving ? 'Saving...' : 'Save Settings'}
+                {saving ? 'Saving...' : 'Save settings'}
               </button>
             </div>
           </div>
         </div>
       </div>
-    </div>
+    </AppShell>
   );
 };
 

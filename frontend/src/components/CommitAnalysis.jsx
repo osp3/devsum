@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useSearchParams, useNavigate, useLocation } from 'react-router-dom';
-import UserHeader from './UserHeader';
+import AppShell from './AppShell.jsx';
+import PriorityTag from './PriorityTag.jsx';
 
 // Component to display detailed quality analysis for a specific commit
 const CommitAnalysis = ({ user }) => {
@@ -78,75 +79,54 @@ const CommitAnalysis = ({ user }) => {
   // Show error state
   if (error) {
     return (
-      <div className='min-h-screen bg-[#1a1928]'>
-        <UserHeader user={user} />
-        <div className='max-w-4xl mx-auto p-6'>
-          <button
-            onClick={handleBack}
-            className='mb-4 px-4 py-2 bg-gray-600 hover:bg-gray-700 text-white rounded text-sm transition-colors'
-          >
+      <AppShell user={user}>
+        <div className='max-w-4xl mx-auto p-4 sm:p-6'>
+          <button onClick={handleBack} className='btn-ghost mb-4 text-sm cursor-pointer'>
             Back to Repository
           </button>
-          <div className='text-center text-red-400'>
+          <div className='text-center text-node-red'>
             <h2 className='text-xl mb-2'>Error Loading Analysis</h2>
             <p>{error}</p>
           </div>
         </div>
-      </div>
+      </AppShell>
     );
   }
 
   // Show loading state
   if (loading) {
     return (
-      <div className='min-h-screen bg-[#1a1928]'>
-        <UserHeader user={user} />
-        <div className='max-w-4xl mx-auto p-6'>
-          <button
-            onClick={handleBack}
-            className='mb-4 px-4 py-2 bg-gray-600 hover:bg-gray-700 text-white rounded text-sm transition-colors'
-          >
+      <AppShell user={user}>
+        <div className='max-w-4xl mx-auto p-4 sm:p-6'>
+          <button onClick={handleBack} className='btn-ghost mb-4 text-sm cursor-pointer'>
             Back to Repository
           </button>
-          <div className='text-center text-gray-400'>
+          <div className='text-center text-fg/60'>
             <p>Analyzing commits...</p>
           </div>
         </div>
-      </div>
+      </AppShell>
     );
   }
 
   // Main analysis display
   return (
-    <div
-      className='min-h-screen bg-[#1a1928]'
-      style={{
-        background:
-          'linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%)',
-      }}
-    >
-      <UserHeader user={user} />
-
-      <div className='max-w-4xl mx-auto p-6'>
+    <AppShell user={user}>
+      <div className='max-w-4xl mx-auto p-4 sm:p-6'>
         {/* Navigation */}
-        <button
-          onClick={handleBack}
-          className='mb-6 px-4 py-2 bg-gray-600 hover:bg-gray-700 text-white rounded text-sm transition-colors'
-        >
+        <button onClick={handleBack} className='btn-ghost mb-6 text-sm cursor-pointer'>
           Back to Repository
         </button>
 
         {/* Header */}
         <div className='mb-6'>
-          <h1 className='text-white text-2xl font-bold mb-2'>
-            Commit Analysis
+          <p className='eyebrow'>Commit analysis</p>
+          <h1 className='mt-2 mb-3 text-3xl font-semibold tracking-[-0.03em] break-all'>
+            {repositoryId}
           </h1>
-          <p className='text-gray-400'>
-            Repository: <span className='text-white'>{repositoryId}</span>
-          </p>
-          <p className='text-gray-400'>
+          <p className='text-fg/60 text-sm'>
             Commit:{' '}
-            <span className='text-white font-mono'>
+            <span className='text-fg font-geist-mono'>
               {commitSha?.substring(0, 8)}
             </span>
           </p>
@@ -156,35 +136,25 @@ const CommitAnalysis = ({ user }) => {
         {analysisData && (
           <div className='space-y-6'>
             {/* Commit Details */}
-            <div className='bg-[#272633] border border-slate-400 rounded-lg p-6'>
-              <h2 className='text-white text-xl font-bold mb-4'>
+            <div className='panel p-6'>
+              <h2 className='text-lg font-semibold tracking-tight mb-4'>
                 Commit Details
               </h2>
               <div className='space-y-3'>
                 <div>
-                  <p className='text-gray-400 text-sm'>Message</p>
-                  <p className='text-white'>{analysisData.commitMessage}</p>
+                  <p className='font-geist-mono text-xs uppercase tracking-[0.14em] text-fg/60'>Message</p>
+                  <p className='mt-1'>{analysisData.commitMessage}</p>
                 </div>
                 <div className='flex gap-6'>
                   <div>
-                    <p className='text-gray-400 text-sm'>Lines Changed</p>
-                    <p className='text-white font-mono'>
+                    <p className='font-geist-mono text-xs uppercase tracking-[0.14em] text-fg/60'>Lines changed</p>
+                    <p className='mt-1 font-geist-mono'>
                       {analysisData.linesChanged}
                     </p>
                   </div>
                   <div>
-                    <p className='text-gray-400 text-sm'>Severity</p>
-                    <span
-                      className={`px-2 py-1 rounded text-sm font-medium ${
-                        analysisData.analysis?.severity === 'high'
-                          ? 'bg-red-600 text-white'
-                          : analysisData.analysis?.severity === 'medium'
-                          ? 'bg-yellow-600 text-white'
-                          : 'bg-green-600 text-white'
-                      }`}
-                    >
-                      {analysisData.analysis?.severity || 'low'}
-                    </span>
+                    <p className='mb-1.5 font-geist-mono text-xs uppercase tracking-[0.14em] text-fg/60'>Severity</p>
+                    <PriorityTag level={analysisData.analysis?.severity || 'low'} />
                   </div>
                 </div>
               </div>
@@ -193,37 +163,37 @@ const CommitAnalysis = ({ user }) => {
             {/* Issues Found */}
             {analysisData.analysis?.issues &&
               analysisData.analysis.issues.length > 0 && (
-                <div className='bg-[#272633] border border-slate-400 rounded-lg p-6'>
-                  <h2 className='text-white text-xl font-bold mb-4'>
+                <div className='panel p-6'>
+                  <h2 className='text-lg font-semibold tracking-tight mb-4'>
                     Issues Found ({analysisData.analysis.issues.length})
                   </h2>
                   <div className='space-y-3'>
                     {analysisData.analysis.issues.map((issue, index) => (
                       <div
                         key={index}
-                        className='border-l-4 border-red-500 pl-4'
+                        className='rounded-lg border border-line bg-inset p-4'
                       >
-                        <div className='flex items-center gap-2 mb-1'>
-                          <span className='text-red-400 font-medium capitalize'>
-                            {issue.severity} - {issue.type.replace('_', ' ')}
+                        <div className='flex items-center gap-2 mb-2'>
+                          <PriorityTag level={issue.severity} />
+                          <span className='font-medium capitalize'>
+                            {issue.type.replace('_', ' ')}
                           </span>
                           {issue.line && issue.line !== 'unknown' && (
-                            <span className='text-gray-400 text-sm'>
+                            <span className='font-geist-mono text-fg/50 text-xs'>
                               Line {issue.line}
                             </span>
                           )}
                         </div>
-                        <p className='text-gray-300 mb-2'>
+                        <p className='text-fg/70 text-sm leading-6 mb-2'>
                           {issue.description}
                         </p>
                         {issue.suggestion && (
-                          <p className='text-blue-400 text-sm'>
-                            {' '}
+                          <p className='text-steam text-sm'>
                             {issue.suggestion}
                           </p>
                         )}
                         {issue.example && (
-                          <p className='text-green-400 text-sm'>
+                          <p className='mt-1 font-geist-mono text-fg/60 text-xs'>
                             Example: {issue.example}
                           </p>
                         )}
@@ -236,15 +206,15 @@ const CommitAnalysis = ({ user }) => {
             {/* Positive Aspects */}
             {analysisData.analysis?.positives &&
               analysisData.analysis.positives.length > 0 && (
-                <div className='bg-[#272633] border border-slate-400 rounded-lg p-6'>
-                  <h2 className='text-white text-xl font-bold mb-4'>
+                <div className='panel p-6'>
+                  <h2 className='text-lg font-semibold tracking-tight mb-4'>
                     Positive Aspects
                   </h2>
                   <ul className='space-y-2'>
                     {analysisData.analysis.positives.map((positive, index) => (
                       <li key={index} className='flex items-start gap-2'>
-                        <span className='text-green-400 mt-1'>✓</span>
-                        <span className='text-gray-300'>{positive}</span>
+                        <span className='text-steam'>✓</span>
+                        <span className='text-fg/70 text-sm leading-6'>{positive}</span>
                       </li>
                     ))}
                   </ul>
@@ -253,11 +223,11 @@ const CommitAnalysis = ({ user }) => {
 
             {/* Overall Assessment */}
             {analysisData.analysis?.overallAssessment && (
-              <div className='bg-[#272633] border border-slate-400 rounded-lg p-6'>
-                <h2 className='text-white text-xl font-bold mb-4'>
+              <div className='panel p-6'>
+                <h2 className='text-lg font-semibold tracking-tight mb-4'>
                   Overall Assessment
                 </h2>
-                <p className='text-gray-300 leading-relaxed'>
+                <p className='text-fg/70 text-sm leading-7'>
                   {analysisData.analysis.overallAssessment}
                 </p>
               </div>
@@ -266,15 +236,16 @@ const CommitAnalysis = ({ user }) => {
             {/* Recommended Actions */}
             {analysisData.analysis?.recommendedActions &&
               analysisData.analysis.recommendedActions.length > 0 && (
-                <div className='bg-[#272633] border border-slate-400 rounded-lg p-6'>
-                  <h2 className='text-white text-xl font-bold mb-4'>
+                <div className='panel p-6'>
+                  <h2 className='text-lg font-semibold tracking-tight mb-4'>
                     Recommended Actions
                   </h2>
                   <ul className='space-y-2'>
                     {analysisData.analysis.recommendedActions.map(
                       (action, index) => (
                         <li key={index} className='flex items-start gap-2'>
-                          <span className='text-gray-300'>{action}</span>
+                          <span className='text-steam'>→</span>
+                          <span className='text-fg/70 text-sm leading-6'>{action}</span>
                         </li>
                       )
                     )}
@@ -284,7 +255,7 @@ const CommitAnalysis = ({ user }) => {
           </div>
         )}
       </div>
-    </div>
+    </AppShell>
   );
 };
 

@@ -61,18 +61,18 @@ const CommitItem = ({
     return suggestedCommitMessage || commit.message;
   };
 
-  // Return Tailwind background color class based on commit type
+  // Return Tailwind color classes based on commit type
   const getCommitTypeColor = (message) => {
     const lowerMessage = message.toLowerCase();
     if (lowerMessage.includes('feat') || lowerMessage.includes('feature'))
-      return 'bg-green-500';
+      return 'text-node-blue border-node-blue/40';
     if (lowerMessage.includes('fix') || lowerMessage.includes('bug'))
-      return 'bg-red-500';
-    if (lowerMessage.includes('docs')) return 'bg-blue-500';
-    if (lowerMessage.includes('style')) return 'bg-purple-500';
-    if (lowerMessage.includes('refactor')) return 'bg-yellow-500';
-    if (lowerMessage.includes('test')) return 'bg-pink-500';
-    return 'bg-gray-500'; // Default color for unmatched commit types
+      return 'text-node-red border-node-red/30';
+    if (lowerMessage.includes('docs')) return 'text-steam border-steam/30';
+    if (lowerMessage.includes('style')) return 'text-dough border-dough/30';
+    if (lowerMessage.includes('refactor')) return 'text-node-yellow border-node-yellow/40';
+    if (lowerMessage.includes('test')) return 'text-dough border-dough/30';
+    return 'text-fg/60 border-line'; // Default color for unmatched commit types
   };
 
   // Return emoji icon based on commit message keywords will no be using icons
@@ -120,32 +120,32 @@ const CommitItem = ({
   // Render commit item UI
   return (
     <div>
-      <div className='relative flex flex-row items-center rounded-lg text-[#5b56dd] bg-[#272633] shadow-[-2px_0_0_0px] p-3 gap-3'>
+      <div className='relative flex flex-row items-center rounded-lg border border-line bg-inset p-3 pt-7 gap-3'>
         {/* calls function to find commit color and type of commit message */}
-        <button
-          className={`btn ${getCommitTypeColor(
+        <span
+          className={`w-16 shrink-0 rounded border py-0.5 text-center font-geist-mono text-[11px] uppercase ${getCommitTypeColor(
             displayMessage
-          )} text-white px-3 py-1 rounded flex items-center gap-2 w-18 text-xs font-medium`}
+          )}`}
         >
-          <span>{getCommitType(displayMessage)}</span>
-        </button>
+          {getCommitType(displayMessage)}
+        </span>
 
-        <div className='flex items-center gap-3 flex-1'>
+        <div className='flex items-center gap-3 flex-1 min-w-0'>
           {/* leading-tight make the spacing between lines tighter*/}
-          <div className='flex-1'>
-            <h1 className='text-white text-md leading-tight'>
+          <div className='flex-1 min-w-0'>
+            <h1 className='text-sm leading-snug break-words'>
               {truncateMessage(displayMessage)}
             </h1>
             {/* Show indicator if AI suggested message is being displayed */}
             {suggestedCommitMessage && (
               <div className='flex items-center gap-2 mt-1'>
-                <span className='text-xs text-gray-500'>
+                <span className='font-geist-mono text-xs text-fg/50 break-words'>
                   Original: {truncateMessage(commit.message, 500)}
                 </span>
               </div>
             )}
             {/* Author name */}
-            <p className='text-grey-400 text-sm mt-1'>{commit.author.name}</p>
+            <p className='text-fg/60 text-xs mt-1'>{commit.author.name}</p>
           </div>
         </div>
 
@@ -153,7 +153,7 @@ const CommitItem = ({
         {hasQualityAnalysis && (
           <button
             onClick={handleViewAnalysis}
-            className='px-3 py-1 bg-blue-600 hover:bg-blue-700 text-white rounded text-xs font-medium transition-colors cursor-pointer'
+            className='btn-secondary shrink-0 border px-3 py-1 text-xs cursor-pointer'
             title={`View detailed analysis for commit ${commit.sha.substring(
               0,
               7
@@ -163,7 +163,7 @@ const CommitItem = ({
           </button>
         )}
 
-        <span className='flex-1 absolute top-2 right-2 text-xs text-gray-500'>
+        <span className='absolute top-2 right-3 font-geist-mono text-[11px] text-fg/50'>
           {formatDate(commit.author.date)}
         </span>
       </div>
