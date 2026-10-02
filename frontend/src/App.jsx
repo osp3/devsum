@@ -3,6 +3,7 @@ import React from 'react';
 import { Routes, Route, Navigate } from 'react-router-dom';
 import UserHeader from './components/UserHeader.jsx';
 import Landing from './components/Landing.jsx';
+import { PrivacyPage, TermsPage } from './components/LegalPages.jsx';
 import Dashboard from './components/Dashboard.jsx';
 import RepoListing from './components/RepoListing.jsx';
 import RepoAnalytics from './components/RepoAnalytics';
@@ -345,6 +346,8 @@ function App() {
       <Routes>
         <Route path='/' element={<Landing isAuthenticated={isAuthenticated} />} />
         <Route path='/login' element={<Navigate to='/' replace />} />
+        <Route path='/privacy' element={<PrivacyPage />} />
+        <Route path='/terms' element={<TermsPage />} />
         {/* Public routes - no auth required */}
         {/* Protected routes - all receive shared app state via props */}
         <Route
