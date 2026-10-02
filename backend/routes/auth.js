@@ -37,7 +37,7 @@ router.get('/github',
 router.get('/github/callback',
   requireOAuth,
   passport.authenticate('github', { 
-    failureRedirect: `${process.env.FRONTEND_URL}/login?error=auth_failed` 
+    failureRedirect: `${process.env.FRONTEND_URL}/?error=auth_failed` 
   }),
   handleOAuthCallback
 );
