@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
-import { useNavigate, useLocation } from 'react-router-dom';
+import { Link, useNavigate, useLocation } from 'react-router-dom';
+import logo from '../assets/devsum-logo.png';
 
 // UserHeader displays the navigation header that appears at the top of all authenticated pages
 // Provides different functionality based on current route:
@@ -32,16 +33,6 @@ const UserHeader = ({ user }) => {
     }
   };
 
-  // Handle logo click - navigate to dashboard from any page except dashboard
-  const handleLogoClick = () => {
-    if (location.pathname !== '/dashboard') {
-      navigate('/dashboard'); // Only navigate if not already on dashboard
-    }
-  };
-
-  // Logo is clickable everywhere except on dashboard
-  const isLogoClickable = location.pathname !== '/dashboard';
-
   // Extract user's display name with fallback hierarchy
   const getDisplayName = () => {
     if (!user) return ''; // return empty string if no user data
@@ -51,35 +42,27 @@ const UserHeader = ({ user }) => {
   };
 
   return (
-    <div className='bg-gradient-to-r from-[#2d2b3e] to-[#353346] border-b border-slate-600 p-4'>
-      <div className='max-w-6xl mx-auto flex justify-between items-center'>
+    <header className='sticky top-0 z-20 border-b border-line bg-canvas/80 backdrop-blur'>
+      <nav className='mx-auto flex h-16 max-w-7xl items-center justify-between gap-4 px-4 sm:px-6' aria-label='Main'>
         {/* Left side - Logo and user greeting */}
-        <div className='flex items-center gap-6'>
-          {/* DevSum logo with conditional clickability */}
-          <h2
-            className={`text-white text-2xl font-bold hover:scale-105 transition-transform ${
-              isLogoClickable
-                ? 'cursor-pointer hover:opacity-80 transition-opacity'
-                : 'cursor-default'
-            }`}
-            onClick={handleLogoClick}
-            title={isLogoClickable ? 'Go to Dashboard' : ''}
-          >
-            Dev<span className='text-blue-400'>Sum</span>
-          </h2>
+        <div className='flex min-w-0 items-center gap-6'>
+          <Link to='/dashboard' className='flex shrink-0 items-center gap-2.5 font-semibold tracking-tight'>
+            <img src={logo} alt='' className='h-7 w-7 object-contain' />
+            DevSum
+          </Link>
 
           {/* Welcome message with user's name - varies by page*/}
           {user && (
-            <div className='flex items-center gap-3'>
+            <div className='hidden min-w-0 items-center gap-3 sm:flex'>
               {/* User's GitHub avatar */}
               {user.avatarUrl && (
                 <img
                   src={user.avatarUrl}
                   alt={`${getDisplayName()}'s avatar`}
-                  className='w-8 h-8 rounded-full'
+                  className='h-7 w-7 shrink-0 rounded-full border border-line'
                 />
               )}
-              <span className='text-white text-base font-medium'>
+              <span className='hidden truncate text-sm text-fg/65 md:inline'>
                 {location.pathname === '/dashboard'
                   ? // Full welcome message on dashboard
                     `Welcome back, ${getDisplayName()}!`
@@ -91,22 +74,16 @@ const UserHeader = ({ user }) => {
         </div>
 
         {/* Right side - Action buttons and navigation*/}
-        <div className='flex gap-3'>
+        <div className='flex shrink-0 items-center gap-4 text-sm sm:gap-6'>
           {/* Back to repositories button - only on /repository page */}
           {location.pathname === '/repository' && (
-            <button
-              onClick={() => navigate('/repositories')} // navigate from individual repo back to repo list
-              className='px-3 py-2 bg-slate-700 hover:bg-slate-400 font-normal text-white rounded text-sm transition-all duration-200 shadow-sm'
-            >
-              Back to Repositories
+            <button onClick={() => navigate('/repositories')} className='btn-ghost cursor-pointer'>
+              <span className='sm:hidden'>Repos</span>
+              <span className='hidden sm:inline'>All repositories</span>
             </button>
           )}
 
-          {/* Settings navigation button */}
-          <button
-            onClick={() => navigate('/settings')}
-            className='px-4 py-2 rounded text-white font-normal transition-all duration-200 bg-slate-700 text-sm hover:bg-slate-400 cursor-pointer shadow-sm'
-          >
+          <button onClick={() => navigate('/settings')} className='btn-ghost cursor-pointer'>
             Settings
           </button>
 
@@ -114,20 +91,13 @@ const UserHeader = ({ user }) => {
           <button
             onClick={handleLogout}
             disabled={isLoggingOut}
-            className={`
-              px-4 py-2 rounded text-white text-sm font-normal transition-all duration-200 shadow-sm
-              ${
-                isLoggingOut
-                  ? 'bg-slate-600 cursor-not-allowed'
-                  : 'bg-slate-700 hover:bg-red-900 cursor-pointer'
-              }
-            `}
+            className='btn-secondary h-9 cursor-pointer border px-4'
           >
-            {isLoggingOut ? 'Logging out...' : 'Logout'}
+            {isLoggingOut ? 'Logging out...' : 'Log out'}
           </button>
         </div>
-      </div>
-    </div>
+      </nav>
+    </header>
   );
 };
 

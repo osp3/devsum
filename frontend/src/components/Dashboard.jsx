@@ -1,5 +1,5 @@
 import React from 'react';
-import UserHeader from './UserHeader';
+import AppShell from './AppShell.jsx';
 import TodaysMetrics from './TodaysMetrics.jsx';
 import TodaysSummary from './TodaysSummary.jsx';
 import TomorrowsPriorities from './TomorrowsPriorities.jsx';
@@ -24,18 +24,9 @@ const Dashboard = ({
   user, // Current authenticated user data
 }) => {
   return (
-    <div
-      className='min-h-screen'
-      style={{
-        background:
-          'linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%)',
-      }}
-    >
-      {/* Navigation header with user info and controls */}
-      <UserHeader user={user} />
-
+    <AppShell user={user}>
       {/* Top metrics section - repository statistics */}
-      <div className=' border border-slate-400 rounded-2xl p-4 m-4 sm:m-6 max-w-7xl xl:mx-auto'>
+      <div className='panel p-4 m-4 sm:m-6 max-w-7xl xl:mx-auto'>
         <div className='flex-1 justify-center'>
           <TodaysMetrics
             selectedRepo={selectedRepo}
@@ -48,7 +39,7 @@ const Dashboard = ({
       {/* Main content area - two column layout */}
       <div className='flex flex-col lg:flex-row gap-6 max-w-7xl mx-4 sm:mx-6 xl:mx-auto'>
         {/* Left column - yesterday's development summary */}
-        <div className='lg:flex-3 min-w-0 border border-slate-400 rounded-2xl lg:h-150 p-4'>
+        <div className='lg:flex-3 min-w-0 panel lg:h-150 p-4'>
           <TodaysSummary
             yesterdaySummary={yesterdaySummary}
             summaryLoading={summaryLoading}
@@ -57,7 +48,7 @@ const Dashboard = ({
           />
         </div>
         {/* Right column - AI-generated task priorities */}
-        <div className='lg:flex-1 min-w-0 border border-slate-400 rounded-2xl lg:h-150 p-4'>
+        <div className='lg:flex-1 min-w-0 panel lg:h-150 p-4'>
           <TomorrowsPriorities
             taskSuggestions={taskSuggestions}
             tasksLoading={tasksLoading}
@@ -71,7 +62,7 @@ const Dashboard = ({
       <ShowRepoButton />
 
       {/* <p>🎉 Successfully logged in with GitHub!</p> */}
-    </div>
+    </AppShell>
   );
 };
 

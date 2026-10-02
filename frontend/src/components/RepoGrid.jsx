@@ -21,22 +21,24 @@ const RepoGrid = ({ repositories, setSelectedRepo }) => {
   );
 
   return (
-    <div className='p-6'>
-      <h2 className='text-2xl font-bold text-white mb-6'>
-        Your GitHub Repositories
+    <div className='mx-auto max-w-7xl p-4 sm:p-6'>
+      <p className='eyebrow'>Repositories</p>
+      <h2 className='mt-2 mb-6 text-3xl font-semibold tracking-[-0.03em]'>
+        Your GitHub repositories
       </h2>
 
       {/* Search input field */}
       <input
-        type='text'
+        type='search'
+        aria-label='Search repositories'
         placeholder='Search repositories...'
         value={searchTerm}
         onChange={(e) => setSearchTerm(e.target.value)}
-        className='w-full max-w-md px-4 py-2 mb-6 bg-white/10 border border-white/20 rounded-lg text-white placeholder-white/60 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent'
+        className='field w-full max-w-md mb-4'
       />
 
       {/* Display count of filtered vs total repositories */}
-      <p className='text-white/80 mb-6'>
+      <p className='font-geist-mono text-xs text-fg/60 mb-6'>
         Showing {filteredRepos.length} of {repositories.length} repositories
       </p>
 
@@ -53,7 +55,7 @@ const RepoGrid = ({ repositories, setSelectedRepo }) => {
 
       {/* Show "no results" message when search returns empty and user has typed something */}
       {filteredRepos.length === 0 && searchTerm && (
-        <p className='text-white/60 text-center mt-8'>
+        <p className='text-fg/60 text-center mt-8'>
           No repositories found matching "{searchTerm}"
         </p>
       )}

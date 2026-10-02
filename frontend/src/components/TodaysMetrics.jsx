@@ -2,28 +2,26 @@ import React from 'react';
 
 const TodaysMetrics = ({ yesterdaySummary }) => {
   if (!yesterdaySummary)
-    return <div className='p-4 text-gray-400'>No commits available</div>;
+    return <div className='p-4 text-fg/60'>No commits available</div>;
 
   return (
     <div>
       {/* Daily Metrics Header */}
-      <div className='flex justify-center font-bold text-white text-xl mb-4'>
-        Daily Metrics
-      </div>
+      <p className='eyebrow mb-4 text-center'>Daily metrics</p>
 
-      <div className='flex flex-row gap-2 '>
-        <div className=' flex-1  flex-item-center rounded-lg   border border-slate-400  text-center  bg-[#272633]  m-4 '>
-          <h4 className='justify-items-center text-2xl m-2'>
+      <div className='flex flex-row gap-4'>
+        <div className='flex-1 rounded-lg border border-line bg-inset p-4 text-center'>
+          <p className='text-3xl font-semibold tracking-tight'>
             {yesterdaySummary.commitCount}
-          </h4>
-          <h1>Total Commits</h1>
+          </p>
+          <p className='mt-1 font-geist-mono text-xs uppercase tracking-[0.14em] text-fg/60'>Commits</p>
         </div>
 
-        <div className=' flex-1  flex-item-center rounded-lg  border border-slate-400   text-center  bg-[#272633]  m-4 '>
-          <h4 className=' justify-items-center text-2xl m-2'>
+        <div className='flex-1 rounded-lg border border-line bg-inset p-4 text-center'>
+          <p className='text-3xl font-semibold tracking-tight'>
             {yesterdaySummary.repositoryCount}
-          </h4>
-          <h1>Total Repositories</h1>
+          </p>
+          <p className='mt-1 font-geist-mono text-xs uppercase tracking-[0.14em] text-fg/60'>Repositories</p>
         </div>
       </div>
     </div>

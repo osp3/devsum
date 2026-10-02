@@ -1,5 +1,5 @@
 import React from 'react';
-import UserHeader from './UserHeader';
+import AppShell from './AppShell.jsx';
 import RepoGrid from './RepoGrid.jsx';
 
 // RepoListing serves as a container for the repositories page
@@ -11,21 +11,11 @@ const RepoListing = ({
   setSelectedRepo, // function to change selected repository
   user, // current authenticated user data
 }) => {
-  console.log('RepoListing received setSelectedRepo:', typeof setSelectedRepo);
-
   // RENDER THE COMPONENT - What the user sees on the page
   return (
-    <div
-      className='min-h-screen'
-      style={{
-        background:
-          'linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%)',
-      }}
-    >
-      {/* Show user information at the top */}
-      <UserHeader user={user} />
+    <AppShell user={user}>
       <RepoGrid repositories={repositories} setSelectedRepo={setSelectedRepo} />
-    </div>
+    </AppShell>
   );
 };
 
