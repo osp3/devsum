@@ -1,6 +1,13 @@
 import React from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 import logo from '../assets/devsum-logo.png';
+import SiteFooter from './SiteFooter.jsx';
+
+const BRIEF_DATE = new Intl.DateTimeFormat('en-US', {
+  weekday: 'short',
+  month: 'short',
+  day: 'numeric',
+}).format(new Date());
 
 const GITHUB_AUTH_URL = `${import.meta.env.VITE_API_URL || 'http://localhost:3000'}/auth/github`;
 
@@ -54,6 +61,22 @@ const REVIEW_ISSUES = [
 
 const TREND = [62, 58, 66, 71, 69, 77, 82];
 
+// Every statement here is backed by the backend implementation; keep it that way.
+const SECURITY_POINTS = [
+  ['Read-only by design', 'DevSum reads commits and diffs. It never writes to your repositories.'],
+  ['Encrypted at rest', 'GitHub tokens and OpenAI keys are encrypted with AES-256-GCM before they reach the database.'],
+  ['Your OpenAI account', "Diffs go to OpenAI with your own API key, under your account's data terms. There is no shared key."],
+  ['Results, not source', 'We store generated analysis and repository names. We do not store your source code or diffs.'],
+  ['Short-lived sessions', 'Sessions use HTTP-only cookies and expire after 24 hours.'],
+  ['No trackers', 'No advertising or analytics scripts. One session cookie, used only to keep you signed in.'],
+];
+
+const ROADMAP = [
+  ['Now', 'Personal briefs', 'A morning summary and prioritized plan for each developer, across their own repositories.'],
+  ['Next', 'Team briefs', 'One shared summary of what shipped across a team, ready before standup.'],
+  ['Later', 'Engineering insight', 'Quality and delivery trends across repositories, for the people who lead engineering.'],
+];
+
 const STEPS = [
   ['Connect GitHub', 'Sign in with OAuth and pick the repositories you want DevSum to follow.'],
   ['DevSum reads the diffs', 'Commits are categorized and reviewed with the OpenAI model you choose.'],
@@ -96,13 +119,13 @@ const HeroVisual = () => (
   <Frame className='bg-canvas text-left'>
     <div className='grid overflow-hidden md:grid-cols-[1fr_1.35fr]'>
       <div className='border-b border-line bg-inset p-6 font-geist-mono text-[13px] leading-7 text-fg/70 md:border-r md:border-b-0'>
-        <p className='text-fg/40'>$ git log --since=yesterday --oneline</p>
+        <p className='text-fg/55'>$ git log --since=yesterday --oneline</p>
         {RAW_COMMITS.map(([sha, msg]) => (
           <p key={sha}>
             <span className='text-node-yellow'>{sha}</span> {msg}
           </p>
         ))}
-        <p className='mt-4 text-fg/40'>
+        <p className='mt-4 text-fg/55'>
           $ <span className='inline-block h-4 w-2 translate-y-0.5 bg-fg/70 motion-safe:animate-pulse' />
         </p>
       </div>
@@ -110,7 +133,7 @@ const HeroVisual = () => (
       <div className='p-6'>
         <div className='flex items-center justify-between'>
           <p className='text-sm font-semibold'>Morning brief</p>
-          <p className='font-geist-mono text-xs text-fg/50'>Wed, Sep 30 · 9:00</p>
+          <p className='font-geist-mono text-xs text-fg/60'>{BRIEF_DATE} · 9:00</p>
         </div>
 
         <p className='mt-4 text-sm leading-6 text-fg/75'>
@@ -133,7 +156,7 @@ const HeroVisual = () => (
           ))}
         </ul>
 
-        <p className='mt-6 font-geist-mono text-[11px] uppercase tracking-[0.14em] text-fg/50'>
+        <p className='mt-6 font-geist-mono text-[11px] uppercase tracking-[0.14em] text-fg/60'>
           Today
         </p>
         <ul className='mt-2 divide-y divide-line border-y border-line'>
@@ -211,12 +234,12 @@ const Landing = ({ isAuthenticated = false }) => (
         <div className='relative mx-auto max-w-6xl px-6 pt-24 pb-20 text-center md:pt-32'>
           <p className='mx-auto inline-flex items-center gap-2 rounded-full border border-line bg-canvas px-3 py-1 font-geist-mono text-xs text-fg/70'>
             <span className='h-1.5 w-1.5 rounded-full bg-steam' />
-            Your daily dev bites
+            Open beta · Free to use
           </p>
           <h1 className='mx-auto mt-6 max-w-4xl text-5xl font-semibold tracking-[-0.04em] text-balance md:text-7xl'>
             Yesterday&apos;s commits.
             <br />
-            <span className='text-fg/35'>Today&apos;s plan.</span>
+            <span className='text-fg/50'>Today&apos;s plan.</span>
           </h1>
           <p className='mx-auto mt-6 max-w-xl text-lg leading-8 text-pretty text-fg/65'>
             DevSum reads what you pushed to GitHub, reviews every diff, and serves a short brief
@@ -293,7 +316,7 @@ const Landing = ({ isAuthenticated = false }) => (
                   <li key={text} className='flex items-start gap-2.5'>
                     <Tag level={level} />
                     <span className='text-fg/75'>
-                      <span className='font-geist-mono text-xs text-fg/45'>{type} </span>
+                      <span className='font-geist-mono text-xs text-fg/60'>{type} </span>
                       {text}
                     </span>
                   </li>
@@ -354,20 +377,89 @@ const Landing = ({ isAuthenticated = false }) => (
         </div>
       </section>
 
+      {/* Security */}
+      <section id='security' className='scroll-mt-16 border-b border-line'>
+        <div className='mx-auto max-w-6xl px-6 py-24'>
+          <Eyebrow>Security</Eyebrow>
+          <h2 className='mt-3 max-w-2xl text-4xl font-semibold tracking-[-0.03em] text-balance'>
+            Built to be trusted with your repositories.
+          </h2>
+          <p className='mt-4 max-w-2xl leading-7 text-fg/65'>
+            DevSum asks for access to your code, so here is exactly what it does with it.
+          </p>
+
+          <dl className='mt-14 grid gap-px border border-line bg-line sm:grid-cols-2 lg:grid-cols-3'>
+            {SECURITY_POINTS.map(([term, detail]) => (
+              <div key={term} className='bg-canvas p-8'>
+                <dt className='font-semibold tracking-tight'>{term}</dt>
+                <dd className='mt-2 text-sm leading-6 text-fg/65'>{detail}</dd>
+              </div>
+            ))}
+          </dl>
+
+          <Frame className='mt-8 bg-inset p-6'>
+            <p className='text-sm font-semibold'>Why sign-in asks for repo access</p>
+            <p className='mt-2 max-w-3xl text-sm leading-6 text-fg/65'>
+              GitHub does not offer OAuth apps a read-only scope for private repositories, so{' '}
+              <code className='font-geist-mono text-[13px] text-fg'>repo</code> is the narrowest scope that
+              includes them. DevSum only uses it to read. You can remove access at any time in{' '}
+              <a
+                href='https://github.com/settings/applications'
+                target='_blank'
+                rel='noopener noreferrer'
+                className='text-fg underline decoration-fg/30 underline-offset-4 hover:decoration-fg'
+              >
+                GitHub settings
+              </a>
+              .
+            </p>
+          </Frame>
+        </div>
+      </section>
+
+      {/* Why DevSum */}
+      <section className='border-b border-line'>
+        <div className='mx-auto max-w-6xl px-6 py-24'>
+          <Eyebrow>Why DevSum</Eyebrow>
+          <h2 className='mt-3 max-w-2xl text-4xl font-semibold tracking-[-0.03em] text-balance'>
+            The context is already in your commit history.
+          </h2>
+          <p className='mt-4 max-w-2xl leading-7 text-fg/65'>
+            Standups and status updates exist to answer one question: what happened, and what matters next.
+            The answer is already in your commits. DevSum reads it so nobody has to rebuild it from memory.
+          </p>
+
+          <ol className='mt-14 grid gap-px border border-line bg-line md:grid-cols-3'>
+            {ROADMAP.map(([stage, title, body], i) => (
+              <li key={title} className='bg-canvas p-8'>
+                <p className={`font-geist-mono text-xs uppercase tracking-[0.14em] ${i === 0 ? 'text-steam' : 'text-fg/60'}`}>
+                  {stage}
+                </p>
+                <h3 className='mt-4 text-lg font-semibold tracking-tight'>{title}</h3>
+                <p className='mt-2 text-sm leading-6 text-fg/65'>{body}</p>
+              </li>
+            ))}
+          </ol>
+
+          <div className='mt-6 border border-line px-8 py-6'>
+            <p className='font-semibold tracking-tight'>Free during open beta</p>
+            <p className='mt-1 text-sm leading-6 text-fg/65'>
+              You bring your own OpenAI API key, so you pay OpenAI directly for your own usage. DevSum adds no charge.
+            </p>
+          </div>
+        </div>
+      </section>
+
+      {/* Closing */}
+      <section className='bg-surface'>
+        <div className='mx-auto max-w-6xl px-6 py-20'>
+          <h2 className='text-4xl font-semibold tracking-[-0.03em]'>Start tomorrow with a plan.</h2>
+          <p className='mt-3 text-fg/65'>Connect a repository tonight. Your first brief is ready in the morning.</p>
+        </div>
+      </section>
     </main>
 
-    <footer className='bg-canvas'>
-      <div className='mx-auto flex max-w-6xl flex-col gap-4 px-6 py-10 text-sm text-fg/55 sm:flex-row sm:items-center sm:justify-between'>
-        <div className='flex items-center gap-2.5'>
-          <img src={logo} alt='' className='h-5 w-5 object-contain' />
-          <span>© {new Date().getFullYear()} DevSum. Smart. Steamy. Structured.</span>
-        </div>
-        <div className='flex gap-6'>
-          <a href='#product' className='hover:text-fg'>Product</a>
-          <a href='#how' className='hover:text-fg'>How it works</a>
-        </div>
-      </div>
-    </footer>
+    <SiteFooter onLanding />
   </div>
 );
 
