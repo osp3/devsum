@@ -14,7 +14,7 @@ class AuthController {
       // Check if user is authenticated
       if (!req.user) {
         console.error('❌ OAuth callback called but no user found in session');
-        return res.redirect(`${process.env.FRONTEND_URL}/login?error=auth_failed`);
+        return res.redirect(`${process.env.FRONTEND_URL}/?error=auth_failed`);
       }
 
       console.log(`✅ User authenticated: ${req.user.username}`);
