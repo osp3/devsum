@@ -6,7 +6,8 @@
 import User from '../../models/User.js';
 import AIService from '../ai/AICoordinator.js';
 import { YesterdaySummaryService } from './YesterdaySummaryService.js';
-import { resolveModel } from '../../config/openaiModels.js';
+import { getAccess } from '../../config/billing.js';
+import { resolveAICredentials, runWithUsage } from '../billing/aiCredentials.js';
 import { getLocalHour } from '../../utils/DateUtils.js';
 import { mapWithConcurrency } from '../../utils/concurrency.js';
 
@@ -26,19 +27,21 @@ export const runMorningBriefs = async (now = new Date()) => {
     timeZone: { $exists: true }
   }).select('+accessToken +openaiApiKey');
 
-  const due = users.filter(user => getLocalHour(user.timeZone, now) >= BRIEF_READY_HOUR);
+  const due = users.filter(user =>
+    getLocalHour(user.timeZone, now) >= BRIEF_READY_HOUR && getAccess(user, now).allowed);
 
   const results = await mapWithConcurrency(due, USER_CONCURRENCY, async (user) => {
     try {
-      const apiKey = user.openaiApiKey || null;
-      const model = resolveModel(user.openaiModel);
-      const summary = await new YesterdaySummaryService(user.accessToken, user._id)
-        .generateSummary(false, apiKey, model, user.timeZone);
+      const { apiKey, model, metered } = await resolveAICredentials(user, now);
+      await runWithUsage({ userId: user._id, metered }, async () => {
+        const summary = await new YesterdaySummaryService(user.accessToken, user._id)
+          .generateSummary(false, apiKey, model, user.timeZone);
 
-      const commits = summary.formattedCommits?.allCommits || [];
-      if (apiKey && commits.length > 0) {
-        await AIService.generateTaskSuggestions(commits, `ALL_REPOS:${user._id}`, apiKey, model, false);
-      }
+        const commits = summary.formattedCommits?.allCommits || [];
+        if (apiKey && commits.length > 0) {
+          await AIService.generateTaskSuggestions(commits, `ALL_REPOS:${user._id}`, apiKey, model, false);
+        }
+      });
       return true;
     } catch (error) {
       console.error(`❌ Morning brief failed for user ${user._id}:`, error.message);

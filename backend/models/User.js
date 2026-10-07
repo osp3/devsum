@@ -59,6 +59,24 @@ const userSchema = new mongoose.Schema({
     type: Date,
     required: false
   },
+  // Set on sign-up while billing is enabled, or for everyone at launch by startPendingTrials
+  trialEndsAt: {
+    type: Date,
+    required: false
+  },
+  // Written only by the Stripe webhook
+  billing: {
+    customerId: { type: String, index: { unique: true, sparse: true } },
+    subscriptionId: String,
+    status: {
+      type: String,
+      enum: ['none', 'active', 'trialing', 'past_due', 'canceled', 'unpaid', 'incomplete', 'incomplete_expired', 'paused'],
+      default: 'none'
+    },
+    priceId: String,
+    currentPeriodEnd: Date,
+    updatedAt: Date
+  },
   // User's GitHub repositories (we'll cache this)
   repositories: [{
     id: Number,
@@ -85,6 +103,12 @@ userSchema.methods.getRepositories = function() {
 // Static method to find by GitHub ID
 userSchema.statics.findByGithubId = function(githubId) {
   return this.findOne({ githubId });
+};
+
+// Give every user without a trial a fresh one; idempotent, run at startup while billing is enabled
+userSchema.statics.startPendingTrials = async function(trialEndsAt) {
+  const { modifiedCount } = await this.updateMany({ trialEndsAt: { $exists: false } }, { $set: { trialEndsAt } });
+  return modifiedCount;
 };
 
 // Encrypt secrets stored before encryption at rest was added

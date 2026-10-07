@@ -1,8 +1,6 @@
 import GitHubService from '../services/external/GitHubAPIClient.js';
 import AIService from '../services/ai/AICoordinator.js';
 import CacheManager from '../services/external/CacheManager.js';
-import User from '../models/User.js';
-import { resolveModel } from '../config/openaiModels.js';
 import { createValidationError, createServerError, createGitHubError } from '../utils/errors.js';
 import { mapWithConcurrency } from '../utils/concurrency.js';
 
@@ -15,25 +13,13 @@ const AI_CONCURRENCY = 5;
  */
 class RepositoryController {
   /**
-   * Get user's OpenAI settings
+   * Get the OpenAI settings resolved by the aiAccess middleware
    * @param {Object} req - Express request object
-   * @returns {Promise<Object>} User's OpenAI API key and model, or null if not configured
+   * @returns {Object|null} OpenAI API key and model, or null when AI is unavailable
    */
-  static async getUserOpenAISettings(req) {
-    try {
-      const user = await User.findById(req.user._id).select('+openaiApiKey');
-      if (!user || !user.openaiApiKey) {
-        return null; // No API key configured - AI features will be disabled
-      }
-      
-      return {
-        apiKey: user.openaiApiKey,
-        model: resolveModel(user.openaiModel)
-      };
-    } catch (error) {
-      console.error('Error getting user OpenAI settings:', error);
-      return null;
-    }
+  static getUserOpenAISettings(req) {
+    const { apiKey, model } = req.ai || {};
+    return apiKey ? { apiKey, model } : null;
   }
 
   /**
@@ -158,7 +144,7 @@ class RepositoryController {
       }
 
       // Get user's OpenAI settings for AI enhancements
-      const openaiSettings = await RepositoryController.getUserOpenAISettings(req);
+      const openaiSettings = RepositoryController.getUserOpenAISettings(req);
       
       // Add AI-suggested commit messages to each commit (if user has OpenAI configured)
       const enhancedCommits = await mapWithConcurrency(commits, AI_CONCURRENCY, async (commit) => {

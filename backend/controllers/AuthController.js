@@ -1,4 +1,5 @@
 import { createAuthError, createServerError } from '../utils/errors.js';
+import { publicAccess } from '../config/billing.js';
 
 /**
  * Authentication Controller
@@ -84,7 +85,8 @@ class AuthController {
       }
 
       // Create userInfo object (exclude sensitive access token from response)
-      const { accessToken, ...userInfo } = req.user.toObject();
+      const { accessToken, billing, ...userInfo } = req.user.toObject();
+      userInfo.access = publicAccess(req.user);
 
       // Fetch additional GitHub profile data using user's personal access token
       if (req.user.accessToken) {

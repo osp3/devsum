@@ -121,5 +121,81 @@ describe('database', { skip: !uri && 'MONGODB_TEST_URI not set' }, () => {
       assert.equal(summaryCalls.mock.callCount(), 2);
       assert.equal(taskCalls.mock.callCount(), 1);
     });
+
+    test('skips users without access while billing is enabled', async () => {
+      const { runMorningBriefs } = await import('../services/tasks/MorningBriefJob.js');
+      process.env.BILLING_ENABLED = 'true';
+      try {
+        await User.updateOne({ username: 'tokyo' }, { $set: { trialEndsAt: new Date('2026-10-01T00:00:00Z') } });
+        await User.updateOne({ username: 'hawaii' }, { $set: { trialEndsAt: new Date('2026-09-01T00:00:00Z') } });
+        const stats = await runMorningBriefs(new Date('2026-09-30T22:00:00Z'));
+        assert.equal(stats.eligible, 1, 'only the user still in their trial is eligible');
+      } finally {
+        delete process.env.BILLING_ENABLED;
+      }
+    });
+  });
+
+  describe('billing', () => {
+    let AiUsage;
+    let handleStripeEvent;
+    const subscriptionEvent = (type, created, subscription) => ({
+      id: `evt_${created}`, type, created,
+      data: { object: { customer: 'cus_db', metadata: {}, items: { data: [{ price: { id: 'price_m' }, current_period_end: created + 1000 }] }, ...subscription } },
+    });
+
+    before(async () => {
+      ({ default: AiUsage } = await import('../models/AiUsage.js'));
+      ({ handleStripeEvent } = await import('../services/billing/StripeEvents.js'));
+      await User.deleteMany({});
+      await User.create({ githubId: '20', username: 'payer', accessToken: 't', billing: { customerId: 'cus_db' } });
+    });
+
+    const billing = async () => (await User.findOne({ username: 'payer' }).lean()).billing;
+
+    test('startPendingTrials only touches users without a trial', async () => {
+      await User.create([
+        { githubId: '21', username: 'old-user', accessToken: 't' },
+        { githubId: '22', username: 'trialing', accessToken: 't', trialEndsAt: new Date('2026-01-01') },
+      ]);
+      const trialEndsAt = new Date('2026-10-21T00:00:00Z');
+
+      assert.equal(await User.startPendingTrials(trialEndsAt), 2, 'payer and old-user get a trial');
+      assert.equal(await User.startPendingTrials(new Date('2030-01-01')), 0);
+      assert.deepEqual((await User.findOne({ username: 'old-user' })).trialEndsAt, trialEndsAt);
+      assert.deepEqual((await User.findOne({ username: 'trialing' })).trialEndsAt, new Date('2026-01-01'));
+    });
+
+    test('newer subscription events win over late older ones', async () => {
+      await handleStripeEvent(subscriptionEvent('customer.subscription.updated', 2000, { id: 'sub_1', status: 'past_due' }));
+      await handleStripeEvent(subscriptionEvent('customer.subscription.created', 1000, { id: 'sub_1', status: 'incomplete' }));
+      assert.equal((await billing()).status, 'past_due');
+      assert.deepEqual((await billing()).currentPeriodEnd, new Date(3000 * 1000));
+    });
+
+    test('a late cancel for a replaced subscription does not cancel the new one', async () => {
+      await handleStripeEvent(subscriptionEvent('customer.subscription.deleted', 3000, { id: 'sub_1', status: 'canceled' }));
+      await handleStripeEvent(subscriptionEvent('customer.subscription.created', 4000, { id: 'sub_2', status: 'active' }));
+      await handleStripeEvent(subscriptionEvent('customer.subscription.deleted', 4000, { id: 'sub_1', status: 'canceled' }));
+      const state = await billing();
+      assert.deepEqual([state.subscriptionId, state.status], ['sub_2', 'active']);
+    });
+
+    test('checkout completion links the customer only when none is set', async () => {
+      const user = await User.findOne({ username: 'old-user' });
+      const session = (customer) => ({ id: 'evt_c', type: 'checkout.session.completed', created: 1, data: { object: { mode: 'subscription', customer, client_reference_id: String(user._id) } } });
+      await handleStripeEvent(session('cus_first'));
+      await handleStripeEvent(session('cus_second'));
+      assert.equal((await User.findById(user._id)).billing.customerId, 'cus_first');
+    });
+
+    test('AI usage accumulates per user per UTC day', async () => {
+      await AiUsage.init();
+      const user = await User.findOne({ username: 'payer' });
+      const day1 = new Date('2026-10-07T23:59:00Z');
+      await Promise.all([AiUsage.record(user._id, 100, day1), AiUsage.record(user._id, 50, day1)]);
+      assert.equal(await AiUsage.tokensToday(user._id, day1), 150);
+      assert.equal(await AiUsage.tokensToday(user._id, new Date('2026-10-08T00:01:00Z')), 0);
+    });
   });
 });
