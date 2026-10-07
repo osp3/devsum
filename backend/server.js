@@ -27,6 +27,9 @@ import apiRoutes from './routes/api.js';
 console.log('Importing AI routes...');
 import aiRoutes from './routes/ai.js';
 import internalRoutes from './routes/internal.js';
+import billingRoutes from './routes/billing.js';
+import stripeWebhookRoutes from './routes/stripeWebhook.js';
+import { isBillingEnabled, trialEndFrom } from './config/billing.js';
 console.log('✅ All route imports completed');
 
 // Fix memory leak warnings by increasing max listeners
@@ -43,6 +46,11 @@ await connectDB();
 
 const migratedUsers = await User.encryptLegacySecrets();
 if (migratedUsers) console.log(`🔐 Encrypted legacy secrets for ${migratedUsers} user(s)`);
+
+if (isBillingEnabled()) {
+  const startedTrials = await User.startPendingTrials(trialEndFrom());
+  if (startedTrials) console.log(`🎟️ Started free trials for ${startedTrials} existing user(s)`);
+}
 
 // Initialize GitHub OAuth with shared app credentials
 console.log('🔐 Initializing GitHub OAuth...');
@@ -90,6 +98,7 @@ app.use(cors({
   },
   credentials: true
 }));
+app.use('/webhooks/stripe', stripeWebhookRoutes);
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
@@ -202,6 +211,7 @@ app.get('/health', (req, res) => {
 // Routes
 console.log('🔗 Mounting auth routes on /auth');
 app.use('/auth', authRoutes);
+app.use('/api/billing', billingRoutes);
 console.log('🔗 Mounting API routes on /api');
 app.use('/api', apiRoutes);
 console.log('🔗 Mounting AI routes on /api/ai');

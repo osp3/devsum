@@ -1,5 +1,6 @@
 import OpenAI from 'openai';
 import { DEFAULT_OPENAI_MODEL, getModelConfig, resolveModel } from '../../config/openaiModels.js';
+import { recordUsage } from '../billing/aiCredentials.js';
 
 // Reasoning tokens count toward max_completion_tokens, so reserve room for the visible answer
 const REASONING_TOKEN_HEADROOM = 4000;
@@ -74,6 +75,7 @@ export const callOpenAI = async (prompt, userApiKey, userModel = DEFAULT_OPENAI_
       ...options.additionalParams
     });
     
+    recordUsage(response.usage?.total_tokens);
     const { message, finish_reason } = response.choices[0];
     const responseText = (message.content || '').trim();
     if (!responseText) {

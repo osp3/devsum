@@ -11,11 +11,12 @@ import {
 } from '../controllers/AIController.js';
 import { ensureAuthenticated, ensureRepoAccess } from '../middleware/auth.js';
 import { aiRateLimit } from '../middleware/rateLimit.js';
+import { aiAccess } from '../middleware/aiAccess.js';
 
 const router = express.Router();
 
 // Apply authentication middleware to ALL routes in this router
-router.use(ensureAuthenticated, aiRateLimit);
+router.use(ensureAuthenticated, aiRateLimit, aiAccess());
 
 /**
  * AI Analytics Routes

@@ -2,7 +2,6 @@ import AIService from '../services/ai/AICoordinator.js';
 import GitHubService from '../services/external/GitHubAPIClient.js';
 import { YesterdaySummaryService } from '../services/tasks/YesterdaySummaryService.js';
 import User from '../models/User.js';
-import { resolveModel } from '../config/openaiModels.js';
 import { isValidTimeZone } from '../utils/DateUtils.js';
 
 const QUALITY_COMMIT_COUNT = 10;
@@ -13,25 +12,17 @@ const QUALITY_COMMIT_COUNT = 10;
  */
 
 /**
- * Get user's OpenAI settings
+ * Get the OpenAI settings resolved by the aiAccess middleware
  * @param {Object} req - Express request object
  * @param {Object} options - { required: false } returns a null apiKey instead of throwing
- * @returns {Promise<Object>} User's OpenAI API key and model
+ * @returns {Promise<Object>} OpenAI API key and model
  */
 async function getUserOpenAISettings(req, { required = true } = {}) {
-  const user = await User.findById(req.user._id).select('+openaiApiKey');
-  if (!user) {
-    throw new Error('User not found');
-  }
-  
-  if (!user.openaiApiKey && required) {
+  const { apiKey, model } = req.ai;
+  if (!apiKey && required) {
     throw new Error('No OpenAI API key configured for your account. Please add your API key in Settings.');
   }
-  
-  return {
-    apiKey: user.openaiApiKey || null,
-    model: resolveModel(user.openaiModel)
-  };
+  return { apiKey, model };
 }
 
 /**

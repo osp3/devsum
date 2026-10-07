@@ -1,6 +1,7 @@
 import passport from 'passport';
 import { Strategy as GitHubStrategy } from 'passport-github2';
 import User from '../models/User.js';
+import { isBillingEnabled, trialEndFrom } from './billing.js';
 
 /**
  * Passport configuration for GitHub OAuth
@@ -72,7 +73,8 @@ async function initializeOAuth() {
             email: profile.emails?.[0]?.value || null,
             avatarUrl: profile.photos?.[0]?.value || null,
             accessToken: accessToken, // User-specific token from OAuth authorization
-            repositories: [] // Will be populated when user accesses repos
+            repositories: [], // Will be populated when user accesses repos
+            ...(isBillingEnabled() && { trialEndsAt: trialEndFrom() })
           });
           await user.save();
           
