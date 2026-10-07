@@ -221,11 +221,7 @@ const Landing = ({ isAuthenticated = false }) => (
           aria-hidden='true'
         />
         <div className='relative mx-auto max-w-6xl px-6 pt-24 pb-20 text-center md:pt-32'>
-          <p className='mx-auto inline-flex items-center gap-2 rounded-full border border-line bg-canvas px-3 py-1 font-geist-mono text-xs text-fg/70'>
-            <span className='h-1.5 w-1.5 rounded-full bg-steam' />
-            Open beta · Free to use
-          </p>
-          <h1 className='mx-auto mt-6 max-w-4xl text-5xl font-semibold tracking-[-0.04em] text-balance md:text-7xl'>
+          <h1 className='mx-auto max-w-4xl text-5xl font-semibold tracking-[-0.04em] text-balance md:text-7xl'>
             Yesterday&apos;s commits.
             <br />
             <span className='text-fg/50'>Today&apos;s plan.</span>
@@ -431,9 +427,9 @@ const Landing = ({ isAuthenticated = false }) => (
           </ol>
 
           <div className='mt-6 border border-line px-8 py-6'>
-            <p className='font-semibold tracking-tight'>Free during open beta</p>
+            <p className='font-semibold tracking-tight'>Your OpenAI key, your usage</p>
             <p className='mt-1 text-sm leading-6 text-fg/65'>
-              You bring your own OpenAI API key, so you pay OpenAI directly for your own usage. DevSum adds no charge.
+              Analysis runs on your own OpenAI API key, so model usage is billed by OpenAI directly to your account.
             </p>
           </div>
         </div>
