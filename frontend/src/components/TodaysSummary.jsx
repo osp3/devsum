@@ -47,9 +47,7 @@ const TodaysSummary = ({
 
     return (
       <div className='p-2'>
-        <div className='flex justify-items-start font-bold text-white mb-4'>
-          Summary
-        </div>
+        <p className='eyebrow mb-4'>Summary</p>
         <LoadingProgressIndicator
           message={currentMessage}
           size='medium'
@@ -59,12 +57,12 @@ const TodaysSummary = ({
         />
         {/* Show additional progress info for real tracking */}
         {jobId && realMessage && (
-          <div className='text-center text-xs text-gray-400 mt-2'>
+          <div className='text-center text-xs text-fg/60 mt-2'>
             {realMessage}
           </div>
         )}
         {progressError && (
-          <div className='text-center text-xs text-red-400 mt-2'>
+          <div className='text-center text-xs text-node-red mt-2'>
             Progress Error: {progressError}
           </div>
         )}
@@ -73,48 +71,38 @@ const TodaysSummary = ({
   }
 
   if (summaryError)
-    return <div className='p-4 text-red-400'>Error: {summaryError}</div>;
+    return <div className='p-4 text-node-red'>Error: {summaryError}</div>;
   if (!yesterdaySummary)
-    return <div className='p-4 text-gray-400'>No summary available</div>;
+    return <div className='p-4 text-fg/60'>No summary available</div>;
 
   return (
     <div className='p-2'>
-      <div className='flex justify-items-start font-bold text-white'>
-        Summary
-      </div>
+      <p className='eyebrow'>Summary</p>
       {/* add a height of 90  to the scroll bar with a padding od 2*/}
       <div className='max-h-130  overflow-y-auto pr-2'>
-        <div className='flex flex-col justify-between items-center rounded-lg  text-sm text-[#5b56dd] bg-[#272633] shadow-[-2px_0_0_0px] m-3'>
-          {/* <button className='btn bg-[#44905e] text-white px-3 py-1 rounded'>
-            {yesterdaySummary.repositoryCount} repos
-          </button> */}
-
-          <h1 className='flex-1 p-2 text-white'>{yesterdaySummary.summary}</h1>
-        </div>
+        <p className='my-3 text-[15px] leading-7 text-fg/85'>{yesterdaySummary.summary}</p>
 
         <div className='max-h-160 overflow-y-auto pr-2'>
           {yesterdaySummary.pullRequests?.length > 0 && (
             <div className='mb-4'>
-              <div className='bg-[#1e1d2b] rounded-lg p-3 mb-2'>
-                <h2 className='text-white font-semibold text-lg'>
-                  Pull requests
-                </h2>
-              </div>
-              <ul className='flex flex-col ml-4 space-y-2'>
+              <h2 className='mb-2 border-b border-line pb-2 font-semibold tracking-tight'>
+                Pull requests
+              </h2>
+              <ul className='flex flex-col space-y-2'>
                 {yesterdaySummary.pullRequests.map((pr) => (
                   <li
                     key={pr.url}
-                    className='flex justify-between gap-2 bg-[#272633] rounded-lg p-3 border-l-2 border-[#5b56dd] text-xs text-gray-400'
+                    className='flex justify-between gap-2 rounded-lg border border-line bg-inset p-3 text-sm text-fg/70'
                   >
                     <a
                       href={pr.url}
                       target='_blank'
                       rel='noreferrer'
-                      className='min-w-0 hover:text-white'
+                      className='min-w-0 hover:text-fg'
                     >
-                      {pr.repository}#{pr.number} {pr.title}
+                      <span className='font-geist-mono text-xs text-steam'>{pr.repository}#{pr.number}</span> {pr.title}
                     </a>
-                    <span className='capitalize text-gray-500 whitespace-nowrap'>
+                    <span className='font-geist-mono text-xs capitalize text-fg/50 whitespace-nowrap'>
                       {pr.action}
                     </span>
                   </li>
@@ -127,24 +115,20 @@ const TodaysSummary = ({
               ([repoName, commits]) => (
                 <div key={repoName} className='mb-4'>
                   {/* Repository Header */}
-                  <div className='bg-[#1e1d2b] rounded-lg p-3 mb-2'>
-                    <div className='flex items-center justify-between'>
-                      <h2 className='text-white font-semibold text-lg'>
-                        {repoName}
-                      </h2>
-                    </div>
-                  </div>
+                  <h2 className='mb-2 border-b border-line pb-2 font-semibold tracking-tight'>
+                    {repoName}
+                  </h2>
 
                   {/* Commits for this repository */}
-                  <div className='flex justify-between flex-col ml-4 space-y-2'>
+                  <div className='flex justify-between flex-col space-y-2'>
                     {commits.map((commit, index) => (
                       <div
                         key={commit.sha || index}
-                        className='bg-[#272633] rounded-lg p-3 border-l-2 border-[#5b56dd]'
+                        className='rounded-lg border border-line bg-inset p-3'
                       >
-                        <div className=' flex justify-between  flex-row gap-2 text-xs text-gray-400'>
+                        <div className='flex justify-between flex-row gap-2 text-sm text-fg/70'>
                           <h3>{commit.description}</h3>
-                          <span className='text-xs text-gray-500 whitespace-nowrap'>
+                          <span className='font-geist-mono text-xs text-fg/50 whitespace-nowrap'>
                             {new Date(commit.date).toLocaleString('en-US', {
                               month: '2-digit',
                               day: '2-digit',

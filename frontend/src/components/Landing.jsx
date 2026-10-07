@@ -2,6 +2,7 @@ import React from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 import logo from '../assets/devsum-logo.png';
 import SiteFooter from './SiteFooter.jsx';
+import Tag from './PriorityTag.jsx';
 
 const BRIEF_DATE = new Intl.DateTimeFormat('en-US', {
   weekday: 'short',
@@ -17,12 +18,6 @@ const CATEGORY_COLORS = {
   refactor: 'bg-node-yellow',
   docs: 'bg-steam',
   other: 'bg-fg/25',
-};
-
-const PRIORITY_STYLES = {
-  high: 'text-node-red border-node-red/30',
-  medium: 'text-node-yellow border-node-yellow/40',
-  low: 'text-steam border-steam/30',
 };
 
 const RAW_COMMITS = [
@@ -107,12 +102,6 @@ const Frame = ({ children, className = '' }) => (
 
 const Eyebrow = ({ children }) => (
   <p className='font-geist-mono text-xs uppercase tracking-[0.14em] text-steam'>{children}</p>
-);
-
-const Tag = ({ level }) => (
-  <span className={`shrink-0 rounded border px-1.5 py-px font-geist-mono text-[10px] uppercase ${PRIORITY_STYLES[level]}`}>
-    {level}
-  </span>
 );
 
 const HeroVisual = () => (

@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
-import UserHeader from './UserHeader';
+import AppShell from './AppShell.jsx';
 import RepoHeader from './RepoHeader.jsx';
 import RepoMetricDisplay from './RepoMetricDisplay.jsx';
 import RecentCommits from './RecentCommits.jsx';
@@ -186,41 +186,26 @@ const RepoAnalytics = ({
   // Display prompt when no repository is selected
   if (!selectedRepo) {
     return (
-      <div
-        className='min-h-screen'
-        style={{
-          background:
-            'linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%)',
-        }}
-      >
-        <UserHeader user={user} />
+      <AppShell user={user}>
         <div className='flex justify-center items-center h-64'>
-          <div className='text-white text-xl'>
+          <div className='text-fg/65 text-xl'>
             Please select a repository to view analytics
           </div>
         </div>
-      </div>
+      </AppShell>
     );
   }
 
   // Main analytics dashboard layout
   return (
-    <div
-      className='min-h-screen'
-      style={{
-        background:
-          'linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%)',
-      }}
-    >
-      <UserHeader user={user} />
-
+    <AppShell user={user}>
       {/* Repository header section */}
       <div className='flex justify-center'>
         <RepoHeader selectedRepo={selectedRepo} />
       </div>
 
       {/* Analytics content container */}
-      <div className='flex flex-col  items-center  border border-slate-400   rounded-2xl  p-4 gap-6 max-w-6xl mx-auto '>
+      <div className='panel flex flex-col items-center p-4 gap-6 max-w-6xl mx-4 mb-6 sm:mx-6 xl:mx-auto'>
         {/* Repository metrics display */}
         <RepoMetricDisplay
           selectedRepo={selectedRepo}
@@ -231,15 +216,11 @@ const RepoAnalytics = ({
         {/* Quality analysis section */}
         <div className='w-full max-w-4xl'>
           <div className='flex items-center justify-between mb-4'>
-            <h2 className='text-white text-xl'>Code Quality Analysis</h2>
+            <h2 className='text-lg font-semibold tracking-tight'>Code quality analysis</h2>
             <button
               onClick={handleRefreshQualityAnalysis}
               disabled={isRefreshing}
-              className={`px-4 py-2 rounded text-white font-medium text-sm shadow-md border transition-all duration-200 ${
-                isRefreshing
-                  ? 'bg-slate-600 cursor-not-allowed border-slate-600'
-                  : 'bg-blue-700 hover:bg-blue-600 cursor-pointer border-blue-600'
-              }`}
+              className='btn-secondary h-9 border px-4 text-sm cursor-pointer'
             >
               {isRefreshing ? 'Refreshing...' : 'Refresh Analysis'}
             </button>
@@ -263,22 +244,22 @@ const RepoAnalytics = ({
               />
               {/* Show additional progress info for real tracking */}
               {qualityJobId && realMessage && (
-                <div className='text-center text-xs text-gray-400 mt-2'>
+                <div className='text-center font-geist-mono text-xs text-fg/60 mt-2'>
                   Job ID: {qualityJobId}
                 </div>
               )}
               {progressError && (
-                <div className='text-center text-xs text-red-400 mt-2'>
+                <div className='text-center text-xs text-node-red mt-2'>
                   Progress Error: {progressError}
                 </div>
               )}
               {qualityJobId && isRunning && (
-                <div className='text-center text-xs text-blue-400 mt-1'>
+                <div className='text-center text-xs text-steam mt-1'>
                   Real-time progress tracking active
                 </div>
               )}
               {isRefreshing && !qualityJobId && (
-                <div className='text-center text-xs text-yellow-400 mt-1'>
+                <div className='text-center text-xs text-node-yellow mt-1'>
                   Manual refresh in progress
                 </div>
               )}
@@ -287,7 +268,7 @@ const RepoAnalytics = ({
 
           {qualityError && (
             <div className='flex justify-center items-center h-32'>
-              <div className='text-red-400'>Error: {qualityError}</div>
+              <div className='text-node-red'>Error: {qualityError}</div>
             </div>
           )}
         </div>
@@ -301,7 +282,7 @@ const RepoAnalytics = ({
           repositoryId={selectedRepo?.fullName}
         />
       </div>
-    </div>
+    </AppShell>
   );
 };
 

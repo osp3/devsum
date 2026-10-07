@@ -386,7 +386,7 @@ function App() {
           path='/settings' 
           element={
             <ProtectedRoute isAuthenticated={isAuthenticated} authLoading={authLoading}>
-              <Settings />
+              <Settings user={user} />
             </ProtectedRoute>
           } 
         />
