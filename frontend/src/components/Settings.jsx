@@ -1,10 +1,13 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import AppShell from './AppShell.jsx';
+import PlanPanel from './PlanPanel.jsx';
 
 // Settings management component for API keys and configuration
 const Settings = ({ user }) => {
   const navigate = useNavigate();
+  // With billing on, AI is included and a personal key is optional
+  const aiIncluded = Boolean(user?.access) && user.access.reason !== 'open';
 
   // Current settings values displayed in form inputs
   const [settings, setSettings] = useState({
@@ -178,7 +181,7 @@ const Settings = ({ user }) => {
   const getFieldLabel = (key) => {
     switch (key) {
       case 'OPENAI_API_KEY':
-        return 'OpenAI API Key';
+        return aiIncluded ? 'OpenAI API Key (optional)' : 'OpenAI API Key';
       case 'OPENAI_MODEL':
         return 'OpenAI Model';
       default:
@@ -190,9 +193,13 @@ const Settings = ({ user }) => {
   const getFieldDescription = (key) => {
     switch (key) {
       case 'OPENAI_API_KEY':
-        return 'Your personal OpenAI API Key for AI features (stored securely in your account)';
+        return aiIncluded
+          ? 'AI is included in your plan. Add your own key to run analysis on your OpenAI account, with no daily limit (stored encrypted)'
+          : 'Your personal OpenAI API Key for AI features (stored securely in your account)';
       case 'OPENAI_MODEL':
-        return 'Select your preferred OpenAI model for AI-powered features';
+        return aiIncluded
+          ? 'Model used with your own key'
+          : 'Select your preferred OpenAI model for AI-powered features';
       default:
         return '';
     }
@@ -260,6 +267,7 @@ const Settings = ({ user }) => {
           <button onClick={() => navigate(-1)} className='btn-ghost mb-6 text-sm cursor-pointer'>
             Back
           </button>
+          <PlanPanel user={user} />
           <div className='panel p-6'>
             <p className='eyebrow'>Settings</p>
             <h1 className='mt-2 mb-6 text-2xl font-semibold tracking-[-0.03em]'>
