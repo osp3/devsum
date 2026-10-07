@@ -221,11 +221,7 @@ const Landing = ({ isAuthenticated = false }) => (
           aria-hidden='true'
         />
         <div className='relative mx-auto max-w-6xl px-6 pt-24 pb-20 text-center md:pt-32'>
-          <p className='mx-auto inline-flex items-center gap-2 rounded-full border border-line bg-canvas px-3 py-1 font-geist-mono text-xs text-fg/70'>
-            <span className='h-1.5 w-1.5 rounded-full bg-steam' />
-            Read-only GitHub access
-          </p>
-          <h1 className='mx-auto mt-6 max-w-4xl text-5xl font-semibold tracking-[-0.04em] text-balance md:text-7xl'>
+          <h1 className='mx-auto max-w-4xl text-5xl font-semibold tracking-[-0.04em] text-balance md:text-7xl'>
             Yesterday&apos;s commits.
             <br />
             <span className='text-fg/50'>Today&apos;s plan.</span>
