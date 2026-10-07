@@ -159,8 +159,8 @@ export const TermsPage = () => (
   <LegalLayout title='Terms of Service'>
     <Section title='Using DevSum'>
       <p>
-        By signing in to DevSum you agree to these terms. DevSum is an open beta. Features can change, and the service can be unavailable or
-        stop at any time.
+        By signing in to DevSum you agree to these terms. Features can change, and the service can be unavailable or
+        discontinued at any time.
       </p>
     </Section>
 

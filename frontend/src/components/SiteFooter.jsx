@@ -50,10 +50,6 @@ const SiteFooter = ({ onLanding = false }) => (
 
       <div className='mt-14 flex flex-col gap-2 border-t border-line pt-6 text-xs text-fg/60 sm:flex-row sm:items-center sm:justify-between'>
         <span>© {new Date().getFullYear()} DevSum</span>
-        <span className='inline-flex items-center gap-2 font-geist-mono'>
-          <span className='h-1.5 w-1.5 rounded-full bg-steam' aria-hidden='true' />
-          Open beta
-        </span>
       </div>
     </div>
   </footer>
