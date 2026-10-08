@@ -47,9 +47,6 @@ beforeEach(() => {
   });
   currentUser = { _id: USER_ID, githubId: '1', username: 'dev', email: 'dev@example.com', trialEndsAt: new Date(Date.now() + 60_000) };
   stripeCalls = { customers: [], sessions: [], portal: [] };
-  // Route logs on stdout can corrupt the node:test IPC stream (nodejs/node#64061)
-  mock.method(console, 'log', () => {});
-  mock.method(console, 'error', () => {});
   mock.method(User, 'findById', () => {
     const result = Promise.resolve(currentUser);
     result.select = () => Promise.resolve(currentUser);
