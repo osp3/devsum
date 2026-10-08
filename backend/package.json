@@ -7,7 +7,7 @@
   "scripts": {
     "dev": "nodemon server.js",
     "start": "node server.js",
-    "test": "node --test tests/*.test.js",
+    "test": "node --test --import ./tests/setup.js tests/*.test.js",
     "test-caching": "node test-yesterday-caching.js",
     "test-refresh": "node test-refresh-functionality.js",
     "test-mock-summary": "node test-yesterday-summary-mock.js",

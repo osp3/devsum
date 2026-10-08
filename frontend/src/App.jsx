@@ -1,9 +1,9 @@
 import { useState, useEffect } from 'react';
 import React from 'react';
-import { Routes, Route, Navigate } from 'react-router-dom';
+import { Routes, Route, Navigate, useSearchParams } from 'react-router-dom';
 import UserHeader from './components/UserHeader.jsx';
 import Landing from './components/Landing.jsx';
-import { PrivacyPage, TermsPage } from './components/LegalPages.jsx';
+import { PrivacyPage, RefundPage, TermsPage } from './components/LegalPages.jsx';
 import Dashboard from './components/Dashboard.jsx';
 import RepoListing from './components/RepoListing.jsx';
 import RepoAnalytics from './components/RepoAnalytics';
@@ -17,7 +17,17 @@ function ProtectedRoute({ children, isAuthenticated, authLoading }) {
   return children; // User is authenticated, show protected content
 }
 
+const CHECKOUT_POLL_MS = 1500;
+const CHECKOUT_POLL_ATTEMPTS = 10;
+
+const fetchCurrentUser = async () => {
+  const response = await fetch(`${import.meta.env.VITE_API_URL}/auth/me`, { credentials: 'include' });
+  return response.ok ? (await response.json()).user : null;
+};
+
 function App() {
+  const [searchParams, setSearchParams] = useSearchParams();
+
   // === SHARED STATE - Single source of truth for entire app ===
   const [repositories, setRepositories] = useState([]); // All user repos - fetched once, cached
   const [selectedRepo, setSelectedRepo] = useState(null); // Currently selected repo - persists across pages
@@ -271,17 +281,11 @@ function App() {
     const checkAuth = async () => {
       setAuthLoading(true);
       try {
-        const response = await fetch(
-          `${import.meta.env.VITE_API_URL}/auth/me`,
-          {
-            credentials: 'include',
-          }
-        );
-        
-        if (response.ok) {
-          const userData = await response.json();
-          console.log('👤 User authenticated and data fetched:', userData);
-          setUser(userData.user); // Extract user object from response
+        const currentUser = await fetchCurrentUser();
+
+        if (currentUser) {
+          console.log('👤 User authenticated and data fetched:', currentUser);
+          setUser(currentUser);
           setIsAuthenticated(true);
         } else {
           setIsAuthenticated(false);
@@ -299,14 +303,36 @@ function App() {
     checkAuth();
   }, []); // Run once on mount
 
+  // After Stripe Checkout, poll until the webhook has activated the subscription
+  const accessReason = user?.access?.reason;
+  const checkoutReturned = searchParams.get('checkout') === 'success';
+  useEffect(() => {
+    if (!checkoutReturned || !accessReason || accessReason === 'paid') return undefined;
+    let cancelled = false;
+    const poll = async (attempt) => {
+      await new Promise((resolve) => setTimeout(resolve, CHECKOUT_POLL_MS));
+      if (cancelled) return;
+      const next = await fetchCurrentUser().catch(() => null);
+      if (cancelled) return;
+      if (next?.access?.reason === 'paid') setUser(next);
+      else if (attempt < CHECKOUT_POLL_ATTEMPTS) poll(attempt + 1);
+      else setSearchParams({ checkout: 'delayed' }, { replace: true });
+    };
+    poll(1);
+    return () => {
+      cancelled = true;
+    };
+  }, [checkoutReturned, accessReason, setSearchParams]);
+
   // Fetch repositories and yesterday's summary when user becomes authenticated
+  const aiAllowed = user?.access?.allowed !== false;
   useEffect(() => {
     if (isAuthenticated) {
       // Reloads use caches; the refresh buttons force fresh data
       fetchRepositories();
-      fetchYesterdaySummary();
+      if (aiAllowed) fetchYesterdaySummary();
     }
-  }, [isAuthenticated]); // Run when auth status changes
+  }, [isAuthenticated, aiAllowed]); // Run when auth status or access changes
 
   // Fetch task suggestions when yesterday's summary becomes available
   useEffect(() => {
@@ -344,10 +370,11 @@ function App() {
   return (
     <div>
       <Routes>
-        <Route path='/' element={<Landing isAuthenticated={isAuthenticated} />} />
+        <Route path='/' element={<Landing isAuthenticated={isAuthenticated} user={user} />} />
         <Route path='/login' element={<Navigate to='/' replace />} />
         <Route path='/privacy' element={<PrivacyPage />} />
         <Route path='/terms' element={<TermsPage />} />
+        <Route path='/refunds' element={<RefundPage />} />
         {/* Public routes - no auth required */}
         {/* Protected routes - all receive shared app state via props */}
         <Route

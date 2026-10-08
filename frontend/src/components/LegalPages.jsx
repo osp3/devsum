@@ -3,8 +3,9 @@ import { Link } from 'react-router-dom';
 import logo from '../assets/devsum-logo.png';
 import SiteFooter from './SiteFooter.jsx';
 import { CONTACT_EMAIL } from '../siteConfig.js';
+import { PLANS, TRIAL_DAYS } from '../billing.js';
 
-const LAST_UPDATED = 'October 2, 2026';
+const LAST_UPDATED = 'October 7, 2026';
 
 const LegalLayout = ({ title, children }) => {
   useEffect(() => {
@@ -57,6 +58,12 @@ const Bullets = ({ items }) => (
   </ul>
 );
 
+const ExternalLink = ({ href, children }) => (
+  <a href={href} target='_blank' rel='noopener noreferrer' className='text-fg underline decoration-fg/30 underline-offset-4 hover:decoration-fg'>
+    {children}
+  </a>
+);
+
 const ContactLine = ({ children }) =>
   CONTACT_EMAIL ? (
     <Section title='Contact'>
@@ -76,7 +83,8 @@ export const PrivacyPage = () => (
       <Bullets
         items={[
           'DevSum reads your GitHub commits and diffs, and never writes to your repositories.',
-          'Diffs are sent to OpenAI using your own API key. We do not store your source code or diffs.',
+          'Diffs are sent to the OpenAI API to generate results. We do not store your source code or diffs.',
+          'Payments are handled by Stripe. DevSum never sees your card number.',
           'Your GitHub token and OpenAI key are encrypted before they are stored.',
           'We do not sell your data and we do not run advertising or analytics trackers.',
         ]}
@@ -91,6 +99,8 @@ export const PrivacyPage = () => (
           'Repository metadata: the name, visibility, default branch and last-updated time of the repositories you can access.',
           'Your OpenAI API key and preferred model, if you add them in Settings. The key is stored encrypted.',
           'Your time zone and the time you last used DevSum, so your morning brief can be prepared in time.',
+          'Your plan, subscription status, renewal date and Stripe customer ID, so we know which features you can use.',
+          'How many AI tokens you used each day, to apply the fair-use limit.',
           'Results generated for you: commit categories, suggested commit messages, daily summaries, task suggestions and code review findings.',
         ]}
       />
@@ -104,8 +114,15 @@ export const PrivacyPage = () => (
         DevSum only uses it to read commits and diffs.
       </p>
       <p>
-        <span className='text-fg'>OpenAI.</span> To analyse a commit, DevSum sends its diff to OpenAI using the API key you provide. How OpenAI
-        handles that data is governed by the terms of your own OpenAI account. DevSum does not use a shared OpenAI account.
+        <span className='text-fg'>OpenAI.</span> To analyse a commit, DevSum sends its diff to the OpenAI API. If you added your own API key,
+        the request runs under your OpenAI account and its terms. Otherwise it runs under DevSum&apos;s account. OpenAI does not use API data to
+        train its models by default.
+      </p>
+      <p>
+        <span className='text-fg'>Stripe.</span> Purchases are sold through Link, Stripe&apos;s merchant of record service. Stripe collects your
+        payment details, email and billing address to process the payment, calculate tax and send receipts, as described in the{' '}
+        <ExternalLink href='https://stripe.com/privacy'>Stripe privacy policy</ExternalLink>. DevSum receives your subscription status, not your
+        card details.
       </p>
       <p>
         <span className='text-fg'>Infrastructure.</span> Your data is stored with the hosting and database providers we use to run the service.
@@ -118,6 +135,8 @@ export const PrivacyPage = () => (
         items={[
           'Sign-in sessions expire after 24 hours.',
           'Short-lived caches of commit analysis expire after 30 minutes.',
+          'Daily AI usage counts are deleted after 8 days.',
+          'Payment records are kept by Stripe as required for tax and accounting.',
           'Generated results and the other data above are kept until you ask us to delete them.',
         ]}
       />
@@ -141,7 +160,8 @@ export const PrivacyPage = () => (
       <Bullets
         items={[
           'Remove DevSum’s access to your GitHub account at any time in GitHub’s application settings.',
-          'Replace your OpenAI key or change your model from the Settings page.',
+          'Manage or cancel your subscription from the Settings page.',
+          'Add or replace your own OpenAI key, or change your model, from the Settings page.',
           'Sign out at any time to end your session.',
         ]}
       />
@@ -168,10 +188,33 @@ export const TermsPage = () => (
       <Bullets
         items={[
           'You sign in with GitHub and are responsible for activity on your account.',
-          'Only connect repositories you are allowed to analyse. You are responsible for sending their contents to OpenAI under your own OpenAI account.',
-          'You provide your own OpenAI API key and are responsible for the costs and the terms of that account.',
+          'Only connect repositories you are allowed to analyse. Their diffs are sent to the OpenAI API to generate results.',
+          'If you add your own OpenAI API key, you are responsible for the costs and the terms of that OpenAI account.',
         ]}
       />
+    </Section>
+
+    <Section title='Plans and billing'>
+      <Bullets
+        items={[
+          `New accounts start with a ${TRIAL_DAYS}-day free trial. No card is needed to start it.`,
+          `After the trial, DevSum Pro costs ${PLANS.month.price} per month or ${PLANS.year.price} per year, including applicable tax.`,
+          'Subscriptions renew automatically at the end of each billing period until you cancel.',
+          'You can cancel at any time from Settings. You keep access until the end of the period you paid for.',
+          'Purchases are sold through Link, Stripe’s merchant of record service, which processes the payment, tax and receipts. The payment terms shown at checkout also apply.',
+          'If prices change, we will tell you at least 14 days before the new price applies to your subscription.',
+        ]}
+      />
+      <p>
+        Refunds are covered by our <Link to='/refunds' className='text-fg underline decoration-fg/30 underline-offset-4 hover:decoration-fg'>refund policy</Link>.
+      </p>
+    </Section>
+
+    <Section title='Fair use'>
+      <p>
+        AI usage included in the plan has a daily limit per account, so the service stays fast and affordable for everyone. If you reach it, AI
+        features pause until the next day (UTC). Adding your own OpenAI key in Settings removes the limit.
+      </p>
     </Section>
 
     <Section title='AI-generated output'>
@@ -200,8 +243,8 @@ export const TermsPage = () => (
 
     <Section title='Ending your use'>
       <p>
-        You can stop using DevSum at any time by removing its access in your GitHub settings. We may suspend or end access if these terms are
-        broken or to protect the service.
+        You can stop using DevSum at any time by cancelling your subscription and removing its access in your GitHub settings. We may suspend or
+        end access if these terms are broken or to protect the service.
       </p>
     </Section>
 
@@ -210,5 +253,41 @@ export const TermsPage = () => (
     </Section>
 
     <ContactLine>Questions about these terms? Email</ContactLine>
+  </LegalLayout>
+);
+
+export const RefundPage = () => (
+  <LegalLayout title='Refund Policy'>
+    <Section title='14-day refunds'>
+      <p>
+        If DevSum is not working for you, ask within 14 days of a charge and we will refund that charge in full. This applies to monthly and yearly
+        plans, including renewals.
+      </p>
+    </Section>
+
+    <Section title='How to ask'>
+      <Bullets
+        items={[
+          'Email us from the address on your receipt, or include your GitHub username, and tell us which charge to refund.',
+          'Purchases are sold through Link, so you can also request a refund through Link support using the link in your receipt.',
+        ]}
+      />
+    </Section>
+
+    <Section title='Cancelling'>
+      <p>
+        You can cancel at any time from Settings. Cancelling stops future renewals, and you keep access until the end of the period you paid for.
+        Cancelling on its own does not refund the current period, so ask us if you want that.
+      </p>
+    </Section>
+
+    <Section title='How refunds arrive'>
+      <p>
+        Refunds go back to your original payment method and include any tax you paid. Depending on your bank, they usually take 5 to 10 business
+        days to appear.
+      </p>
+    </Section>
+
+    <ContactLine>To request a refund, email</ContactLine>
   </LegalLayout>
 );

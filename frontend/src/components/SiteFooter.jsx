@@ -29,6 +29,7 @@ const SiteFooter = ({ onLanding = false }) => (
             <>
               <li><a href='#product' className='hover:text-fg'>Overview</a></li>
               <li><a href='#how' className='hover:text-fg'>How it works</a></li>
+              <li><a href='#pricing' className='hover:text-fg'>Pricing</a></li>
               <li><a href='#security' className='hover:text-fg'>Security</a></li>
             </>
           ) : (
@@ -39,6 +40,7 @@ const SiteFooter = ({ onLanding = false }) => (
         <FooterColumn title='Legal'>
           <li><Link to='/privacy' className='hover:text-fg'>Privacy</Link></li>
           <li><Link to='/terms' className='hover:text-fg'>Terms</Link></li>
+          <li><Link to='/refunds' className='hover:text-fg'>Refunds</Link></li>
         </FooterColumn>
 
         {CONTACT_EMAIL && (

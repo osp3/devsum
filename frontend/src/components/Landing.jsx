@@ -3,14 +3,14 @@ import { Link, useSearchParams } from 'react-router-dom';
 import logo from '../assets/devsum-logo.png';
 import SiteFooter from './SiteFooter.jsx';
 import Tag from './PriorityTag.jsx';
+import PricingCard from './PricingCard.jsx';
+import { GITHUB_AUTH_URL } from '../siteConfig.js';
 
 const BRIEF_DATE = new Intl.DateTimeFormat('en-US', {
   weekday: 'short',
   month: 'short',
   day: 'numeric',
 }).format(new Date());
-
-const GITHUB_AUTH_URL = `${import.meta.env.VITE_API_URL || 'http://localhost:3000'}/auth/github`;
 
 const CATEGORY_COLORS = {
   feature: 'bg-node-blue',
@@ -43,7 +43,7 @@ const PRIORITIES = [
 
 const FACTS = [
   ['GitHub OAuth', 'Public and private repositories'],
-  ['Your OpenAI key', 'GPT-6 Astra, Sol and Luna'],
+  ['AI included', 'Or bring your own OpenAI key'],
   ['5 categories', 'Every commit classified automatically'],
   ['4 review lenses', 'Security, performance, maintainability, quality'],
 ];
@@ -60,7 +60,7 @@ const TREND = [62, 58, 66, 71, 69, 77, 82];
 const SECURITY_POINTS = [
   ['Read-only by design', 'DevSum reads commits and diffs. It never writes to your repositories.'],
   ['Encrypted at rest', 'GitHub tokens and OpenAI keys are encrypted with AES-256-GCM before they reach the database.'],
-  ['Your OpenAI account', "Diffs go to OpenAI with your own API key, under your account's data terms. There is no shared key."],
+  ['OpenAI API only', 'Diffs go to the OpenAI API, which does not train on API data by default. Add your own key to keep usage on your account.'],
   ['Results, not source', 'We store generated analysis and repository names. We do not store your source code or diffs.'],
   ['Short-lived sessions', 'Sessions use HTTP-only cookies and expire after 24 hours.'],
   ['No trackers', 'No advertising or analytics scripts. One session cookie, used only to keep you signed in.'],
@@ -74,7 +74,7 @@ const ROADMAP = [
 
 const STEPS = [
   ['Connect GitHub', 'Sign in with OAuth and pick the repositories you want DevSum to follow.'],
-  ['DevSum reads the diffs', 'Commits are categorized and reviewed with the OpenAI model you choose.'],
+  ['DevSum reads the diffs', 'Every commit is categorized and its diff reviewed by AI.'],
   ['Open your brief', "Yesterday's summary and today's priorities are waiting on your dashboard."],
 ];
 
@@ -181,7 +181,7 @@ const AuthErrorBanner = () => {
   );
 };
 
-const Landing = ({ isAuthenticated = false }) => (
+const Landing = ({ isAuthenticated = false, user = null }) => (
   <div className='min-h-screen bg-canvas font-geist text-fg antialiased [color-scheme:dark] selection:bg-steam/40'>
     <header className='sticky top-0 z-20 border-b border-line bg-canvas/80 backdrop-blur'>
       <nav
@@ -195,6 +195,7 @@ const Landing = ({ isAuthenticated = false }) => (
         <div className='hidden items-center gap-8 text-sm text-fg/65 md:flex'>
           <a href='#product' className='hover:text-fg'>Product</a>
           <a href='#how' className='hover:text-fg'>How it works</a>
+          <a href='#pricing' className='hover:text-fg'>Pricing</a>
         </div>
         <div className='flex items-center text-sm md:justify-self-end'>
           {isAuthenticated ? (
@@ -329,9 +330,9 @@ const Landing = ({ isAuthenticated = false }) => (
             </Feature>
 
             <Feature
-              eyebrow='Privacy'
-              title='Your key, your model'
-              body='Bring your own OpenAI API key and choose the model. Nothing runs on a shared account you do not control.'
+              eyebrow='Models'
+              title='AI included, or your own key'
+              body='Analysis is included in the plan. Prefer your own OpenAI account? Add your key in Settings and choose the model.'
             >
               <div className='flex flex-wrap gap-2 font-geist-mono text-xs'>
                 {['gpt-6-luna', 'gpt-6.1-sol', 'gpt-6-astra'].map((m, i) => (
@@ -426,12 +427,27 @@ const Landing = ({ isAuthenticated = false }) => (
             ))}
           </ol>
 
-          <div className='mt-6 border border-line px-8 py-6'>
-            <p className='font-semibold tracking-tight'>Your OpenAI key, your usage</p>
-            <p className='mt-1 text-sm leading-6 text-fg/65'>
-              Analysis runs on your own OpenAI API key, so model usage is billed by OpenAI directly to your account.
+        </div>
+      </section>
+
+      {/* Pricing */}
+      <section id='pricing' className='scroll-mt-16 border-b border-line'>
+        <div className='mx-auto grid max-w-6xl gap-12 px-6 py-24 lg:grid-cols-[1fr_minmax(0,28rem)] lg:items-center'>
+          <div>
+            <Eyebrow>Pricing</Eyebrow>
+            <h2 className='mt-3 max-w-xl text-4xl font-semibold tracking-[-0.03em] text-balance'>One plan. Everything included.</h2>
+            <p className='mt-4 max-w-xl leading-7 text-fg/65'>
+              Try DevSum free for 14 days, no card needed. Then keep your morning brief for less than a coffee a month.
+            </p>
+            <p className='mt-6 text-sm text-fg/55'>
+              Questions about billing? Read the{' '}
+              <Link to='/refunds' className='text-fg underline decoration-fg/30 underline-offset-4 hover:decoration-fg'>
+                refund policy
+              </Link>
+              .
             </p>
           </div>
+          <PricingCard user={isAuthenticated ? user : null} />
         </div>
       </section>
 
