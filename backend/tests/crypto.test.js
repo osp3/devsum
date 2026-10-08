@@ -28,6 +28,8 @@ test('returns legacy plaintext unchanged', () => {
 
 test('rejects tampered ciphertext', () => {
   const encrypted = encryptSecret('value');
-  const last = encrypted.at(-2) === 'A' ? 'B' : 'A';
-  assert.equal(decryptSecret(encrypted.slice(0, -2) + last + encrypted.at(-1)), null);
+  // Edit the first ciphertext character: trailing base64 characters can hold only padding bits
+  const i = encrypted.lastIndexOf(':') + 1;
+  const swapped = encrypted[i] === 'A' ? 'B' : 'A';
+  assert.equal(decryptSecret(encrypted.slice(0, i) + swapped + encrypted.slice(i + 1)), null);
 });
